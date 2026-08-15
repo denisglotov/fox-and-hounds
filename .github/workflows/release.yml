@@ -1,0 +1,119 @@
+name: Release Android
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build & Release Android App
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK & NDK
+        run: |
+          # Add SDK command-line tools to PATH
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+
+          # Accept licenses and ensure required platform and build-tools are installed
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;26.1.10909125"
+
+          # Resolve and export NDK_HOME for cargo-quad-apk
+          NDK_PATH=$(ls -d "$ANDROID_HOME/ndk/"* 2>/dev/null | tail -n 1)
+          echo "NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$NDK_PATH" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
+
+          # Add build-tools to PATH for aapt2, apksigner, and zipalign
+          BUILD_TOOLS_PATH=$(ls -d "$ANDROID_HOME/build-tools/"* 2>/dev/null | tail -n 1)
+          echo "$BUILD_TOOLS_PATH" >> $GITHUB_PATH
+
+      - name: Install bundletool
+        run: |
+          sudo curl -fsSL -o /usr/local/bin/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar
+          sudo tee /usr/local/bin/bundletool > /dev/null << 'EOF'
+#!/bin/sh
+exec java -jar /usr/local/bin/bundletool.jar "$@"
+EOF
+          sudo chmod +x /usr/local/bin/bundletool
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Install Just runner
+        uses: taiki-e/install-action@just
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-quad-apk (from git)
+        run: |
+          cargo install --git https://github.com/not-fl3/cargo-quad-apk --force
+
+      - name: Decode Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 || vars.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 is empty or not set in repository secrets."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build Android Release Artifacts
+        run: |
+          chmod +x scripts/build-aab.sh
+          just build-aab
+
+      - name: Sign APK and AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || vars.KEYSTORE_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS || vars.KEYSTORE_ALIAS }}
+        run: |
+          BUILD_TOOLS_DIR=$(ls -d "${ANDROID_HOME}/build-tools/"* 2>/dev/null | tail -n 1)
+          APKSIGNER="${BUILD_TOOLS_DIR}/apksigner"
+
+          echo "==> Signing Release APK with apksigner..."
+          "$APKSIGNER" sign \
+            --ks "$RUNNER_TEMP/release.keystore" \
+            --ks-key-alias "$KEYSTORE_ALIAS" \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --out "target/android-artifacts/fox-and-hounds-release.apk" \
+            "target/android-artifacts/fox-and-hounds-aligned.apk"
+
+          echo "==> Signing Release AAB with jarsigner..."
+          jarsigner \
+            -keystore "$RUNNER_TEMP/release.keystore" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            "target/android-artifacts/fox-and-hounds.aab" \
+            "$KEYSTORE_ALIAS"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            target/android-artifacts/fox-and-hounds-release.apk
+            target/android-artifacts/fox-and-hounds.aab
+          generate_release_notes: true
+          draft: false
+          prerelease: false
