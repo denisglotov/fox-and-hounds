@@ -1,4 +1,4 @@
-# Fox and Hounds
+# Fox and Hounds (Лиса и Гончие)
 
 A turn-based asymmetric pursuit-evasion game played on arbitrary graph topologies.
 
@@ -53,66 +53,79 @@ A tactical campaign map featuring open flanking grounds, a river bottleneck brid
 
 ### Mermaid Level Graph
 
+> **Note on Layout Alignment**: Mermaid uses the Dagre ranking engine. To enforce that $L_i$, $M_i$, and $R_i$ stay strictly on the exact same horizontal level (same rank), each row is grouped with `direction LR` and styled with invisible containers (`fill:none,stroke:none`).
+
 ```mermaid
-graph TD
-    %% Styling
+flowchart TD
+    %% Node Styling
     classDef coop fill:#ffe082,stroke:#ff8f00,stroke-width:3px,color:#000,font-weight:bold;
     classDef hound fill:#bbdefb,stroke:#1976d2,stroke-width:2px,color:#000,font-weight:bold;
     classDef bridge fill:#ffcdd2,stroke:#d32f2f,stroke-width:3px,color:#000,font-weight:bold;
     classDef fox fill:#ffcc80,stroke:#e65100,stroke-width:3px,color:#000,font-weight:bold;
     classDef field fill:#f5f5f5,stroke:#757575,stroke-width:1px,color:#212121;
+    classDef invisible fill:none,stroke:none;
 
     %% Row 0: Chicken Coop
     C0(["🐔 C0 (Chicken Coop)"]):::coop
 
-    %% Row 1: Hounds Start
-    H1["🐶 H1 (L1)"]:::hound
-    H2["🐶 H2 (M1)"]:::hound
-    H3["🐶 H3 (R1)"]:::hound
+    %% Row 1: Hounds Start (Strict Horizontal Alignment)
+    subgraph Row1 [" "]
+        direction LR
+        H1["🐶 H1 (L1)"]:::hound --- H2["🐶 H2 (M1)"]:::hound --- H3["🐶 H3 (R1)"]:::hound
+    end
 
-    %% Rows 2 to 6: North Fields
-    L2["L2"]:::field
-    M2["M2"]:::field
-    R2["R2"]:::field
+    %% Rows 2 to 6: North Fields (Strict Horizontal Alignment)
+    subgraph Row2 [" "]
+        direction LR
+        L2["L2"]:::field --- M2["M2"]:::field --- R2["R2"]:::field
+    end
 
-    L3["L3"]:::field
-    M3["M3"]:::field
-    R3["R3"]:::field
+    subgraph Row3 [" "]
+        direction LR
+        L3["L3"]:::field --- M3["M3"]:::field --- R3["R3"]:::field
+    end
 
-    L4["L4"]:::field
-    M4["M4"]:::field
-    R4["R4"]:::field
+    subgraph Row4 [" "]
+        direction LR
+        L4["L4"]:::field --- M4["M4"]:::field --- R4["R4"]:::field
+    end
 
-    L5["L5"]:::field
-    M5["M5"]:::field
-    R5["R5"]:::field
+    subgraph Row5 [" "]
+        direction LR
+        L5["L5"]:::field --- M5["M5"]:::field --- R5["R5"]:::field
+    end
 
-    L6["L6"]:::field
-    M6["M6"]:::field
-    R6["R6"]:::field
+    subgraph Row6 [" "]
+        direction LR
+        L6["L6"]:::field --- M6["M6"]:::field --- R6["R6"]:::field
+    end
 
-    %% Row 7: Bottleneck Bridge
+    %% Row 7: River Bottleneck Bridge
     B7{{"🌉 B7 (River Bridge)"}}:::bridge
 
-    %% Rows 8 & 9: South Fields
-    L8["L8"]:::field
-    M8["M8"]:::field
-    R8["R8"]:::field
+    %% Rows 8 & 9: South Fields (Strict Horizontal Alignment)
+    subgraph Row8 [" "]
+        direction LR
+        L8["L8"]:::field --- M8["M8"]:::field --- R8["R8"]:::field
+    end
 
-    L9["L9"]:::field
-    M9["M9"]:::field
-    R9["R9"]:::field
+    subgraph Row9 [" "]
+        direction LR
+        L9["L9"]:::field --- M9["M9"]:::field --- R9["R9"]:::field
+    end
 
     %% Row 10: Fox Start
     F10(["🦊 F10 (Fox Den)"]):::fox
 
-    %% Row 0 <-> Row 1 Connections
+    %% Hide Subgraph Containers
+    class Row1,Row2,Row3,Row4,Row5,Row6,Row8,Row9 invisible;
+
+    %% Row 0 <-> Row 1
     C0 --- H1
     C0 --- H2
     C0 --- H3
 
-    %% Row 1 (Horizontal + Connections to Row 2)
-    H1 --- H2 --- H3
+    %% Row 1 <-> Row 2 Connections
     H1 --- L2
     H2 --- M2
     H3 --- R2
@@ -121,8 +134,7 @@ graph TD
     H2 --- L2
     H2 --- R2
 
-    %% Row 2 (Horizontal + Connections to Row 3)
-    L2 --- M2 --- R2
+    %% Row 2 <-> Row 3 Connections
     L2 --- L3
     M2 --- M3
     R2 --- R3
@@ -131,8 +143,7 @@ graph TD
     M2 --- L3
     M2 --- R3
 
-    %% Row 3 (Horizontal + Connections to Row 4)
-    L3 --- M3 --- R3
+    %% Row 3 <-> Row 4 Connections
     L3 --- L4
     M3 --- M4
     R3 --- R4
@@ -141,8 +152,7 @@ graph TD
     M3 --- L4
     M3 --- R4
 
-    %% Row 4 (Horizontal + Connections to Row 5)
-    L4 --- M4 --- R4
+    %% Row 4 <-> Row 5 Connections
     L4 --- L5
     M4 --- M5
     R4 --- R5
@@ -151,8 +161,7 @@ graph TD
     M4 --- L5
     M4 --- R5
 
-    %% Row 5 (Horizontal + Connections to Row 6)
-    L5 --- M5 --- R5
+    %% Row 5 <-> Row 6 Connections
     L5 --- L6
     M5 --- M6
     R5 --- R6
@@ -161,8 +170,7 @@ graph TD
     M5 --- L6
     M5 --- R6
 
-    %% Row 6 (Horizontal + Connections to Row 7 Bridge)
-    L6 --- M6 --- R6
+    %% Row 6 <-> Row 7 Bridge
     L6 --- B7
     M6 --- B7
     R6 --- B7
@@ -172,8 +180,7 @@ graph TD
     B7 --- M8
     B7 --- R8
 
-    %% Row 8 (Horizontal + Connections to Row 9)
-    L8 --- M8 --- R8
+    %% Row 8 <-> Row 9 Connections
     L8 --- L9
     M8 --- M9
     R8 --- R9
@@ -182,11 +189,69 @@ graph TD
     M8 --- L9
     M8 --- R9
 
-    %% Row 9 (Horizontal + Connections to Row 10 Fox)
-    L9 --- M9 --- R9
+    %% Row 9 <-> Row 10 Fox
     L9 --- F10
     M9 --- F10
     R9 --- F10
+```
+
+---
+
+### Graphviz DOT Specification
+
+For standard Graphviz tools, the layout uses explicit `{ rank=same; ... }` constraints to guarantee pixel-perfect horizontal rows:
+
+```dot
+graph FoxAndHounds {
+    layout=dot;
+    rankdir=TB;
+    nodesep=0.6;
+    ranksep=0.5;
+
+    node [shape=circle, style=filled, fillcolor="#f5f5f5", color="#757575", fontname="Helvetica", width=0.8, fixedsize=true];
+    edge [color="#424242", penwidth=1.5];
+
+    // Explicit Horizontal Rank Alignment
+    { rank=same; C0 [label="🐔 C0", fillcolor="#ffe082", color="#ff8f00", penwidth=2.5]; }
+    { rank=same; H1 [label="🐶 H1", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0]; H2 [label="🐶 H2", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0]; H3 [label="🐶 H3", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0]; }
+    { rank=same; L2; M2; R2; }
+    { rank=same; L3; M3; R3; }
+    { rank=same; L4; M4; R4; }
+    { rank=same; L5; M5; R5; }
+    { rank=same; L6; M6; R6; }
+    { rank=same; B7 [label="🌉 B7", fillcolor="#ffcdd2", color="#d32f2f", penwidth=2.5, shape=hexagon]; }
+    { rank=same; L8; M8; R8; }
+    { rank=same; L9; M9; R9; }
+    { rank=same; F10 [label="🦊 F10", fillcolor="#ffcc80", color="#e65100", penwidth=2.5]; }
+
+    // Row 0 <-> Row 1
+    C0 -- {H1; H2; H3};
+
+    // Horizontal Row Edges
+    H1 -- H2 -- H3;
+    L2 -- M2 -- R2;
+    L3 -- M3 -- R3;
+    L4 -- M4 -- R4;
+    L5 -- M5 -- R5;
+    L6 -- M6 -- R6;
+    L8 -- M8 -- R8;
+    L9 -- M9 -- R9;
+
+    // Symmetric North Field Edges (Rows 1 to 6)
+    H1 -- {L2; M2};  H2 -- {L2; M2; R2};  H3 -- {M2; R2};
+    L2 -- {L3; M3};  M2 -- {L3; M3; R3};  R2 -- {M3; R3};
+    L3 -- {L4; M4};  M3 -- {L4; M4; R4};  R3 -- {M4; R4};
+    L4 -- {L5; M5};  M4 -- {L5; M5; R5};  R4 -- {M5; R5};
+    L5 -- {L6; M6};  M5 -- {L6; M6; R6};  R5 -- {M6; R6};
+
+    // Bottleneck River Bridge (Row 6 <-> Row 7 <-> Row 8)
+    {L6; M6; R6} -- B7;
+    B7 -- {L8; M8; R8};
+
+    // Symmetric South Field Edges (Rows 8 to 10)
+    L8 -- {L9; M9};  M8 -- {L9; M9; R9};  R8 -- {M9; R9};
+    {L9; M9; R9} -- F10;
+}
 ```
 
 ---
