@@ -38,6 +38,7 @@ impl Screens {
         screen_h: f32,
         scale: f32,
         font: Option<&Font>,
+        hero_texture: Option<&Texture2D>,
     ) -> Option<SoundTrigger> {
         let mut sound_trigger = None;
         let t = get_time() as f32;
@@ -51,26 +52,57 @@ impl Screens {
             Color::from_rgba(11, 17, 24, 255),
         );
 
-        // Subtle ambient radial glow
+        // Ambient radial glows (Fox orange left, Hound blue right)
         let pulse = (t * 2.0).sin() * 0.5 + 0.5;
         let center_x = screen_w / 2.0;
         let center_y = screen_h / 2.0;
         draw_circle(
-            center_x,
-            center_y - 60.0 * scale,
-            220.0 * scale,
-            Color::from_rgba(230, 81, 0, 15 + (pulse * 10.0) as u8),
+            center_x - 90.0 * scale,
+            center_y - 120.0 * scale,
+            240.0 * scale,
+            Color::from_rgba(230, 81, 0, 16 + (pulse * 10.0) as u8),
+        );
+        draw_circle(
+            center_x + 90.0 * scale,
+            center_y - 120.0 * scale,
+            240.0 * scale,
+            Color::from_rgba(25, 118, 210, 14 + ((1.0 - pulse) * 10.0) as u8),
         );
 
         // Card Container Dimensions
         let card_w = (screen_w - 32.0 * scale)
-            .min(440.0 * scale)
+            .min(460.0 * scale)
             .max(280.0 * scale);
-        let card_h = (screen_h - 48.0 * scale)
-            .min(560.0 * scale)
-            .max(360.0 * scale);
+
+        let banner_pad = 18.0 * scale;
+        let banner_w = card_w - banner_pad * 2.0;
+        let banner_h = if hero_texture.is_some() {
+            (banner_w * (9.0 / 16.0))
+                .min(190.0 * scale)
+                .max(90.0 * scale)
+        } else {
+            0.0
+        };
+
+        let faction_btn_h = 52.0 * scale;
+        let diff_btn_h = 38.0 * scale;
+        let start_btn_h = 50.0 * scale;
+
+        let content_h = 20.0 * scale
+            + 28.0 * scale // title
+            + 18.0 * scale // subtitle
+            + (if banner_h > 0.0 { banner_h + 16.0 * scale } else { 16.0 * scale })
+            + 16.0 * scale // faction label
+            + faction_btn_h
+            + 18.0 * scale // diff label
+            + diff_btn_h
+            + 20.0 * scale
+            + start_btn_h
+            + 20.0 * scale; // bottom pad
+
+        let card_h = content_h.min(screen_h - 24.0 * scale).max(320.0 * scale);
         let card_x = (screen_w - card_w) / 2.0;
-        let card_y = (screen_h - card_h) / 2.0;
+        let card_y = ((screen_h - card_h) / 2.0).max(12.0 * scale);
 
         // Card Background with Sleek Border
         draw_rectangle(
@@ -78,7 +110,7 @@ impl Screens {
             card_y,
             card_w,
             card_h,
-            Color::from_rgba(18, 28, 42, 235),
+            Color::from_rgba(18, 28, 42, 240),
         );
         draw_rectangle_lines(
             card_x,
@@ -86,73 +118,111 @@ impl Screens {
             card_w,
             card_h,
             2.0 * scale,
-            Color::from_rgba(255, 255, 255, 30),
+            Color::from_rgba(255, 255, 255, 35),
         );
 
-        let mut curr_y = card_y + 32.0 * scale;
+        let mut curr_y = card_y + 20.0 * scale;
 
         // 1. Game Title & Subtitle
         let title_text = "FOX & HOUNDS";
-        let title_font_size = (34.0 * scale) as u16;
+        let title_font_size = (30.0 * scale) as u16;
         let title_dims = measure_text_styled(title_text, title_font_size, font);
         draw_text_styled(
             title_text,
             center_x - title_dims.width / 2.0,
-            curr_y,
+            curr_y + title_dims.height / 1.2,
             title_font_size,
             Color::from_rgba(255, 224, 130, 255),
             font,
         );
-        curr_y += 24.0 * scale;
+        curr_y += 30.0 * scale;
 
         let subtitle_text = "Tactical Graph Strategy";
-        let sub_font_size = (15.0 * scale) as u16;
+        let sub_font_size = (13.0 * scale) as u16;
         let sub_dims = measure_text_styled(subtitle_text, sub_font_size, font);
         draw_text_styled(
             subtitle_text,
             center_x - sub_dims.width / 2.0,
-            curr_y,
+            curr_y + sub_dims.height / 1.2,
             sub_font_size,
             Color::from_rgba(176, 190, 197, 255),
             font,
         );
-        curr_y += 38.0 * scale;
+        curr_y += 18.0 * scale;
 
-        // Divider
-        draw_line(
-            card_x + 30.0 * scale,
-            curr_y,
-            card_x + card_w - 30.0 * scale,
-            curr_y,
-            1.0 * scale,
-            Color::from_rgba(255, 255, 255, 25),
-        );
-        curr_y += 28.0 * scale;
+        // 2. Character Artwork Hero Banner
+        if let Some(tex) = hero_texture {
+            let banner_x = card_x + banner_pad;
+            let banner_y = curr_y;
 
-        // 2. Select Faction Header
+            // Background / Shadow container
+            draw_rectangle(
+                banner_x,
+                banner_y,
+                banner_w,
+                banner_h,
+                Color::from_rgba(10, 16, 26, 255),
+            );
+
+            // Draw Fox and Dogs Illustration
+            draw_texture_ex(
+                tex,
+                banner_x,
+                banner_y,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(Vec2::new(banner_w, banner_h)),
+                    ..Default::default()
+                },
+            );
+
+            // Sleek border frame around artwork
+            draw_rectangle_lines(
+                banner_x,
+                banner_y,
+                banner_w,
+                banner_h,
+                1.5 * scale,
+                Color::from_rgba(255, 255, 255, 60),
+            );
+
+            curr_y += banner_h + 16.0 * scale;
+        } else {
+            // Fallback divider
+            draw_line(
+                card_x + 30.0 * scale,
+                curr_y,
+                card_x + card_w - 30.0 * scale,
+                curr_y,
+                1.0 * scale,
+                Color::from_rgba(255, 255, 255, 25),
+            );
+            curr_y += 16.0 * scale;
+        }
+
+        // 3. Select Faction Header
         let role_label = "CHOOSE YOUR FACTION";
-        let label_size = (13.0 * scale) as u16;
+        let label_size = (12.0 * scale) as u16;
         let label_dims = measure_text_styled(role_label, label_size, font);
         draw_text_styled(
             role_label,
             center_x - label_dims.width / 2.0,
-            curr_y,
+            curr_y + label_dims.height / 1.2,
             label_size,
             Color::from_rgba(144, 164, 174, 255),
             font,
         );
-        curr_y += 18.0 * scale;
+        curr_y += 16.0 * scale;
 
         // Faction Buttons (Fox / Hounds)
-        let btn_w = (card_w - 50.0 * scale) / 2.0;
-        let btn_h = 56.0 * scale;
-        let fox_btn_x = card_x + 20.0 * scale;
+        let btn_w = (card_w - 46.0 * scale) / 2.0;
+        let fox_btn_x = card_x + 18.0 * scale;
         let hound_btn_x = fox_btn_x + btn_w + 10.0 * scale;
 
         // Fox Button
         let is_fox = state.player_faction == Faction::Fox;
         let fox_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-            bounds: Rect::new(fox_btn_x, curr_y, btn_w, btn_h),
+            bounds: Rect::new(fox_btn_x, curr_y, btn_w, faction_btn_h),
             title: "🦊 The Fox",
             subtitle: "Infiltrate Coop",
             is_selected: is_fox,
@@ -168,7 +238,7 @@ impl Screens {
         // Hounds Button
         let is_hound = state.player_faction == Faction::Hounds;
         let hound_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-            bounds: Rect::new(hound_btn_x, curr_y, btn_w, btn_h),
+            bounds: Rect::new(hound_btn_x, curr_y, btn_w, faction_btn_h),
             title: "🐶 The Hounds",
             subtitle: "Trap the Fox",
             is_selected: is_hound,
@@ -180,27 +250,26 @@ impl Screens {
             state.player_faction = Faction::Hounds;
             sound_trigger = Some(SoundTrigger::ButtonClick);
         }
-        curr_y += btn_h + 30.0 * scale;
+        curr_y += faction_btn_h + 16.0 * scale;
 
-        // 3. AI Difficulty Selector
+        // 4. AI Difficulty Selector
         let diff_label = "AI DIFFICULTY";
         let diff_label_dims = measure_text_styled(diff_label, label_size, font);
         draw_text_styled(
             diff_label,
             center_x - diff_label_dims.width / 2.0,
-            curr_y,
+            curr_y + diff_label_dims.height / 1.2,
             label_size,
             Color::from_rgba(144, 164, 174, 255),
             font,
         );
-        curr_y += 18.0 * scale;
+        curr_y += 16.0 * scale;
 
-        let diff_btn_w = (card_w - 60.0 * scale) / 3.0;
-        let diff_btn_h = 42.0 * scale;
+        let diff_btn_w = (card_w - 56.0 * scale) / 3.0;
         let difficulties = [Difficulty::Easy, Difficulty::Medium, Difficulty::Hard];
 
         for (idx, &diff) in difficulties.iter().enumerate() {
-            let bx = card_x + 20.0 * scale + (diff_btn_w + 10.0 * scale) * idx as f32;
+            let bx = card_x + 18.0 * scale + (diff_btn_w + 10.0 * scale) * idx as f32;
             let is_sel = state.difficulty == diff;
             let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
                 bounds: Rect::new(bx, curr_y, diff_btn_w, diff_btn_h),
@@ -216,14 +285,13 @@ impl Screens {
                 sound_trigger = Some(SoundTrigger::ButtonClick);
             }
         }
-        curr_y += diff_btn_h + 36.0 * scale;
+        curr_y += diff_btn_h + 20.0 * scale;
 
-        // 4. Start Match Button
-        let start_w = card_w - 40.0 * scale;
-        let start_h = 52.0 * scale;
-        let start_x = card_x + 20.0 * scale;
+        // 5. Start Match Button
+        let start_w = card_w - 36.0 * scale;
+        let start_x = card_x + 18.0 * scale;
         let start_clicked = Self::draw_action_button(&ActionButtonConfig {
-            bounds: Rect::new(start_x, curr_y, start_w, start_h),
+            bounds: Rect::new(start_x, curr_y, start_w, start_btn_h),
             text: "START MATCH",
             normal_color: Color::from_rgba(46, 125, 50, 255),
             hover_color: Color::from_rgba(76, 175, 80, 255),

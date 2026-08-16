@@ -40,6 +40,14 @@ fn compute_board_layout(screen_w: f32, screen_h: f32, scale: f32) -> (Rect, f32,
 #[macroquad::main(window_conf)]
 async fn main() {
     let font = load_ttf_font_from_bytes(include_bytes!("../assets/NotoSansEmoji.ttf")).ok();
+    let character_texture = {
+        let tex = Texture2D::from_file_with_format(
+            include_bytes!("../assets/fox_and_dogs.png"),
+            Some(ImageFormat::Png),
+        );
+        tex.set_filter(FilterMode::Linear);
+        Some(tex)
+    };
     let mut sound_manager = SoundManager::new().await;
     let mut state = GameState::new();
     let mut board_view = BoardView::new(font.clone()).await;
@@ -90,6 +98,7 @@ async fn main() {
                     screen_h,
                     scale,
                     font.as_ref(),
+                    character_texture.as_ref(),
                 );
                 if let Some(snd) = title_sound {
                     sound_manager.play(snd);
