@@ -328,7 +328,11 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph, coop_pos: usize) -> 
     let danger_penalty = close_hounds * -250;
 
     // 7. Chokepoint (Bridge Bottleneck) control bonus
-    let bridge_bonus = if let Some(bridge_node) = graph.nodes.iter().find(|n| n.node_type == NodeType::Bottleneck) {
+    let bridge_bonus = if let Some(bridge_node) = graph
+        .nodes
+        .iter()
+        .find(|n| n.node_type == NodeType::Bottleneck)
+    {
         if board.fox_pos == bridge_node.id {
             // Fox is on bridge
             400

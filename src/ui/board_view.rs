@@ -168,7 +168,6 @@ impl BoardView {
         }
     }
 
-
     fn draw_nodes(
         &self,
         state: &GameState,
