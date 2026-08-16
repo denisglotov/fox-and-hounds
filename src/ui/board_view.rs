@@ -2,6 +2,7 @@ use crate::audio::SoundTrigger;
 use crate::game::graph::NodeType;
 use crate::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
+use crate::ui::train::TrainSimulation;
 use macroquad::prelude::*;
 
 pub struct BoardView {
@@ -10,10 +11,12 @@ pub struct BoardView {
     pub hound1_texture: Option<Texture2D>,
     pub hound2_texture: Option<Texture2D>,
     pub hound3_texture: Option<Texture2D>,
+    pub train_texture: Option<Texture2D>,
     pub hound_angles: [f32; 3],
     pub fox_angle: f32,
     pub hover_node_id: Option<usize>,
     pub font: Option<Font>,
+    pub train: TrainSimulation,
 }
 
 fn lerp_angle(current: f32, target: f32, speed: f32, dt: f32) -> f32 {
@@ -69,16 +72,27 @@ impl BoardView {
             Some(tex)
         };
 
+        let train_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/train_figure.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
         Self {
             board_texture,
             fox_texture,
             hound1_texture,
             hound2_texture,
             hound3_texture,
+            train_texture,
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
             hover_node_id: None,
             font,
+            train: TrainSimulation::new(),
         }
     }
 
@@ -92,6 +106,7 @@ impl BoardView {
     ) -> Option<SoundTrigger> {
         let mut sound_trigger = None;
         let t = get_time() as f32;
+        let dt = get_frame_time().min(0.1);
 
         // 1. Draw Background Board Image
         if let Some(tex) = &self.board_texture {
@@ -119,7 +134,11 @@ impl BoardView {
             );
         }
 
-        // 2. Find hovered node & Determine Legal Targets for Player
+        // 2. Update & Draw Train on the railway tracks
+        self.train.update(dt);
+        self.train.draw(origin, scale, self.train_texture.as_ref());
+
+        // 3. Find hovered node & Determine Legal Targets for Player
         let board_mouse = (viewport_mouse_pos - origin) / scale;
         let hit_radius = 36.0;
 
