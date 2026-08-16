@@ -56,9 +56,11 @@ fn test_camera_center_on_faction() {
 
 #[test]
 fn test_zoom_constants_and_ranges() {
-    assert_eq!(MIN_ZOOM, 1.0);
-    assert_eq!(MAX_ZOOM, 2.5);
-    assert_eq!(DOUBLE_TAP_ZOOM, 2.0);
-    assert!(DOUBLE_TAP_TIME_WINDOW >= 0.25 && DOUBLE_TAP_TIME_WINDOW <= 0.40);
-    assert!(DOUBLE_TAP_MAX_DISTANCE >= 20.0);
+    const {
+        assert!(MIN_ZOOM == 1.0);
+        assert!(MAX_ZOOM == 2.5);
+        assert!(DOUBLE_TAP_ZOOM == 2.0);
+        assert!(DOUBLE_TAP_TIME_WINDOW >= 0.25 && DOUBLE_TAP_TIME_WINDOW <= 0.40);
+        assert!(DOUBLE_TAP_MAX_DISTANCE >= 20.0);
+    }
 }

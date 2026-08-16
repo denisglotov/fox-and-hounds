@@ -2,6 +2,7 @@ pub mod board_view;
 pub mod camera;
 pub mod fx;
 pub mod screens;
+pub mod train;
 
 use macroquad::prelude::*;
 
