@@ -63,20 +63,29 @@ if ! command -v bundletool &>/dev/null; then
 fi
 
 PROJECT_ROOT="$(pwd)"
-BIN_DIR="${PROJECT_ROOT}/target/android-artifacts/release/bin/fox_and_hounds"
 APK_OUT_DIR="${PROJECT_ROOT}/target/android-artifacts/release/apk"
 TMP_DIR="${PROJECT_ROOT}/target/android-artifacts/release/aab_tmp"
 PROGUARD_RULES="${PROJECT_ROOT}/res/proguard-rules.pro"
 
-if [ ! -d "$BIN_DIR" ]; then
-  # Fallback to check dash vs underscore
-  if [ -d "${PROJECT_ROOT}/target/android-artifacts/release/bin/fox-and-hounds" ]; then
-    BIN_DIR="${PROJECT_ROOT}/target/android-artifacts/release/bin/fox-and-hounds"
-  else
-    echo "Error: Android build output directory '$BIN_DIR' does not exist." >&2
-    echo "Please run 'cargo quad-apk build --release' first." >&2
-    exit 1
+BIN_DIR=""
+for candidate in \
+  "${PROJECT_ROOT}/target/android-artifacts/release/bin/foxandhounds" \
+  "${PROJECT_ROOT}/target/android-artifacts/release/bin/fox_and_hounds" \
+  "${PROJECT_ROOT}/target/android-artifacts/release/bin/fox-and-hounds"; do
+  if [ -d "$candidate" ]; then
+    BIN_DIR="$candidate"
+    break
   fi
+done
+
+if [ -z "$BIN_DIR" ]; then
+  BIN_DIR=$(ls -d "${PROJECT_ROOT}/target/android-artifacts/release/bin/"* 2>/dev/null | head -n 1 || true)
+fi
+
+if [ -z "$BIN_DIR" ] || [ ! -d "$BIN_DIR" ]; then
+  echo "Error: Android build output directory in '${PROJECT_ROOT}/target/android-artifacts/release/bin' does not exist." >&2
+  echo "Please run 'cargo quad-apk build --release' first." >&2
+  exit 1
 fi
 
 echo "==> Packaging Android App Bundle (.aab)..."
