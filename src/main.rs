@@ -153,6 +153,11 @@ async fn main() {
 #[cfg(target_arch = "wasm32")]
 mod wasm_plugin_exports {
     #[no_mangle]
+    pub extern "C" fn game_audio_crate_version() -> u32 {
+        1
+    }
+
+    #[no_mangle]
     pub extern "C" fn macroquad_audio_crate_version() -> u32 {
         1
     }

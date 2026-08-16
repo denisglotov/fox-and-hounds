@@ -55,6 +55,43 @@
       const fetchedBuffers = {};
       const audioBuffers = {};
 
+      function getGameAudioCtx() {
+        if (!window.gameAudioCtx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            window.gameAudioCtx = new AudioCtx();
+          }
+        }
+        return window.gameAudioCtx;
+      }
+
+      async function decodeSound(ctx, name) {
+        if (audioBuffers[name]) return audioBuffers[name];
+
+        if (fetchedBuffers[name]) {
+          try {
+            const decoded = await ctx.decodeAudioData(fetchedBuffers[name].slice(0));
+            audioBuffers[name] = decoded;
+            return decoded;
+          } catch (e) {
+            console.error("decodeAudioData failed for " + name, e);
+          }
+        }
+
+        try {
+          const resp = await fetch(`assets/${name}.wav`);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const buf = await resp.arrayBuffer();
+          fetchedBuffers[name] = buf;
+          const decoded = await ctx.decodeAudioData(buf.slice(0));
+          audioBuffers[name] = decoded;
+          return decoded;
+        } catch (e) {
+          console.error("Failed to load sound " + name, e);
+        }
+        return null;
+      }
+
       (function preloadBytes() {
         const files = [
           "move",
@@ -62,91 +99,140 @@
           "invalid",
           "win",
           "loss",
-          "click"
+          "click",
         ];
         for (const file of files) {
           fetch(`assets/${file}.wav`)
-            .then((r) => r.arrayBuffer())
-            .then((b) => (fetchedBuffers[file] = b))
-            .catch((e) => console.error(e));
+            .then((r) => {
+              if (!r.ok) throw new Error(`HTTP ${r.status}`);
+              return r.arrayBuffer();
+            })
+            .then((b) => {
+              fetchedBuffers[file] = b;
+              const ctx = getGameAudioCtx();
+              if (ctx) {
+                ctx.decodeAudioData(
+                  b.slice(0),
+                  (dec) => {
+                    audioBuffers[file] = dec;
+                  },
+                  (err) => console.warn("Initial decode error for " + file, err)
+                );
+              }
+            })
+            .catch((e) => console.warn("Preload warning for " + file, e));
         }
       })();
-
-      async function decodeAll(ctx) {
-        for (const [file, buffer] of Object.entries(fetchedBuffers)) {
-          if (!audioBuffers[file]) {
-            try {
-              audioBuffers[file] = await ctx.decodeAudioData(buffer.slice(0));
-            } catch (e) {}
-          }
-        }
-      }
-
-      function getGameAudioCtx() {
-        if (!window.gameAudioCtx) {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          if (AudioCtx) {
-            window.gameAudioCtx = new AudioCtx();
-            decodeAll(window.gameAudioCtx);
-          }
-        }
-        return window.gameAudioCtx;
-      }
 
       function unlockAudioContext() {
         let ctx = getGameAudioCtx();
         if (!ctx) return;
+
         if (ctx.state === "suspended") {
-          ctx.resume().then(() => {
+          ctx.resume().catch(() => {});
+        }
+
+        if (!window.gameAudioUnlocked) {
+          try {
+            const buffer = ctx.createBuffer(1, 1, 22050);
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            if (source.start) source.start(0);
+            else if (source.play) source.play(0);
+
             window.gameAudioUnlocked = true;
-          });
-        } else {
-          window.gameAudioUnlocked = true;
+          } catch (e) {}
         }
       }
 
-      ["click", "touchstart", "keydown", "mousedown"].forEach((evt) => {
-        window.addEventListener(evt, unlockAudioContext, { once: false, passive: true });
-      });
+      ["click", "mousedown", "pointerdown", "keydown", "touchstart", "touchend"].forEach(
+        (evt) => {
+          window.addEventListener(
+            evt,
+            (e) => {
+              if (
+                e.type === "keydown" &&
+                (e.key === "Meta" ||
+                  e.key === "Control" ||
+                  e.key === "Alt" ||
+                  e.key === "Shift")
+              ) {
+                return;
+              }
+              unlockAudioContext();
+            },
+            { capture: true, passive: true },
+          );
+        },
+      );
 
-      function playWebSound(name, volume = 0.5) {
+      window.gamePlaySound = function (type) {
         let ctx = getGameAudioCtx();
         if (!ctx) return;
-        if (ctx.state === "suspended") {
-          ctx.resume();
-        }
 
-        let buffer = audioBuffers[name];
-        if (buffer) {
-          try {
-            const src = ctx.createBufferSource();
-            src.buffer = buffer;
-            const gain = ctx.createGain();
-            gain.gain.value = volume;
-            src.connect(gain);
-            gain.connect(ctx.destination);
-            src.start(0);
-          } catch (e) {
-            console.error("Audio playback error:", e);
-          }
-        } else if (fetchedBuffers[name]) {
-          ctx.decodeAudioData(fetchedBuffers[name].slice(0)).then((dec) => {
-            audioBuffers[name] = dec;
-            playWebSound(name, volume);
-          });
+        if (ctx.state === "suspended") {
+          ctx
+            .resume()
+            .then(() => playBuffer(ctx, type))
+            .catch((e) => console.warn("Audio blocked", e));
+        } else {
+          playBuffer(ctx, type);
+        }
+      };
+
+      async function playBuffer(ctx, type) {
+        let buffer = audioBuffers[type];
+        if (!buffer) {
+          buffer = await decodeSound(ctx, type);
+        }
+        if (!buffer) return;
+
+        try {
+          let source = ctx.createBufferSource();
+          source.buffer = buffer;
+          let gain = ctx.createGain();
+          gain.gain.value = 0.8;
+          source.connect(gain);
+          gain.connect(ctx.destination);
+          source.start(0);
+        } catch (e) {
+          console.error("Audio playback failed for " + type, e);
         }
       }
-
-      window.play_sound_move = () => playWebSound("move", 0.55);
-      window.play_sound_select = () => playWebSound("select", 0.45);
-      window.play_sound_invalid = () => playWebSound("invalid", 0.6);
-      window.play_sound_win = () => playWebSound("win", 0.65);
-      window.play_sound_loss = () => playWebSound("loss", 0.65);
-      window.play_sound_click = () => playWebSound("click", 0.4);
     </script>
-    <script src="mq_js_bundle.js"></script>
     <script>
-      load("fox-and-hounds.wasm");
+      // Load mq_js_bundle.js with cache busting
+      const script = document.createElement("script");
+      script.src = "mq_js_bundle.js?t=" + Date.now();
+      script.onload = function () {
+        miniquad_add_plugin({
+          register_plugin: function (env_obj) {
+            env_obj.env.play_sound_move = function () {
+              if (window.gamePlaySound) window.gamePlaySound("move");
+            };
+            env_obj.env.play_sound_select = function () {
+              if (window.gamePlaySound) window.gamePlaySound("select");
+            };
+            env_obj.env.play_sound_invalid = function () {
+              if (window.gamePlaySound) window.gamePlaySound("invalid");
+            };
+            env_obj.env.play_sound_win = function () {
+              if (window.gamePlaySound) window.gamePlaySound("win");
+            };
+            env_obj.env.play_sound_loss = function () {
+              if (window.gamePlaySound) window.gamePlaySound("loss");
+            };
+            env_obj.env.play_sound_click = function () {
+              if (window.gamePlaySound) window.gamePlaySound("click");
+            };
+          },
+          version: 1,
+          name: "game_audio",
+        });
+        load("fox-and-hounds.wasm?t=" + Date.now());
+      };
+      document.head.appendChild(script);
     </script>
   </body>
 </html>
