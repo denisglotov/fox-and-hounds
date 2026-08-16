@@ -113,9 +113,9 @@ async fn main() {
                 let (viewport_rect, board_scale, board_size) =
                     compute_board_layout(screen_w, screen_h, scale);
 
-                // Viewport Camera & Render Target setup for smooth subpixel scrolling
-                let (rt, pan_offset, was_dragging) =
-                    camera.update_and_begin(viewport_rect, board_size, scale);
+                // Viewport Camera & Render Target setup for smooth subpixel scrolling & zooming
+                let (rt, pan_offset, effective_scale, was_dragging) =
+                    camera.update_and_begin(viewport_rect, board_size, board_scale, scale, dt);
 
                 let mouse_pos = Vec2::from(mouse_position());
                 let viewport_mouse = mouse_pos - Vec2::new(viewport_rect.x, viewport_rect.y);
@@ -123,7 +123,7 @@ async fn main() {
                 let board_sound = board_view.draw_and_handle_input(
                     &mut state,
                     pan_offset,
-                    board_scale,
+                    effective_scale,
                     viewport_mouse,
                     was_dragging,
                 );
