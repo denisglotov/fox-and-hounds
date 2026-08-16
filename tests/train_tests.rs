@@ -69,9 +69,11 @@ fn test_train_30_second_cycle_with_5_second_initial_delay() {
 
 #[test]
 fn test_train_track_and_board_bounds() {
-    assert!(TRAIN_START_Y < 0.0); // Starts above top screen edge
-    assert!(TRAIN_END_Y > 1264.0); // Exits below bottom screen edge
-    assert_eq!(TRACK_X, 50.0);
+    const {
+        assert!(TRAIN_START_Y < 0.0); // Starts above top screen edge
+        assert!(TRAIN_END_Y > 1264.0); // Exits below bottom screen edge
+        assert!(TRACK_X == 50.0);
+    }
 }
 
 #[test]
@@ -79,6 +81,8 @@ fn test_train_dimensions_and_travel_span() {
     let train = TrainSimulation::new();
     let total_distance = TRAIN_END_Y - TRAIN_START_Y;
     assert!(total_distance >= 1600.0); // Covers the entire board plus off-screen clearance
-    assert!(TRANSIT_DURATION >= 5.0 && TRANSIT_DURATION <= 6.0);
+    const {
+        assert!(TRANSIT_DURATION >= 5.0 && TRANSIT_DURATION <= 6.0);
+    }
     assert_eq!(train.cycle_progress(), 0.0);
 }

@@ -89,7 +89,7 @@ impl TrainSimulation {
 
         // 1. Draw Forward LED Headlight Beam illuminating the rails ahead of the train
         let nose_board_y = bot_y - 24.0;
-        if nose_board_y >= 0.0 && nose_board_y < BOARD_IMAGE_HEIGHT {
+        if (0.0..BOARD_IMAGE_HEIGHT).contains(&nose_board_y) {
             let nose_y = origin.y + nose_board_y * scale;
             let beam_end_board_y = (nose_board_y + 180.0).min(BOARD_IMAGE_HEIGHT);
             let beam_len = (beam_end_board_y - nose_board_y) * scale;
