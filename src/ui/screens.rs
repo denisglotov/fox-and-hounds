@@ -1,5 +1,6 @@
 use crate::audio::SoundTrigger;
 use crate::game::state::{Difficulty, Faction, GamePhase, GameResult, GameState};
+use crate::ui::{draw_text_styled, measure_text_styled};
 use macroquad::prelude::*;
 
 pub struct SelectableButtonConfig<'a> {
@@ -9,6 +10,7 @@ pub struct SelectableButtonConfig<'a> {
     pub is_selected: bool,
     pub accent_color: Color,
     pub scale: f32,
+    pub font: Option<&'a Font>,
 }
 
 pub struct ActionButtonConfig<'a> {
@@ -17,12 +19,14 @@ pub struct ActionButtonConfig<'a> {
     pub normal_color: Color,
     pub hover_color: Color,
     pub scale: f32,
+    pub font: Option<&'a Font>,
 }
 
 pub struct IconButtonConfig<'a> {
     pub bounds: Rect,
     pub icon: &'a str,
     pub scale: f32,
+    pub font: Option<&'a Font>,
 }
 
 pub struct Screens;
@@ -33,6 +37,7 @@ impl Screens {
         screen_w: f32,
         screen_h: f32,
         scale: f32,
+        font: Option<&Font>,
     ) -> Option<SoundTrigger> {
         let mut sound_trigger = None;
         let t = get_time() as f32;
@@ -85,25 +90,27 @@ impl Screens {
         // 1. Game Title & Subtitle
         let title_text = "FOX & HOUNDS";
         let title_font_size = (34.0 * scale) as u16;
-        let title_dims = measure_text(title_text, None, title_font_size, 1.0);
-        draw_text(
+        let title_dims = measure_text_styled(title_text, title_font_size, font);
+        draw_text_styled(
             title_text,
             center_x - title_dims.width / 2.0,
             curr_y,
-            title_font_size as f32,
+            title_font_size,
             Color::from_rgba(255, 224, 130, 255),
+            font,
         );
         curr_y += 24.0 * scale;
 
         let subtitle_text = "Лиса и Гончие • Graph Strategy";
         let sub_font_size = (15.0 * scale) as u16;
-        let sub_dims = measure_text(subtitle_text, None, sub_font_size, 1.0);
-        draw_text(
+        let sub_dims = measure_text_styled(subtitle_text, sub_font_size, font);
+        draw_text_styled(
             subtitle_text,
             center_x - sub_dims.width / 2.0,
             curr_y,
-            sub_font_size as f32,
+            sub_font_size,
             Color::from_rgba(176, 190, 197, 255),
+            font,
         );
         curr_y += 38.0 * scale;
 
@@ -121,13 +128,14 @@ impl Screens {
         // 2. Select Faction Header
         let role_label = "CHOOSE YOUR FACTION";
         let label_size = (13.0 * scale) as u16;
-        let label_dims = measure_text(role_label, None, label_size, 1.0);
-        draw_text(
+        let label_dims = measure_text_styled(role_label, label_size, font);
+        draw_text_styled(
             role_label,
             center_x - label_dims.width / 2.0,
             curr_y,
-            label_size as f32,
+            label_size,
             Color::from_rgba(144, 164, 174, 255),
+            font,
         );
         curr_y += 18.0 * scale;
 
@@ -146,6 +154,7 @@ impl Screens {
             is_selected: is_fox,
             accent_color: Color::from_rgba(230, 81, 0, 255),
             scale,
+            font,
         });
         if fox_clicked {
             state.player_faction = Faction::Fox;
@@ -161,6 +170,7 @@ impl Screens {
             is_selected: is_hound,
             accent_color: Color::from_rgba(25, 118, 210, 255),
             scale,
+            font,
         });
         if hound_clicked {
             state.player_faction = Faction::Hounds;
@@ -170,13 +180,14 @@ impl Screens {
 
         // 3. AI Difficulty Selector
         let diff_label = "AI DIFFICULTY";
-        let diff_label_dims = measure_text(diff_label, None, label_size, 1.0);
-        draw_text(
+        let diff_label_dims = measure_text_styled(diff_label, label_size, font);
+        draw_text_styled(
             diff_label,
             center_x - diff_label_dims.width / 2.0,
             curr_y,
-            label_size as f32,
+            label_size,
             Color::from_rgba(144, 164, 174, 255),
+            font,
         );
         curr_y += 18.0 * scale;
 
@@ -194,6 +205,7 @@ impl Screens {
                 is_selected: is_sel,
                 accent_color: Color::from_rgba(78, 52, 46, 255),
                 scale,
+                font,
             });
             if clicked {
                 state.difficulty = diff;
@@ -212,6 +224,7 @@ impl Screens {
             normal_color: Color::from_rgba(46, 125, 50, 255),
             hover_color: Color::from_rgba(76, 175, 80, 255),
             scale,
+            font,
         });
         if start_clicked {
             state.start_game(state.player_faction, state.difficulty);
@@ -227,6 +240,7 @@ impl Screens {
         _screen_h: f32,
         scale: f32,
         is_muted: bool,
+        font: Option<&Font>,
     ) -> (Option<SoundTrigger>, bool) {
         let mut sound_trigger = None;
         let mut toggle_mute_requested = false;
@@ -281,25 +295,27 @@ impl Screens {
 
         let badge_text = format!("{} {}", turn_icon, turn_title);
         let badge_font = (14.0 * scale) as u16;
-        let badge_dims = measure_text(&badge_text, None, badge_font, 1.0);
-        draw_text(
+        let badge_dims = measure_text_styled(&badge_text, badge_font, font);
+        draw_text_styled(
             &badge_text,
             badge_x + (badge_w - badge_dims.width) / 2.0,
             badge_y + badge_h / 2.0 + badge_dims.height / 3.0,
-            badge_font as f32,
+            badge_font,
             WHITE,
+            font,
         );
 
         // 2. Turn Counter (Center)
         let turn_str = format!("Turn {}", state.turn_count);
         let turn_font = (15.0 * scale) as u16;
-        let turn_dims = measure_text(&turn_str, None, turn_font, 1.0);
-        draw_text(
+        let turn_dims = measure_text_styled(&turn_str, turn_font, font);
+        draw_text_styled(
             &turn_str,
             (screen_w - turn_dims.width) / 2.0,
             hud_h / 2.0 + turn_dims.height / 3.0,
-            turn_font as f32,
+            turn_font,
             Color::from_rgba(207, 216, 220, 255),
+            font,
         );
 
         // 3. Right Action Buttons: Mute, Restart, Menu
@@ -312,6 +328,7 @@ impl Screens {
             bounds: Rect::new(menu_x, btn_y, btn_size, btn_size),
             icon: "🏠",
             scale,
+            font,
         });
         if menu_clicked {
             state.phase = GamePhase::TitleScreen;
@@ -324,6 +341,7 @@ impl Screens {
             bounds: Rect::new(restart_x, btn_y, btn_size, btn_size),
             icon: "🔄",
             scale,
+            font,
         });
         if restart_clicked {
             state.reset_board();
@@ -337,6 +355,7 @@ impl Screens {
             bounds: Rect::new(mute_x, btn_y, btn_size, btn_size),
             icon: mute_icon,
             scale,
+            font,
         });
         if mute_clicked {
             toggle_mute_requested = true;
@@ -351,6 +370,7 @@ impl Screens {
         screen_w: f32,
         screen_h: f32,
         scale: f32,
+        font: Option<&Font>,
     ) -> Option<SoundTrigger> {
         let mut sound_trigger = None;
 
@@ -395,13 +415,14 @@ impl Screens {
             Color::from_rgba(229, 57, 53, 255)
         };
         let header_font = (28.0 * scale) as u16;
-        let header_dims = measure_text(header_text, None, header_font, 1.0);
-        draw_text(
+        let header_dims = measure_text_styled(header_text, header_font, font);
+        draw_text_styled(
             header_text,
             center_x - header_dims.width / 2.0,
             curr_y,
-            header_font as f32,
+            header_font,
             header_color,
+            font,
         );
         curr_y += 32.0 * scale;
 
@@ -412,13 +433,14 @@ impl Screens {
             GameResult::Ongoing => "",
         };
         let msg_font = (14.0 * scale) as u16;
-        let msg_dims = measure_text(msg, None, msg_font, 1.0);
-        draw_text(
+        let msg_dims = measure_text_styled(msg, msg_font, font);
+        draw_text_styled(
             msg,
             center_x - msg_dims.width / 2.0,
             curr_y,
-            msg_font as f32,
+            msg_font,
             Color::from_rgba(224, 224, 224, 255),
+            font,
         );
         curr_y += 26.0 * scale;
 
@@ -429,13 +451,14 @@ impl Screens {
             state.difficulty.name()
         );
         let stats_font = (13.0 * scale) as u16;
-        let stats_dims = measure_text(&stats, None, stats_font, 1.0);
-        draw_text(
+        let stats_dims = measure_text_styled(&stats, stats_font, font);
+        draw_text_styled(
             &stats,
             center_x - stats_dims.width / 2.0,
             curr_y,
-            stats_font as f32,
+            stats_font,
             Color::from_rgba(158, 158, 158, 255),
+            font,
         );
         curr_y += 42.0 * scale;
 
@@ -450,6 +473,7 @@ impl Screens {
             normal_color: Color::from_rgba(25, 118, 210, 255),
             hover_color: Color::from_rgba(66, 165, 245, 255),
             scale,
+            font,
         });
         if rematch_clicked {
             state.reset_board();
@@ -465,6 +489,7 @@ impl Screens {
             normal_color: Color::from_rgba(55, 71, 79, 255),
             hover_color: Color::from_rgba(96, 125, 139, 255),
             scale,
+            font,
         });
         if menu_clicked {
             state.phase = GamePhase::TitleScreen;
@@ -511,30 +536,32 @@ impl Screens {
         );
 
         let title_size = (14.0 * cfg.scale) as u16;
-        let title_dims = measure_text(cfg.title, None, title_size, 1.0);
+        let title_dims = measure_text_styled(cfg.title, title_size, cfg.font);
         let text_y = if cfg.subtitle.is_empty() {
             cfg.bounds.y + cfg.bounds.h / 2.0 + title_dims.height / 3.0
         } else {
             cfg.bounds.y + cfg.bounds.h / 2.0 - 2.0 * cfg.scale
         };
 
-        draw_text(
+        draw_text_styled(
             cfg.title,
             cfg.bounds.x + (cfg.bounds.w - title_dims.width) / 2.0,
             text_y,
-            title_size as f32,
+            title_size,
             WHITE,
+            cfg.font,
         );
 
         if !cfg.subtitle.is_empty() {
             let sub_size = (11.0 * cfg.scale) as u16;
-            let sub_dims = measure_text(cfg.subtitle, None, sub_size, 1.0);
-            draw_text(
+            let sub_dims = measure_text_styled(cfg.subtitle, sub_size, cfg.font);
+            draw_text_styled(
                 cfg.subtitle,
                 cfg.bounds.x + (cfg.bounds.w - sub_dims.width) / 2.0,
                 text_y + 16.0 * cfg.scale,
-                sub_size as f32,
+                sub_size,
                 Color::from_rgba(207, 216, 220, 220),
+                cfg.font,
             );
         }
 
@@ -568,13 +595,14 @@ impl Screens {
         );
 
         let font_size = (15.0 * cfg.scale) as u16;
-        let dims = measure_text(cfg.text, None, font_size, 1.0);
-        draw_text(
+        let dims = measure_text_styled(cfg.text, font_size, cfg.font);
+        draw_text_styled(
             cfg.text,
             cfg.bounds.x + (cfg.bounds.w - dims.width) / 2.0,
             cfg.bounds.y + cfg.bounds.h / 2.0 + dims.height / 3.0,
-            font_size as f32,
+            font_size,
             WHITE,
+            cfg.font,
         );
 
         (clicked, is_hovered)
@@ -607,13 +635,14 @@ impl Screens {
         );
 
         let font_size = (16.0 * cfg.scale) as u16;
-        let dims = measure_text(cfg.icon, None, font_size, 1.0);
-        draw_text(
+        let dims = measure_text_styled(cfg.icon, font_size, cfg.font);
+        draw_text_styled(
             cfg.icon,
             cfg.bounds.x + (cfg.bounds.w - dims.width) / 2.0,
             cfg.bounds.y + cfg.bounds.h / 2.0 + dims.height / 3.0,
-            font_size as f32,
+            font_size,
             WHITE,
+            cfg.font,
         );
 
         (clicked, is_hovered)

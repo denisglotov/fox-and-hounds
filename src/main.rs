@@ -22,9 +22,10 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    let font = load_ttf_font_from_bytes(include_bytes!("../assets/NotoSansEmoji.ttf")).ok();
     let mut sound_manager = SoundManager::new().await;
     let mut state = GameState::new();
-    let mut board_view = BoardView::new().await;
+    let mut board_view = BoardView::new(font.clone()).await;
     let mut camera = ViewportCamera::new();
     let mut fx_manager = FxManager::new();
 
@@ -57,7 +58,13 @@ async fn main() {
         match state.phase {
             GamePhase::TitleScreen => {
                 camera.reset_pan();
-                let title_sound = Screens::draw_title_screen(&mut state, screen_w, screen_h, scale);
+                let title_sound = Screens::draw_title_screen(
+                    &mut state,
+                    screen_w,
+                    screen_h,
+                    scale,
+                    font.as_ref(),
+                );
                 if let Some(snd) = title_sound {
                     sound_manager.play(snd);
                 }
@@ -110,6 +117,7 @@ async fn main() {
                     screen_h,
                     scale,
                     sound_manager.is_muted(),
+                    font.as_ref(),
                 );
                 if toggle_mute {
                     sound_manager.toggle_mute();
@@ -124,8 +132,13 @@ async fn main() {
 
                 // Draw Game Over Modal if match ended
                 if state.phase == GamePhase::GameOver {
-                    let modal_sound =
-                        Screens::draw_game_over_modal(&mut state, screen_w, screen_h, scale);
+                    let modal_sound = Screens::draw_game_over_modal(
+                        &mut state,
+                        screen_w,
+                        screen_h,
+                        scale,
+                        font.as_ref(),
+                    );
                     if let Some(snd) = modal_sound {
                         sound_manager.play(snd);
                     }

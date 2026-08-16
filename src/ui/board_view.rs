@@ -1,15 +1,17 @@
 use crate::audio::SoundTrigger;
 use crate::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
+use crate::ui::{draw_text_styled, measure_text_styled};
 use macroquad::prelude::*;
 
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
     pub hover_node_id: Option<usize>,
+    pub font: Option<Font>,
 }
 
 impl BoardView {
-    pub async fn new() -> Self {
+    pub async fn new(font: Option<Font>) -> Self {
         let board_texture = match load_texture("assets/board_image.png").await {
             Ok(tex) => {
                 tex.set_filter(FilterMode::Linear);
@@ -24,6 +26,7 @@ impl BoardView {
         Self {
             board_texture,
             hover_node_id: None,
+            font,
         }
     }
 
@@ -299,13 +302,14 @@ impl BoardView {
             // Chicken Coop Icon
             let icon_text = "🐔";
             let font_size = (24.0 * scale) as u16;
-            let text_dims = measure_text(icon_text, None, font_size, 1.0);
-            draw_text(
+            let text_dims = measure_text_styled(icon_text, font_size, self.font.as_ref());
+            draw_text_styled(
                 icon_text,
                 pos.x - text_dims.width / 2.0,
                 pos.y + text_dims.height / 3.0,
-                font_size as f32,
+                font_size,
                 WHITE,
+                self.font.as_ref(),
             );
         }
 
@@ -383,13 +387,14 @@ impl BoardView {
             // Hound Icon
             let icon_text = "🐶";
             let font_size = (24.0 * scale) as u16;
-            let text_dims = measure_text(icon_text, None, font_size, 1.0);
-            draw_text(
+            let text_dims = measure_text_styled(icon_text, font_size, self.font.as_ref());
+            draw_text_styled(
                 icon_text,
                 pos.x - text_dims.width / 2.0,
                 pos.y + text_dims.height / 3.0,
-                font_size as f32,
+                font_size,
                 WHITE,
+                self.font.as_ref(),
             );
         }
 
@@ -455,13 +460,14 @@ impl BoardView {
         // Fox Icon
         let icon_text = "🦊";
         let font_size = (26.0 * scale) as u16;
-        let text_dims = measure_text(icon_text, None, font_size, 1.0);
-        draw_text(
+        let text_dims = measure_text_styled(icon_text, font_size, self.font.as_ref());
+        draw_text_styled(
             icon_text,
             pos.x - text_dims.width / 2.0,
             pos.y + text_dims.height / 3.0,
-            font_size as f32,
+            font_size,
             WHITE,
+            self.font.as_ref(),
         );
     }
 }
