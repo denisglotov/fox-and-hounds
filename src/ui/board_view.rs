@@ -6,12 +6,22 @@ use crate::ui::river::RiverSimulation;
 use crate::ui::train::TrainSimulation;
 use macroquad::prelude::*;
 
+pub const MIN_IDLE_SIT_SECONDS: f32 = 10.0;
+pub const RANDOM_IDLE_SIT_SECONDS_RANGE: f32 = 5.0;
+
+pub fn roll_sit_threshold() -> f32 {
+    MIN_IDLE_SIT_SECONDS + macroquad::rand::gen_range(0.0, RANDOM_IDLE_SIT_SECONDS_RANGE)
+}
+
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
     pub fox_texture: Option<Texture2D>,
     pub hound1_texture: Option<Texture2D>,
     pub hound2_texture: Option<Texture2D>,
     pub hound3_texture: Option<Texture2D>,
+    pub hound1_sit_texture: Option<Texture2D>,
+    pub hound2_sit_texture: Option<Texture2D>,
+    pub hound3_sit_texture: Option<Texture2D>,
     pub train_texture: Option<Texture2D>,
     pub hound_angles: [f32; 3],
     pub fox_angle: f32,
@@ -20,6 +30,9 @@ pub struct BoardView {
     pub river: RiverSimulation,
     pub train: TrainSimulation,
     pub last_waf_sound_time: f32,
+    pub hound_idle_times: [f32; 3],
+    pub hound_sit_thresholds: [f32; 3],
+    pub hound_sit_blend: [f32; 3],
 }
 
 fn lerp_angle(current: f32, target: f32, speed: f32, dt: f32) -> f32 {
@@ -75,6 +88,33 @@ impl BoardView {
             Some(tex)
         };
 
+        let hound1_sit_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/hound1_figure_sit.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
+        let hound2_sit_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/hound2_figure_sit.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
+        let hound3_sit_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/hound3_figure_sit.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
         let train_texture = {
             let tex = Texture2D::from_file_with_format(
                 include_bytes!("../../assets/train_figure.png"),
@@ -90,6 +130,9 @@ impl BoardView {
             hound1_texture,
             hound2_texture,
             hound3_texture,
+            hound1_sit_texture,
+            hound2_sit_texture,
+            hound3_sit_texture,
             train_texture,
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
@@ -98,6 +141,29 @@ impl BoardView {
             river: RiverSimulation::new(),
             train: TrainSimulation::new(),
             last_waf_sound_time: 0.0,
+            hound_idle_times: [0.0; 3],
+            hound_sit_thresholds: [
+                roll_sit_threshold(),
+                roll_sit_threshold(),
+                roll_sit_threshold(),
+            ],
+            hound_sit_blend: [0.0; 3],
+        }
+    }
+
+    pub fn is_hound_sitting(&self, hound_idx: usize) -> bool {
+        hound_idx < 3 && self.hound_idle_times[hound_idx] >= self.hound_sit_thresholds[hound_idx]
+    }
+
+    pub fn update_hound_idle(&mut self, hound_idx: usize, is_active: bool, dt: f32) {
+        if hound_idx >= 3 {
+            return;
+        }
+        if is_active {
+            self.hound_idle_times[hound_idx] = 0.0;
+            self.hound_sit_thresholds[hound_idx] = roll_sit_threshold();
+        } else {
+            self.hound_idle_times[hound_idx] += dt;
         }
     }
 
@@ -477,34 +543,65 @@ impl BoardView {
                 );
             }
 
-            // Select Hound Texture:
+            // Track hound idleness:
+            // When moving, selected, or waffing -> active, resets idle timer and re-rolls threshold
+            let is_active = is_moving || is_selected || is_waffing;
+            self.update_hound_idle(idx, is_active, dt);
+            let is_sitting = self.is_hound_sitting(idx);
+
+            // Smoothly blend sitting transition
+            let target_sit = if is_sitting { 1.0 } else { 0.0 };
+            self.hound_sit_blend[idx] +=
+                (target_sit - self.hound_sit_blend[idx]) * (1.0 - (-10.0 * dt).exp());
+
+            // Select Hound Texture (standing vs sitting):
             // idx 0 -> Terrier (user's white dog)
             // idx 1 -> Beagle
             // idx 2 -> Golden Hound
-            let hound_tex = match idx {
-                0 => self.hound1_texture.as_ref(),
-                1 => self.hound2_texture.as_ref(),
-                _ => self.hound3_texture.as_ref(),
+            let hound_tex = match (idx, is_sitting) {
+                (0, false) => self.hound1_texture.as_ref(),
+                (0, true) => self.hound1_sit_texture.as_ref(),
+                (1, false) => self.hound2_texture.as_ref(),
+                (1, true) => self.hound2_sit_texture.as_ref(),
+                (_, false) => self.hound3_texture.as_ref(),
+                (_, true) => self.hound3_sit_texture.as_ref(),
             };
 
             if let Some(tex) = hound_tex {
-                // Subtle breathing / idle micro-sway
+                // Subtle breathing / idle micro-sway (calmer when sitting)
                 let idle_breathe = if !is_moving && !is_waffing {
-                    (t * 3.0 + idx as f32 * 1.5).sin() * 0.02
+                    if is_sitting {
+                        (t * 2.2 + idx as f32 * 1.5).sin() * 0.015
+                    } else {
+                        (t * 3.0 + idx as f32 * 1.5).sin() * 0.02
+                    }
                 } else {
                     0.0
                 };
                 let idle_sway = if !is_moving && !is_waffing {
-                    (t * 2.5 + idx as f32 * 1.2).sin() * 0.02
+                    if is_sitting {
+                        (t * 1.8 + idx as f32 * 1.2).sin() * 0.012
+                    } else {
+                        (t * 2.5 + idx as f32 * 1.2).sin() * 0.02
+                    }
                 } else {
                     0.0
                 };
 
-                let target_h = (72.0 + idle_breathe * 15.0) * scale;
+                // When sitting, the dog visibly compacts in length on the board
+                let base_h = 76.0 - self.hound_sit_blend[idx] * 12.0;
+                let target_h = (base_h + idle_breathe * 15.0) * scale;
                 let aspect = tex.width() / tex.height();
                 let target_w = target_h * aspect;
 
-                let rot = self.hound_angles[idx] + idle_sway + bark_jitter;
+                // Cheerful tail wag when comfortably sitting
+                let sit_tail_wag = if is_sitting {
+                    (t * 4.5 + idx as f32 * 2.1).sin() * 0.045 * self.hound_sit_blend[idx]
+                } else {
+                    0.0
+                };
+
+                let rot = self.hound_angles[idx] + idle_sway + bark_jitter + sit_tail_wag;
 
                 draw_texture_ex(
                     tex,

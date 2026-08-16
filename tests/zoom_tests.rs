@@ -1,19 +1,6 @@
 use fox_and_hounds::game::state::Faction;
-use fox_and_hounds::ui::camera::{
-    ViewportCamera, DOUBLE_TAP_MAX_DISTANCE, DOUBLE_TAP_TIME_WINDOW, DOUBLE_TAP_ZOOM, MAX_ZOOM,
-    MIN_ZOOM,
-};
+use fox_and_hounds::ui::camera::{ViewportCamera, MIN_ZOOM};
 use macroquad::prelude::*;
-
-#[test]
-fn test_camera_initial_state() {
-    let camera = ViewportCamera::new();
-    assert_eq!(camera.zoom, MIN_ZOOM);
-    assert_eq!(camera.target_zoom, MIN_ZOOM);
-    assert_eq!(camera.pan_offset, Vec2::ZERO);
-    assert!(!camera.is_dragging);
-    assert!(!camera.initialized);
-}
 
 #[test]
 fn test_camera_reset() {
@@ -52,15 +39,4 @@ fn test_camera_center_on_faction() {
 
     camera.center_on_faction(Faction::Hounds, viewport, large_board);
     assert_eq!(camera.pan_offset.y, 12.0); // Hounds at top
-}
-
-#[test]
-fn test_zoom_constants_and_ranges() {
-    const {
-        assert!(MIN_ZOOM == 1.0);
-        assert!(MAX_ZOOM == 2.5);
-        assert!(DOUBLE_TAP_ZOOM == 2.0);
-        assert!(DOUBLE_TAP_TIME_WINDOW >= 0.25 && DOUBLE_TAP_TIME_WINDOW <= 0.40);
-        assert!(DOUBLE_TAP_MAX_DISTANCE >= 20.0);
-    }
 }

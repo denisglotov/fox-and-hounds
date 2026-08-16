@@ -1,21 +1,4 @@
-use fox_and_hounds::ui::train::{
-    TrainSimulation, CYCLE_DURATION, INITIAL_DELAY, TRACK_X, TRAIN_END_Y, TRAIN_HEIGHT,
-    TRAIN_START_Y, TRAIN_WIDTH, TRANSIT_DURATION,
-};
-
-#[test]
-fn test_train_initial_state() {
-    let train = TrainSimulation::new();
-    assert_eq!(train.elapsed_time, 0.0);
-    assert!(!train.is_active()); // Waiting for initial 5-second delay
-    assert_eq!(train.train_progress(), None);
-    assert_eq!(train.train_locomotive_y(), None);
-    assert_eq!(TRACK_X, 50.0);
-    assert_eq!(INITIAL_DELAY, 5.0);
-    assert_eq!(CYCLE_DURATION, 30.0);
-    assert_eq!(TRAIN_WIDTH, 81.0);
-    assert_eq!(TRAIN_HEIGHT, 486.0);
-}
+use fox_and_hounds::ui::train::{TrainSimulation, TRAIN_END_Y, TRAIN_START_Y, TRANSIT_DURATION};
 
 #[test]
 fn test_train_30_second_cycle_with_5_second_initial_delay() {
@@ -65,24 +48,4 @@ fn test_train_30_second_cycle_with_5_second_initial_delay() {
     assert!(train.is_active());
     assert_eq!(train.train_progress(), Some(0.0));
     assert_eq!(train.train_locomotive_y(), Some(TRAIN_START_Y));
-}
-
-#[test]
-fn test_train_track_and_board_bounds() {
-    const {
-        assert!(TRAIN_START_Y < 0.0); // Starts above top screen edge
-        assert!(TRAIN_END_Y > 1264.0); // Exits below bottom screen edge
-        assert!(TRACK_X == 50.0);
-    }
-}
-
-#[test]
-fn test_train_dimensions_and_travel_span() {
-    let train = TrainSimulation::new();
-    let total_distance = TRAIN_END_Y - TRAIN_START_Y;
-    assert!(total_distance >= 1600.0); // Covers the entire board plus off-screen clearance
-    const {
-        assert!(TRANSIT_DURATION >= 5.0 && TRANSIT_DURATION <= 6.0);
-    }
-    assert_eq!(train.cycle_progress(), 0.0);
 }

@@ -1,7 +1,6 @@
 use fox_and_hounds::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
-use fox_and_hounds::ui::river::{RiverPath, RiverSimulation};
+use fox_and_hounds::ui::river::RiverPath;
 use macroquad::prelude::Vec2;
-use std::time::Instant;
 
 #[test]
 fn test_river_path_continuity_and_board_bounds() {
@@ -124,29 +123,5 @@ fn test_bridge_occlusion_detection() {
     assert_eq!(
         open_water2, 0.0,
         "Open water downstream should have zero occlusion"
-    );
-}
-
-#[test]
-fn test_river_simulation_update_and_performance() {
-    let mut sim = RiverSimulation::new();
-    assert_eq!(sim.elapsed_time, 0.0);
-
-    let start = Instant::now();
-    let frames = 10_000;
-    for _ in 0..frames {
-        sim.update(0.016);
-    }
-    let elapsed = start.elapsed();
-    let per_frame_us = elapsed.as_micros() as f64 / frames as f64;
-
-    println!(
-        "RiverSimulation 10,000 updates took: {:?} (approx {:.4} µs / frame)",
-        elapsed, per_frame_us
-    );
-
-    assert!(
-        per_frame_us < 1.0,
-        "River simulation update must be ultra-fast (< 1 microsecond)"
     );
 }

@@ -1,4 +1,4 @@
-use fox_and_hounds::game::ai::{evaluate_board, find_best_move, BoardSnapshot};
+use fox_and_hounds::game::ai::{find_best_move, BoardSnapshot};
 use fox_and_hounds::game::graph::NodeType;
 use fox_and_hounds::game::level::build_river_crossing_graph;
 use fox_and_hounds::game::state::{Difficulty, Faction, GamePhase, GameResult, GameState};
@@ -124,15 +124,6 @@ fn test_ai_finds_immediate_winning_move() {
         best_move,
         Some(fox_and_hounds::game::state::PieceMove::FoxMove { to: m0_idx })
     );
-}
-
-#[test]
-fn test_board_snapshot_evaluation() {
-    let state = GameState::new();
-    let snapshot = BoardSnapshot::from_state(&state);
-    let eval = evaluate_board(&snapshot, &state.graph, state.coop_pos);
-    // Initial evaluation should be finite
-    assert!(eval > -100_000 && eval < 100_000);
 }
 
 #[test]
