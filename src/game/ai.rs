@@ -1,4 +1,4 @@
-use super::graph::Graph;
+use super::graph::{Graph, NodeType};
 use super::state::{Difficulty, Faction, GameState, PieceMove};
 
 const WIN_SCORE: i32 = 100_000;
@@ -8,6 +8,7 @@ const INF: i32 = 1_000_000;
 pub struct BoardSnapshot {
     pub fox_pos: usize,
     pub hounds_pos: [usize; 3],
+    pub coop_pos: usize,
     pub current_turn: Faction,
 }
 
@@ -20,22 +21,35 @@ impl BoardSnapshot {
         Self {
             fox_pos: state.fox_pos,
             hounds_pos: hounds,
+            coop_pos: state.coop_pos,
             current_turn: state.current_turn,
         }
     }
 
     pub fn fox_legal_moves(&self, graph: &Graph) -> Vec<usize> {
-        graph.available_moves(self.fox_pos, &self.hounds_pos)
+        graph
+            .neighbors(self.fox_pos)
+            .iter()
+            .copied()
+            .filter(|&target| !self.hounds_pos.contains(&target))
+            .collect()
     }
 
     pub fn hound_legal_moves(&self, graph: &Graph, hound_idx: usize) -> Vec<usize> {
         let pos = self.hounds_pos[hound_idx];
-        let mut obstacles = [0; 4];
-        obstacles[0] = self.fox_pos;
-        obstacles[1] = self.hounds_pos[0];
-        obstacles[2] = self.hounds_pos[1];
-        obstacles[3] = self.hounds_pos[2];
-        graph.available_moves(pos, &obstacles)
+        graph
+            .neighbors(pos)
+            .iter()
+            .copied()
+            .filter(|&target| {
+                target != self.fox_pos
+                    && target != self.coop_pos
+                    && !self.hounds_pos.contains(&target)
+                    && graph
+                        .node(target)
+                        .is_none_or(|n| n.node_type != NodeType::TargetCoop)
+            })
+            .collect()
     }
 
     pub fn all_hound_moves(&self, graph: &Graph) -> Vec<(usize, usize)> {
@@ -52,6 +66,7 @@ impl BoardSnapshot {
         Self {
             fox_pos: to,
             hounds_pos: self.hounds_pos,
+            coop_pos: self.coop_pos,
             current_turn: Faction::Hounds,
         }
     }
@@ -62,6 +77,7 @@ impl BoardSnapshot {
         Self {
             fox_pos: self.fox_pos,
             hounds_pos: new_hounds,
+            coop_pos: self.coop_pos,
             current_turn: Faction::Fox,
         }
     }

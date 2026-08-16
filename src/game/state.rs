@@ -1,4 +1,4 @@
-use super::graph::Graph;
+use super::graph::{Graph, NodeType};
 use super::level::{build_river_crossing_graph, RIVER_CROSSING_CONFIG};
 use crate::audio::SoundTrigger;
 use macroquad::prelude::Vec2;
@@ -174,16 +174,32 @@ impl GameState {
     }
 
     pub fn fox_legal_moves(&self) -> Vec<usize> {
-        self.graph.available_moves(self.fox_pos, &self.hounds_pos)
+        self.graph
+            .neighbors(self.fox_pos)
+            .iter()
+            .copied()
+            .filter(|&target| !self.hounds_pos.contains(&target))
+            .collect()
     }
 
     pub fn hound_legal_moves(&self, hound_idx: usize) -> Vec<usize> {
         self.hounds_pos
             .get(hound_idx)
             .map_or_else(Vec::new, |&pos| {
-                let mut obstacles = self.hounds_pos.clone();
-                obstacles.push(self.fox_pos);
-                self.graph.available_moves(pos, &obstacles)
+                self.graph
+                    .neighbors(pos)
+                    .iter()
+                    .copied()
+                    .filter(|&target| {
+                        target != self.fox_pos
+                            && target != self.coop_pos
+                            && !self.hounds_pos.contains(&target)
+                            && self
+                                .graph
+                                .node(target)
+                                .is_none_or(|n| n.node_type != NodeType::TargetCoop)
+                    })
+                    .collect()
             })
     }
 

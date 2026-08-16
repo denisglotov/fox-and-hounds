@@ -134,3 +134,68 @@ fn test_board_snapshot_evaluation() {
     // Initial evaluation should be finite
     assert!(eval > -100_000 && eval < 100_000);
 }
+
+#[test]
+fn test_hounds_cannot_occupy_chicken_coop() {
+    let mut state = GameState::new();
+    state.start_game(Faction::Hounds, Difficulty::Hard);
+
+    let m0_idx = state.graph.find_id_by_name("M0").unwrap();
+    let l1_idx = state.graph.find_id_by_name("L1").unwrap();
+    let m1_idx = state.graph.find_id_by_name("M1").unwrap();
+    let r1_idx = state.graph.find_id_by_name("R1").unwrap();
+
+    // Hounds start at L1, M1, R1 - all adjacent to M0 (Chicken Coop)
+    assert_eq!(state.hounds_pos, vec![l1_idx, m1_idx, r1_idx]);
+    assert_eq!(state.coop_pos, m0_idx);
+
+    // Verify neighbors of L1, M1, R1 in the graph include M0
+    assert!(state.graph.neighbors(l1_idx).contains(&m0_idx));
+    assert!(state.graph.neighbors(m1_idx).contains(&m0_idx));
+    assert!(state.graph.neighbors(r1_idx).contains(&m0_idx));
+
+    // But hound legal moves must NEVER include M0 (Chicken Coop)
+    for hound_idx in 0..state.hounds_pos.len() {
+        let legal = state.hound_legal_moves(hound_idx);
+        assert!(
+            !legal.contains(&m0_idx),
+            "Hound {hound_idx} should not be allowed to move to Chicken Coop (M0)"
+        );
+    }
+
+    let all_moves = state.all_hound_legal_moves();
+    assert!(
+        all_moves.iter().all(|&(_, target)| target != m0_idx),
+        "No hound move should target Chicken Coop (M0)"
+    );
+
+    // AI snapshot must also exclude M0
+    let snapshot = BoardSnapshot::from_state(&state);
+    for hound_idx in 0..3 {
+        let legal = snapshot.hound_legal_moves(&state.graph, hound_idx);
+        assert!(!legal.contains(&m0_idx));
+    }
+    let all_ai_moves = snapshot.all_hound_moves(&state.graph);
+    assert!(all_ai_moves.iter().all(|&(_, target)| target != m0_idx));
+
+    // Manually setting turn to Hounds and attempting to move to M0 must be rejected
+    state.current_turn = Faction::Hounds;
+    assert_eq!(
+        state.apply_hound_move(0, m0_idx),
+        Err("Illegal move for Hound")
+    );
+    assert_eq!(
+        state.apply_hound_move(1, m0_idx),
+        Err("Illegal move for Hound")
+    );
+    assert_eq!(
+        state.apply_hound_move(2, m0_idx),
+        Err("Illegal move for Hound")
+    );
+
+    // Best move for Hounds should never be M0
+    let best_move = find_best_move(&state);
+    if let Some(fox_and_hounds::game::state::PieceMove::HoundMove { to, .. }) = best_move {
+        assert_ne!(to, m0_idx, "AI should never pick Chicken Coop for Hound");
+    }
+}

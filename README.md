@@ -28,6 +28,8 @@ One clever **Fox** ($\text{F}$) matches wits against a pack of **$N$ Hounds** ($
   - Pieces cannot jump over or pass through occupied vertices.
 - **No Captures**:
   - Pieces cannot be captured or eliminated. The game is purely positional and tactical.
+- **Chicken Coop Sanctuary**:
+  - **Hounds (Dogs) cannot occupy or enter the Chicken Coop (`M0`)**. The Chicken Coop is strictly an infiltration target for the Fox.
 
 ### 4. Victory Conditions
 | Faction | Objective / Victory Condition |
