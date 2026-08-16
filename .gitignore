@@ -4,7 +4,7 @@
 /scratch/
 
 # WebAssembly build outputs
-biomass.wasm
+*.wasm
 
 # Virtual environments & IDEs
 .venv/
