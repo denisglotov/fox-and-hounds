@@ -6,6 +6,7 @@ pub enum SoundTrigger {
     Win,
     Loss,
     ButtonClick,
+    Train,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -20,6 +21,7 @@ mod wasm_backend {
         fn play_sound_win();
         fn play_sound_loss();
         fn play_sound_click();
+        fn play_sound_train();
     }
 
     pub struct SoundBackend;
@@ -38,6 +40,7 @@ mod wasm_backend {
                     SoundTrigger::Win => play_sound_win(),
                     SoundTrigger::Loss => play_sound_loss(),
                     SoundTrigger::ButtonClick => play_sound_click(),
+                    SoundTrigger::Train => play_sound_train(),
                 }
             }
         }
@@ -56,6 +59,7 @@ mod native_backend {
         snd_win: Option<Sound>,
         snd_loss: Option<Sound>,
         snd_click: Option<Sound>,
+        snd_train: Option<Sound>,
     }
 
     impl SoundBackend {
@@ -79,6 +83,9 @@ mod native_backend {
                 snd_click: load_sound_from_bytes(include_bytes!("../assets/click.wav"))
                     .await
                     .ok(),
+                snd_train: load_sound_from_bytes(include_bytes!("../assets/train.wav"))
+                    .await
+                    .ok(),
             }
         }
 
@@ -90,6 +97,7 @@ mod native_backend {
                 SoundTrigger::Win => &self.snd_win,
                 SoundTrigger::Loss => &self.snd_loss,
                 SoundTrigger::ButtonClick => &self.snd_click,
+                SoundTrigger::Train => &self.snd_train,
             };
 
             if let Some(snd) = sound {

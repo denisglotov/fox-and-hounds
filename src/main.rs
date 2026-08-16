@@ -120,16 +120,14 @@ async fn main() {
                 let mouse_pos = Vec2::from(mouse_position());
                 let viewport_mouse = mouse_pos - Vec2::new(viewport_rect.x, viewport_rect.y);
 
-                let board_sound = board_view.draw_and_handle_input(
+                board_view.draw_and_handle_input(
                     &mut state,
                     pan_offset,
                     effective_scale,
                     viewport_mouse,
                     was_dragging,
+                    &sound_manager,
                 );
-                if let Some(snd) = board_sound {
-                    sound_manager.play(snd);
-                }
 
                 camera.end_camera(viewport_rect, rt);
 

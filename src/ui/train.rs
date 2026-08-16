@@ -1,11 +1,12 @@
+use crate::audio::SoundTrigger;
 use crate::game::level::BOARD_IMAGE_HEIGHT;
 use macroquad::prelude::*;
 
 pub const TRACK_X: f32 = 50.0;
 pub const TRAIN_START_Y: f32 = -270.0;
 pub const TRAIN_END_Y: f32 = 1534.0;
-pub const INITIAL_DELAY: f32 = 5.0;
-pub const CYCLE_DURATION: f32 = 30.0;
+pub const INITIAL_DELAY: f32 = 15.0;
+pub const CYCLE_DURATION: f32 = 60.0;
 pub const TRANSIT_DURATION: f32 = 5.2;
 
 pub const TRAIN_WIDTH: f32 = 81.0;
@@ -14,6 +15,7 @@ pub const TRAIN_HEIGHT: f32 = 486.0;
 #[derive(Debug, Clone)]
 pub struct TrainSimulation {
     pub elapsed_time: f32,
+    pub last_sound_cycle: i32,
 }
 
 impl Default for TrainSimulation {
@@ -24,7 +26,10 @@ impl Default for TrainSimulation {
 
 impl TrainSimulation {
     pub fn new() -> Self {
-        Self { elapsed_time: 0.0 }
+        Self {
+            elapsed_time: 0.0,
+            last_sound_cycle: -1,
+        }
     }
 
     pub fn cycle_progress(&self) -> f32 {
@@ -62,8 +67,19 @@ impl TrainSimulation {
             .map(|p| TRAIN_START_Y + p * (TRAIN_END_Y - TRAIN_START_Y))
     }
 
-    pub fn update(&mut self, dt: f32) {
+    pub fn update(&mut self, dt: f32) -> Option<SoundTrigger> {
         self.elapsed_time += dt;
+
+        if self.elapsed_time >= INITIAL_DELAY {
+            let cycle_idx = ((self.elapsed_time - INITIAL_DELAY) / CYCLE_DURATION).floor() as i32;
+            let t_in_cycle = (self.elapsed_time - INITIAL_DELAY) % CYCLE_DURATION;
+            if t_in_cycle < TRANSIT_DURATION && self.last_sound_cycle != cycle_idx {
+                self.last_sound_cycle = cycle_idx;
+                return Some(SoundTrigger::Train);
+            }
+        }
+
+        None
     }
 
     pub fn draw(&self, origin: Vec2, scale: f32, texture: Option<&Texture2D>) {

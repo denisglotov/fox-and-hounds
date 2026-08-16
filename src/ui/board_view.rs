@@ -1,4 +1,4 @@
-use crate::audio::SoundTrigger;
+use crate::audio::{SoundManager, SoundTrigger};
 use crate::game::graph::NodeType;
 use crate::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
@@ -174,8 +174,8 @@ impl BoardView {
         scale: f32,
         viewport_mouse_pos: Vec2,
         was_dragging: bool,
-    ) -> Option<SoundTrigger> {
-        let mut sound_trigger = None;
+        sound_manager: &SoundManager,
+    ) {
         let t = get_time() as f32;
         let dt = get_frame_time().min(0.1);
 
@@ -210,7 +210,9 @@ impl BoardView {
         self.river.draw(origin, scale);
 
         // 3. Update & Draw Train on the railway tracks
-        self.train.update(dt);
+        if let Some(snd) = self.train.update(dt) {
+            sound_manager.play(snd);
+        }
         self.train.draw(origin, scale, self.train_texture.as_ref());
 
         // 4. Find hovered node & Determine Legal Targets for Player
@@ -244,7 +246,9 @@ impl BoardView {
         self.draw_nodes(state, origin, scale, &legal_destinations, t);
 
         // 5. Draw Animated Live Characters (Fox & 3 Unique Hounds) & play waffing sound
-        let waf_sound = self.draw_pieces(state, origin, scale, t);
+        if let Some(snd) = self.draw_pieces(state, origin, scale, t) {
+            sound_manager.play(snd);
+        }
 
         // 6. Handle Player Tap / Click Input (only if not dragging)
         if is_mouse_button_released(MouseButton::Left)
@@ -254,11 +258,11 @@ impl BoardView {
             && state.result == GameResult::Ongoing
         {
             if let Some(clicked_node) = self.hover_node_id {
-                sound_trigger = self.handle_node_click(state, clicked_node);
+                if let Some(snd) = self.handle_node_click(state, clicked_node) {
+                    sound_manager.play(snd);
+                }
             }
         }
-
-        sound_trigger.or(waf_sound)
     }
 
     fn handle_node_click(
@@ -452,9 +456,16 @@ impl BoardView {
             // The white dog (idx 0) reacts to the train when it rolls on the tracks
             let is_waffing = idx == 0 && self.train.is_active() && !is_moving;
 
-            if is_waffing && (t - self.last_waf_sound_time >= 0.70) {
-                self.last_waf_sound_time = t;
-                waf_sound = Some(SoundTrigger::InvalidMove);
+            if is_waffing {
+                if self.last_waf_sound_time == 0.0 {
+                    // First enthusiastic bark shortly after train starts rolling
+                    self.last_waf_sound_time = t + 0.35;
+                } else if t >= self.last_waf_sound_time {
+                    self.last_waf_sound_time = t + 0.75;
+                    waf_sound = Some(SoundTrigger::InvalidMove);
+                }
+            } else if idx == 0 {
+                self.last_waf_sound_time = 0.0;
             }
 
             let (visual_pos, jump_lift, target_hound_rot) = if is_moving {

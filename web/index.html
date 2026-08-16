@@ -96,7 +96,7 @@
       }
 
       (function preloadBytes() {
-        const files = ["move", "select", "invalid", "win", "loss", "click"];
+        const files = ["move", "select", "invalid", "win", "loss", "click", "train"];
         for (const file of files) {
           fetch(`assets/${file}.wav`)
             .then((r) => {
@@ -227,6 +227,9 @@
             };
             env_obj.env.play_sound_click = function () {
               if (window.gamePlaySound) window.gamePlaySound("click");
+            };
+            env_obj.env.play_sound_train = function () {
+              if (window.gamePlaySound) window.gamePlaySound("train");
             };
           },
           version: 1,
