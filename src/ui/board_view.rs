@@ -13,15 +13,13 @@ pub struct BoardView {
 
 impl BoardView {
     pub async fn new(font: Option<Font>) -> Self {
-        let board_texture = match load_texture("assets/board_image.png").await {
-            Ok(tex) => {
-                tex.set_filter(FilterMode::Linear);
-                Some(tex)
-            }
-            Err(e) => {
-                eprintln!("Warning: Failed to load board_image.png: {:?}", e);
-                None
-            }
+        let board_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/board_image.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
         };
 
         Self {
