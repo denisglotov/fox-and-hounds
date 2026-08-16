@@ -126,10 +126,6 @@ impl SoundManager {
         self.muted = !self.muted;
     }
 
-    pub fn set_muted(&mut self, muted: bool) {
-        self.muted = muted;
-    }
-
     pub fn play(&self, trigger: SoundTrigger) {
         if !self.muted {
             self.backend.play(trigger);

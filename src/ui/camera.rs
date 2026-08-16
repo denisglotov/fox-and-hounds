@@ -5,7 +5,6 @@ pub struct ViewportCamera {
     pub drag_start: Option<Vec2>,
     pub is_dragging: bool,
     pub render_target: Option<RenderTarget>,
-    pub last_board_size: Vec2,
     pub initialized: bool,
 }
 
@@ -22,7 +21,6 @@ impl ViewportCamera {
             drag_start: None,
             is_dragging: false,
             render_target: None,
-            last_board_size: Vec2::ZERO,
             initialized: false,
         }
     }

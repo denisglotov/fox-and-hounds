@@ -20,6 +20,31 @@ fn window_conf() -> Conf {
     }
 }
 
+fn compute_board_layout(screen_w: f32, screen_h: f32, scale: f32) -> (Rect, f32, Vec2) {
+    let hud_h = 56.0 * scale;
+    let viewport_rect = Rect::new(0.0, hud_h, screen_w, (screen_h - hud_h).max(1.0));
+
+    #[cfg(target_os = "android")]
+    let board_scale = {
+        let fit_w = (viewport_rect.w - 16.0) / BOARD_IMAGE_WIDTH;
+        let fit_h = (viewport_rect.h - 16.0) / BOARD_IMAGE_HEIGHT;
+        if viewport_rect.w <= viewport_rect.h {
+            fit_w.max(1.0)
+        } else {
+            fit_h.max(0.8)
+        }
+    };
+    #[cfg(not(target_os = "android"))]
+    let board_scale = 1.0_f32;
+
+    let board_size = Vec2::new(
+        BOARD_IMAGE_WIDTH * board_scale,
+        BOARD_IMAGE_HEIGHT * board_scale,
+    );
+
+    (viewport_rect, board_scale, board_size)
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let font = load_ttf_font_from_bytes(include_bytes!("../assets/NotoSansEmoji.ttf")).ok();
@@ -78,51 +103,14 @@ async fn main() {
                     sound_manager.play(snd);
                 }
                 if state.phase == GamePhase::Playing {
-                    let hud_h = 56.0 * scale;
-                    let viewport_rect =
-                        Rect::new(0.0, hud_h, screen_w, (screen_h - hud_h).max(1.0));
-                    #[cfg(target_os = "android")]
-                    let board_scale = {
-                        let fit_w = (viewport_rect.w - 16.0) / BOARD_IMAGE_WIDTH;
-                        let fit_h = (viewport_rect.h - 16.0) / BOARD_IMAGE_HEIGHT;
-                        if viewport_rect.w <= viewport_rect.h {
-                            fit_w.max(1.0)
-                        } else {
-                            fit_h.max(0.8)
-                        }
-                    };
-                    #[cfg(not(target_os = "android"))]
-                    let board_scale = 1.0_f32;
-                    let board_size = Vec2::new(
-                        BOARD_IMAGE_WIDTH * board_scale,
-                        BOARD_IMAGE_HEIGHT * board_scale,
-                    );
+                    let (viewport_rect, _, board_size) =
+                        compute_board_layout(screen_w, screen_h, scale);
                     camera.center_on_faction(state.player_faction, viewport_rect, board_size);
                 }
             }
             GamePhase::Playing | GamePhase::GameOver => {
-                let hud_h = 56.0 * scale;
-                let viewport_rect = Rect::new(0.0, hud_h, screen_w, (screen_h - hud_h).max(1.0));
-
-                #[cfg(target_os = "android")]
-                let board_scale = {
-                    let fit_w = (viewport_rect.w - 16.0) / BOARD_IMAGE_WIDTH;
-                    let fit_h = (viewport_rect.h - 16.0) / BOARD_IMAGE_HEIGHT;
-                    if viewport_rect.w <= viewport_rect.h {
-                        // Portrait: fill mobile width so board is big & easy to touch
-                        fit_w.max(1.0)
-                    } else {
-                        // Landscape: fit height
-                        fit_h.max(0.8)
-                    }
-                };
-                #[cfg(not(target_os = "android"))]
-                let board_scale = 1.0_f32;
-
-                let board_size = Vec2::new(
-                    BOARD_IMAGE_WIDTH * board_scale,
-                    BOARD_IMAGE_HEIGHT * board_scale,
-                );
+                let (viewport_rect, board_scale, board_size) =
+                    compute_board_layout(screen_w, screen_h, scale);
 
                 // Viewport Camera & Render Target setup for smooth subpixel scrolling
                 let (rt, pan_offset, was_dragging) =

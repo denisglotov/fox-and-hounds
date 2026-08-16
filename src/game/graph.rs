@@ -69,14 +69,6 @@ impl Graph {
         self.adjacency.get(node_id).map_or(&[], |n| n.as_slice())
     }
 
-    pub fn available_moves(&self, from: usize, occupied: &[usize]) -> Vec<usize> {
-        self.neighbors(from)
-            .iter()
-            .copied()
-            .filter(|&neighbor| !occupied.contains(&neighbor))
-            .collect()
-    }
-
     /// Computes BFS shortest distance from `start` to `target`, avoiding any `obstacles`.
     pub fn shortest_distance(
         &self,
@@ -112,26 +104,5 @@ impl Graph {
         }
 
         distances[target]
-    }
-
-    /// Computes distance from all reachable nodes to `target` (ignoring or respecting obstacles).
-    pub fn distances_to_target(&self, target: usize, obstacles: &[usize]) -> Vec<Option<usize>> {
-        let mut distances = vec![None; self.nodes.len()];
-        let mut queue = VecDeque::new();
-
-        distances[target] = Some(0);
-        queue.push_back(target);
-
-        while let Some(curr) = queue.pop_front() {
-            let d = distances[curr].unwrap_or(0);
-            for &prev in self.neighbors(curr) {
-                if distances[prev].is_none() && !obstacles.contains(&prev) {
-                    distances[prev] = Some(d + 1);
-                    queue.push_back(prev);
-                }
-            }
-        }
-
-        distances
     }
 }

@@ -151,7 +151,7 @@ impl Screens {
 
         // Fox Button
         let is_fox = state.player_faction == Faction::Fox;
-        let (fox_clicked, _) = Self::draw_selectable_button(&SelectableButtonConfig {
+        let fox_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
             bounds: Rect::new(fox_btn_x, curr_y, btn_w, btn_h),
             title: "🦊 The Fox",
             subtitle: "Infiltrate Coop",
@@ -167,7 +167,7 @@ impl Screens {
 
         // Hounds Button
         let is_hound = state.player_faction == Faction::Hounds;
-        let (hound_clicked, _) = Self::draw_selectable_button(&SelectableButtonConfig {
+        let hound_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
             bounds: Rect::new(hound_btn_x, curr_y, btn_w, btn_h),
             title: "🐶 The Hounds",
             subtitle: "Trap the Fox",
@@ -202,7 +202,7 @@ impl Screens {
         for (idx, &diff) in difficulties.iter().enumerate() {
             let bx = card_x + 20.0 * scale + (diff_btn_w + 10.0 * scale) * idx as f32;
             let is_sel = state.difficulty == diff;
-            let (clicked, _) = Self::draw_selectable_button(&SelectableButtonConfig {
+            let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
                 bounds: Rect::new(bx, curr_y, diff_btn_w, diff_btn_h),
                 title: diff.name(),
                 subtitle: "",
@@ -222,7 +222,7 @@ impl Screens {
         let start_w = card_w - 40.0 * scale;
         let start_h = 52.0 * scale;
         let start_x = card_x + 20.0 * scale;
-        let (start_clicked, _) = Self::draw_action_button(&ActionButtonConfig {
+        let start_clicked = Self::draw_action_button(&ActionButtonConfig {
             bounds: Rect::new(start_x, curr_y, start_w, start_h),
             text: "START MATCH",
             normal_color: Color::from_rgba(46, 125, 50, 255),
@@ -312,7 +312,7 @@ impl Screens {
 
         // Menu Button
         let menu_x = screen_w - pad - btn_size;
-        let (menu_clicked, _) = Self::draw_icon_button(&IconButtonConfig {
+        let menu_clicked = Self::draw_icon_button(&IconButtonConfig {
             bounds: Rect::new(menu_x, btn_y, btn_size, btn_size),
             icon: "🏠",
             scale,
@@ -325,7 +325,7 @@ impl Screens {
 
         // Restart Button
         let restart_x = menu_x - btn_size - btn_spacing;
-        let (restart_clicked, _) = Self::draw_icon_button(&IconButtonConfig {
+        let restart_clicked = Self::draw_icon_button(&IconButtonConfig {
             bounds: Rect::new(restart_x, btn_y, btn_size, btn_size),
             icon: "🔄",
             scale,
@@ -339,7 +339,7 @@ impl Screens {
         // Mute Button
         let mute_x = restart_x - btn_size - btn_spacing;
         let mute_icon = if is_muted { "🔇" } else { "🔊" };
-        let (mute_clicked, _) = Self::draw_icon_button(&IconButtonConfig {
+        let mute_clicked = Self::draw_icon_button(&IconButtonConfig {
             bounds: Rect::new(mute_x, btn_y, btn_size, btn_size),
             icon: mute_icon,
             scale,
@@ -479,7 +479,7 @@ impl Screens {
         let btn_h = 48.0 * scale;
         let btn_x = modal_x + 20.0 * scale;
 
-        let (rematch_clicked, _) = Self::draw_action_button(&ActionButtonConfig {
+        let rematch_clicked = Self::draw_action_button(&ActionButtonConfig {
             bounds: Rect::new(btn_x, curr_y, btn_w, btn_h),
             text: "PLAY AGAIN",
             normal_color: Color::from_rgba(25, 118, 210, 255),
@@ -495,7 +495,7 @@ impl Screens {
         curr_y += btn_h + 12.0 * scale;
 
         // Main Menu Button
-        let (menu_clicked, _) = Self::draw_action_button(&ActionButtonConfig {
+        let menu_clicked = Self::draw_action_button(&ActionButtonConfig {
             bounds: Rect::new(btn_x, curr_y, btn_w, btn_h),
             text: "MAIN MENU",
             normal_color: Color::from_rgba(55, 71, 79, 255),
@@ -511,7 +511,7 @@ impl Screens {
         sound_trigger
     }
 
-    fn draw_selectable_button(cfg: &SelectableButtonConfig) -> (bool, bool) {
+    fn draw_selectable_button(cfg: &SelectableButtonConfig) -> bool {
         let mouse_pos = Vec2::from(mouse_position());
         let is_hovered = cfg.bounds.contains(mouse_pos);
         let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
@@ -577,10 +577,10 @@ impl Screens {
             );
         }
 
-        (clicked, is_hovered)
+        clicked
     }
 
-    fn draw_action_button(cfg: &ActionButtonConfig) -> (bool, bool) {
+    fn draw_action_button(cfg: &ActionButtonConfig) -> bool {
         let mouse_pos = Vec2::from(mouse_position());
         let is_hovered = cfg.bounds.contains(mouse_pos);
         let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
@@ -617,10 +617,10 @@ impl Screens {
             cfg.font,
         );
 
-        (clicked, is_hovered)
+        clicked
     }
 
-    fn draw_icon_button(cfg: &IconButtonConfig) -> (bool, bool) {
+    fn draw_icon_button(cfg: &IconButtonConfig) -> bool {
         let mouse_pos = Vec2::from(mouse_position());
         let is_hovered = cfg.bounds.contains(mouse_pos);
         let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
@@ -657,6 +657,6 @@ impl Screens {
             cfg.font,
         );
 
-        (clicked, is_hovered)
+        clicked
     }
 }

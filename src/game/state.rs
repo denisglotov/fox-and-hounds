@@ -9,15 +9,6 @@ pub enum Faction {
     Hounds,
 }
 
-impl Faction {
-    pub fn opponent(self) -> Self {
-        match self {
-            Faction::Fox => Faction::Hounds,
-            Faction::Hounds => Faction::Fox,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Difficulty {
     Easy,
@@ -165,12 +156,6 @@ impl GameState {
         self.phase == GamePhase::Playing
             && self.result == GameResult::Ongoing
             && self.current_turn != self.player_faction
-    }
-
-    pub fn occupied_nodes(&self) -> Vec<usize> {
-        let mut occupied = self.hounds_pos.clone();
-        occupied.push(self.fox_pos);
-        occupied
     }
 
     pub fn fox_legal_moves(&self) -> Vec<usize> {

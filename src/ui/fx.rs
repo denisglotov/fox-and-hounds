@@ -85,8 +85,4 @@ impl FxManager {
             );
         }
     }
-
-    pub fn clear(&mut self) {
-        self.particles.clear();
-    }
 }
