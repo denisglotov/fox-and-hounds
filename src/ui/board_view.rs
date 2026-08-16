@@ -68,10 +68,7 @@ impl BoardView {
             );
         }
 
-        // 2. Draw Connecting Edges
-        self.draw_edges(state, origin, scale, t);
-
-        // 3. Find hovered node & Determine Legal Targets for Player
+        // 2. Find hovered node & Determine Legal Targets for Player
         let board_mouse = (viewport_mouse_pos - origin) / scale;
         let hit_radius = 32.0;
 
@@ -171,35 +168,6 @@ impl BoardView {
         }
     }
 
-    fn draw_edges(&self, state: &GameState, origin: Vec2, scale: f32, _t: f32) {
-        let edge_color = Color::from_rgba(255, 255, 255, 38);
-        let edge_shadow = Color::from_rgba(0, 0, 0, 90);
-        let thickness = 2.5 * scale;
-
-        for (u_idx, neighbors) in state.graph.adjacency.iter().enumerate() {
-            if let Some(u_node) = state.graph.node(u_idx) {
-                let p1 = origin + u_node.visual_pos * scale;
-                for &v_idx in neighbors {
-                    if v_idx > u_idx {
-                        if let Some(v_node) = state.graph.node(v_idx) {
-                            let p2 = origin + v_node.visual_pos * scale;
-                            // Drop shadow line
-                            draw_line(
-                                p1.x,
-                                p1.y + 1.5 * scale,
-                                p2.x,
-                                p2.y + 1.5 * scale,
-                                thickness,
-                                edge_shadow,
-                            );
-                            // Main path line
-                            draw_line(p1.x, p1.y, p2.x, p2.y, thickness, edge_color);
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     fn draw_nodes(
         &self,
