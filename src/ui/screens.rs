@@ -268,21 +268,20 @@ impl Screens {
         let (turn_icon, turn_title, badge_color) = match state.current_turn {
             Faction::Fox => (
                 "🦊",
-                if is_ai { "Fox Thinking..." } else { "Fox Turn" },
+                if is_ai { "Thinking..." } else { "Fox Turn" },
                 Color::from_rgba(230, 81, 0, 220),
             ),
             Faction::Hounds => (
                 "🐶",
-                if is_ai {
-                    "Hounds Thinking..."
-                } else {
-                    "Hounds Turn"
-                },
+                if is_ai { "Thinking..." } else { "Hounds Turn" },
                 Color::from_rgba(25, 118, 210, 220),
             ),
         };
 
-        let badge_w = 175.0 * scale;
+        let badge_text = format!("{} {}", turn_icon, turn_title);
+        let badge_font = (13.0 * scale) as u16;
+        let badge_dims = measure_text_styled(&badge_text, badge_font, font);
+        let badge_w = badge_dims.width + 20.0 * scale;
         let badge_h = 36.0 * scale;
         let badge_y = (hud_h - badge_h) / 2.0;
         let badge_x = pad;
@@ -297,9 +296,6 @@ impl Screens {
             Color::from_rgba(255, 255, 255, 80),
         );
 
-        let badge_text = format!("{} {}", turn_icon, turn_title);
-        let badge_font = (14.0 * scale) as u16;
-        let badge_dims = measure_text_styled(&badge_text, badge_font, font);
         draw_text_styled(
             &badge_text,
             badge_x + (badge_w - badge_dims.width) / 2.0,
@@ -309,22 +305,10 @@ impl Screens {
             font,
         );
 
-        // 2. Turn Counter (Center)
-        let turn_str = format!("Turn {}", state.turn_count);
-        let turn_font = (15.0 * scale) as u16;
-        let turn_dims = measure_text_styled(&turn_str, turn_font, font);
-        draw_text_styled(
-            &turn_str,
-            (screen_w - turn_dims.width) / 2.0,
-            hud_h / 2.0 + turn_dims.height / 3.0,
-            turn_font,
-            Color::from_rgba(207, 216, 220, 255),
-            font,
-        );
-
-        // 3. Right Action Buttons: Mute, Restart, Menu
+        // 2. Right Action Buttons: Mute, Restart, Menu
         let btn_size = 36.0 * scale;
         let btn_y = (hud_h - btn_size) / 2.0;
+        let btn_spacing = 8.0 * scale;
 
         // Menu Button
         let menu_x = screen_w - pad - btn_size;
@@ -340,7 +324,7 @@ impl Screens {
         }
 
         // Restart Button
-        let restart_x = menu_x - btn_size - 8.0 * scale;
+        let restart_x = menu_x - btn_size - btn_spacing;
         let (restart_clicked, _) = Self::draw_icon_button(&IconButtonConfig {
             bounds: Rect::new(restart_x, btn_y, btn_size, btn_size),
             icon: "🔄",
@@ -353,7 +337,7 @@ impl Screens {
         }
 
         // Mute Button
-        let mute_x = restart_x - btn_size - 8.0 * scale;
+        let mute_x = restart_x - btn_size - btn_spacing;
         let mute_icon = if is_muted { "🔇" } else { "🔊" };
         let (mute_clicked, _) = Self::draw_icon_button(&IconButtonConfig {
             bounds: Rect::new(mute_x, btn_y, btn_size, btn_size),
@@ -364,6 +348,26 @@ impl Screens {
         if mute_clicked {
             toggle_mute_requested = true;
             sound_trigger = Some(SoundTrigger::ButtonClick);
+        }
+
+        // 3. Turn Counter (Center - safely positioned without overlapping badge or buttons)
+        let turn_str = format!("Turn {}", state.turn_count);
+        let turn_font = (14.0 * scale) as u16;
+        let turn_dims = measure_text_styled(&turn_str, turn_font, font);
+        let left_edge = badge_x + badge_w + 10.0 * scale;
+        let right_edge = mute_x - 10.0 * scale;
+
+        if right_edge > left_edge + turn_dims.width {
+            let ideal_x = (screen_w - turn_dims.width) / 2.0;
+            let clamped_x = ideal_x.clamp(left_edge, right_edge - turn_dims.width);
+            draw_text_styled(
+                &turn_str,
+                clamped_x,
+                hud_h / 2.0 + turn_dims.height / 3.0,
+                turn_font,
+                Color::from_rgba(207, 216, 220, 255),
+                font,
+            );
         }
 
         (sound_trigger, toggle_mute_requested)
