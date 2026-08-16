@@ -68,7 +68,7 @@ impl BoardView {
 
         // 2. Find hovered node & Determine Legal Targets for Player
         let board_mouse = (viewport_mouse_pos - origin) / scale;
-        let hit_radius = 32.0;
+        let hit_radius = 36.0;
 
         self.hover_node_id = state.graph.nodes.iter().find_map(|node| {
             if (node.visual_pos - board_mouse).length() <= hit_radius {

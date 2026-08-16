@@ -63,8 +63,12 @@ impl Screens {
         );
 
         // Card Container Dimensions
-        let card_w = (420.0 * scale).min(screen_w - 32.0);
-        let card_h = (540.0 * scale).min(screen_h - 32.0);
+        let card_w = (screen_w - 32.0 * scale)
+            .min(440.0 * scale)
+            .max(280.0 * scale);
+        let card_h = (screen_h - 48.0 * scale)
+            .min(560.0 * scale)
+            .max(360.0 * scale);
         let card_x = (screen_w - card_w) / 2.0;
         let card_y = (screen_h - card_h) / 2.0;
 
@@ -85,7 +89,7 @@ impl Screens {
             Color::from_rgba(255, 255, 255, 30),
         );
 
-        let mut curr_y = card_y + 36.0 * scale;
+        let mut curr_y = card_y + 32.0 * scale;
 
         // 1. Game Title & Subtitle
         let title_text = "FOX & HOUNDS";
@@ -377,8 +381,12 @@ impl Screens {
         // Dim background overlay
         draw_rectangle(0.0, 0.0, screen_w, screen_h, Color::from_rgba(0, 0, 0, 185));
 
-        let modal_w = (380.0 * scale).min(screen_w - 32.0);
-        let modal_h = (340.0 * scale).min(screen_h - 32.0);
+        let modal_w = (screen_w - 32.0 * scale)
+            .min(380.0 * scale)
+            .max(280.0 * scale);
+        let modal_h = (screen_h - 48.0 * scale)
+            .min(340.0 * scale)
+            .max(260.0 * scale);
         let modal_x = (screen_w - modal_w) / 2.0;
         let modal_y = (screen_h - modal_h) / 2.0;
         let center_x = screen_w / 2.0;

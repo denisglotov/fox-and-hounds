@@ -32,7 +32,7 @@ pub fn build_river_crossing_graph() -> Graph {
         896.7,  // Row 6 (Bridge Bottleneck)
         1010.4, // Row 7
         1124.2, // Row 8
-        1238.0, // Row 9 (Fox Den)
+        1230.0, // Row 9 (Fox Den)
     ];
 
     let raw_nodes = vec![

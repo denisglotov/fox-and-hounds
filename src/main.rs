@@ -10,8 +10,8 @@ use macroquad::prelude::*;
 fn window_conf() -> Conf {
     Conf {
         window_title: "Fox and Hounds - Tactical Graph Strategy".to_string(),
-        window_width: 1000,
-        window_height: 960,
+        window_width: 960,
+        window_height: 1360,
         high_dpi: true,
         window_resizable: true,
         fullscreen: false,
@@ -36,9 +36,18 @@ async fn main() {
         let screen_w = screen_width();
         let screen_h = screen_height();
 
-        // Responsive UI scale factor
-        let base_scale = (screen_w / 900.0).min(screen_h / 860.0);
-        let scale = base_scale.clamp(0.65, 1.4);
+        // Responsive UI scale factor (buttons, HUD, text, cards)
+        #[cfg(target_os = "android")]
+        let scale = {
+            // Android uses physical pixels with high_dpi: true (typically 1080x2400 on phones)
+            let portrait_w = screen_w.min(screen_h);
+            (portrait_w / 380.0).clamp(1.0, 4.0)
+        };
+        #[cfg(not(target_os = "android"))]
+        let scale = {
+            let base_scale = (screen_w / 700.0).min(screen_h / 800.0);
+            base_scale.clamp(0.85, 1.25)
+        };
 
         // 1. Update Game State (animations, AI thinking)
         let state_sound = state.update(dt);
@@ -68,22 +77,47 @@ async fn main() {
                 if let Some(snd) = title_sound {
                     sound_manager.play(snd);
                 }
+                if state.phase == GamePhase::Playing {
+                    let hud_h = 56.0 * scale;
+                    let viewport_rect =
+                        Rect::new(0.0, hud_h, screen_w, (screen_h - hud_h).max(1.0));
+                    #[cfg(target_os = "android")]
+                    let board_scale = {
+                        let fit_w = (viewport_rect.w - 16.0) / BOARD_IMAGE_WIDTH;
+                        let fit_h = (viewport_rect.h - 16.0) / BOARD_IMAGE_HEIGHT;
+                        if viewport_rect.w <= viewport_rect.h {
+                            fit_w.max(1.0)
+                        } else {
+                            fit_h.max(0.8)
+                        }
+                    };
+                    #[cfg(not(target_os = "android"))]
+                    let board_scale = 1.0_f32;
+                    let board_size = Vec2::new(
+                        BOARD_IMAGE_WIDTH * board_scale,
+                        BOARD_IMAGE_HEIGHT * board_scale,
+                    );
+                    camera.center_on_faction(state.player_faction, viewport_rect, board_size);
+                }
             }
             GamePhase::Playing | GamePhase::GameOver => {
                 let hud_h = 56.0 * scale;
                 let viewport_rect = Rect::new(0.0, hud_h, screen_w, (screen_h - hud_h).max(1.0));
 
-                // Board scale calculation:
-                // - Fit neatly inside available viewport on large desktop displays
-                // - Enforce minimum board scale so nodes & pieces remain easily touchable/visible on mobile / small windows, enabling scrolling.
                 #[cfg(target_os = "android")]
-                let min_board_scale = 0.55 * scale;
+                let board_scale = {
+                    let fit_w = (viewport_rect.w - 16.0) / BOARD_IMAGE_WIDTH;
+                    let fit_h = (viewport_rect.h - 16.0) / BOARD_IMAGE_HEIGHT;
+                    if viewport_rect.w <= viewport_rect.h {
+                        // Portrait: fill mobile width so board is big & easy to touch
+                        fit_w.max(1.0)
+                    } else {
+                        // Landscape: fit height
+                        fit_h.max(0.8)
+                    }
+                };
                 #[cfg(not(target_os = "android"))]
-                let min_board_scale = 0.45 * scale;
-
-                let fit_scale_w = (viewport_rect.w - 24.0 * scale) / BOARD_IMAGE_WIDTH;
-                let fit_scale_h = (viewport_rect.h - 24.0 * scale) / BOARD_IMAGE_HEIGHT;
-                let board_scale = fit_scale_w.min(fit_scale_h).max(min_board_scale);
+                let board_scale = 1.0_f32;
 
                 let board_size = Vec2::new(
                     BOARD_IMAGE_WIDTH * board_scale,
@@ -124,6 +158,9 @@ async fn main() {
                 }
                 if let Some(snd) = hud_sound {
                     sound_manager.play(snd);
+                    if state.turn_count == 1 && state.phase == GamePhase::Playing {
+                        camera.center_on_faction(state.player_faction, viewport_rect, board_size);
+                    }
                 }
 
                 // Update & Render Confetti Particles
@@ -141,6 +178,13 @@ async fn main() {
                     );
                     if let Some(snd) = modal_sound {
                         sound_manager.play(snd);
+                        if state.phase == GamePhase::Playing {
+                            camera.center_on_faction(
+                                state.player_faction,
+                                viewport_rect,
+                                board_size,
+                            );
+                        }
                     }
                 }
             }

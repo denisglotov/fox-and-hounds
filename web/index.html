@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>Fox and Hounds - Tactical Graph Strategy</title>
     <meta
       name="description"
@@ -37,8 +40,8 @@
       #glcanvas {
         width: 100%;
         height: 100%;
-        max-width: 1000px;
-        max-height: 960px;
+        max-width: 960px;
+        max-height: 1380px;
         display: block;
         outline: none;
         flex: 1;
@@ -70,7 +73,9 @@
 
         if (fetchedBuffers[name]) {
           try {
-            const decoded = await ctx.decodeAudioData(fetchedBuffers[name].slice(0));
+            const decoded = await ctx.decodeAudioData(
+              fetchedBuffers[name].slice(0),
+            );
             audioBuffers[name] = decoded;
             return decoded;
           } catch (e) {
@@ -93,14 +98,7 @@
       }
 
       (function preloadBytes() {
-        const files = [
-          "move",
-          "select",
-          "invalid",
-          "win",
-          "loss",
-          "click",
-        ];
+        const files = ["move", "select", "invalid", "win", "loss", "click"];
         for (const file of files) {
           fetch(`assets/${file}.wav`)
             .then((r) => {
@@ -116,7 +114,8 @@
                   (dec) => {
                     audioBuffers[file] = dec;
                   },
-                  (err) => console.warn("Initial decode error for " + file, err)
+                  (err) =>
+                    console.warn("Initial decode error for " + file, err),
                 );
               }
             })
@@ -146,26 +145,31 @@
         }
       }
 
-      ["click", "mousedown", "pointerdown", "keydown", "touchstart", "touchend"].forEach(
-        (evt) => {
-          window.addEventListener(
-            evt,
-            (e) => {
-              if (
-                e.type === "keydown" &&
-                (e.key === "Meta" ||
-                  e.key === "Control" ||
-                  e.key === "Alt" ||
-                  e.key === "Shift")
-              ) {
-                return;
-              }
-              unlockAudioContext();
-            },
-            { capture: true, passive: true },
-          );
-        },
-      );
+      [
+        "click",
+        "mousedown",
+        "pointerdown",
+        "keydown",
+        "touchstart",
+        "touchend",
+      ].forEach((evt) => {
+        window.addEventListener(
+          evt,
+          (e) => {
+            if (
+              e.type === "keydown" &&
+              (e.key === "Meta" ||
+                e.key === "Control" ||
+                e.key === "Alt" ||
+                e.key === "Shift")
+            ) {
+              return;
+            }
+            unlockAudioContext();
+          },
+          { capture: true, passive: true },
+        );
+      });
 
       window.gamePlaySound = function (type) {
         let ctx = getGameAudioCtx();

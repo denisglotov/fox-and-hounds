@@ -6,6 +6,7 @@ pub struct ViewportCamera {
     pub is_dragging: bool,
     pub render_target: Option<RenderTarget>,
     pub last_board_size: Vec2,
+    pub initialized: bool,
 }
 
 impl Default for ViewportCamera {
@@ -22,6 +23,7 @@ impl ViewportCamera {
             is_dragging: false,
             render_target: None,
             last_board_size: Vec2::ZERO,
+            initialized: false,
         }
     }
 
@@ -29,6 +31,28 @@ impl ViewportCamera {
         self.pan_offset = Vec2::ZERO;
         self.drag_start = None;
         self.is_dragging = false;
+        self.initialized = false;
+    }
+
+    /// Centers camera on player's pieces at match start (bottom for Fox, top for Hounds).
+    pub fn center_on_faction(
+        &mut self,
+        faction: crate::game::state::Faction,
+        viewport_rect: Rect,
+        board_size: Vec2,
+    ) {
+        self.pan_offset.x = (viewport_rect.w - board_size.x) / 2.0;
+        if board_size.y <= viewport_rect.h {
+            self.pan_offset.y = (viewport_rect.h - board_size.y) / 2.0;
+        } else {
+            self.pan_offset.y = match faction {
+                crate::game::state::Faction::Fox => (viewport_rect.h - board_size.y).min(0.0),
+                crate::game::state::Faction::Hounds => 12.0,
+            };
+        }
+        self.drag_start = None;
+        self.is_dragging = false;
+        self.initialized = true;
     }
 
     /// Handles touch drag, mouse drag, and wheel scroll. Clamps pan offsets to keep board in view.
@@ -82,6 +106,17 @@ impl ViewportCamera {
         let pad = 12.0 * scale;
         let total_w = board_size.x + pad * 2.0;
         let total_h = board_size.y + pad * 2.0;
+
+        // Auto-center horizontally and initialize vertical position on first run
+        if !self.initialized {
+            self.pan_offset.x = (viewport_rect.w - board_size.x) / 2.0;
+            self.pan_offset.y = if total_h <= viewport_rect.h {
+                (viewport_rect.h - board_size.y) / 2.0
+            } else {
+                pad
+            };
+            self.initialized = true;
+        }
 
         // 3. Pan clamping (auto-center if board fits, otherwise clamp scroll)
         if total_w <= viewport_rect.w {
