@@ -49,10 +49,7 @@ jobs:
       - name: Install bundletool
         run: |
           sudo curl -fsSL -o /usr/local/bin/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar
-          sudo tee /usr/local/bin/bundletool > /dev/null << 'EOF'
-#!/bin/sh
-exec java -jar /usr/local/bin/bundletool.jar "$@"
-EOF
+          printf '#!/bin/sh\nexec java -jar /usr/local/bin/bundletool.jar "$@"\n' | sudo tee /usr/local/bin/bundletool > /dev/null
           sudo chmod +x /usr/local/bin/bundletool
 
       - name: Install Rust toolchain
