@@ -23,19 +23,11 @@ fn window_conf() -> Conf {
 fn compute_board_layout(screen_w: f32, screen_h: f32, scale: f32) -> (Rect, f32, Vec2) {
     let hud_h = 56.0 * scale;
     let viewport_rect = Rect::new(0.0, hud_h, screen_w, (screen_h - hud_h).max(1.0));
+    let pad = (12.0 * scale).min(24.0);
 
-    #[cfg(target_os = "android")]
-    let board_scale = {
-        let fit_w = (viewport_rect.w - 16.0) / BOARD_IMAGE_WIDTH;
-        let fit_h = (viewport_rect.h - 16.0) / BOARD_IMAGE_HEIGHT;
-        if viewport_rect.w <= viewport_rect.h {
-            fit_w.max(1.0)
-        } else {
-            fit_h.max(0.8)
-        }
-    };
-    #[cfg(not(target_os = "android"))]
-    let board_scale = 1.0_f32;
+    let fit_w = (viewport_rect.w - pad * 2.0).max(10.0) / BOARD_IMAGE_WIDTH;
+    let fit_h = (viewport_rect.h - pad * 2.0).max(10.0) / BOARD_IMAGE_HEIGHT;
+    let board_scale = fit_w.min(fit_h).max(0.1);
 
     let board_size = Vec2::new(
         BOARD_IMAGE_WIDTH * board_scale,
@@ -71,7 +63,7 @@ async fn main() {
         #[cfg(not(target_os = "android"))]
         let scale = {
             let base_scale = (screen_w / 700.0).min(screen_h / 800.0);
-            base_scale.clamp(0.85, 1.25)
+            base_scale.clamp(0.85, 2.0)
         };
 
         // 1. Update Game State (animations, AI thinking)
