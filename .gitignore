@@ -1,6 +1,7 @@
 # Rust build artifacts
 /target/
 **/*.rs.bk
+_cargo_apk_main*
 /scratch/
 
 # WebAssembly build outputs

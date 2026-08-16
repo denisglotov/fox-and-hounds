@@ -88,29 +88,30 @@ jobs:
           KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS || vars.KEYSTORE_ALIAS }}
         run: |
           BUILD_TOOLS_DIR=$(ls -d "${ANDROID_HOME}/build-tools/"* 2>/dev/null | tail -n 1)
-          APKSIGNER="${BUILD_TOOLS_DIR}/apksigner"
 
-          echo "==> Signing Release APK with apksigner..."
-          "$APKSIGNER" sign \
+          echo "==> Signing Release APK..."
+          "${BUILD_TOOLS_DIR}/apksigner" sign \
             --ks "$RUNNER_TEMP/release.keystore" \
             --ks-key-alias "$KEYSTORE_ALIAS" \
             --ks-pass "pass:$KEYSTORE_PASSWORD" \
-            --out "target/android-artifacts/fox-and-hounds-release.apk" \
-            "target/android-artifacts/fox-and-hounds-aligned.apk"
+            --out "target/android-artifacts/release/apk/foxandhounds-release.apk" \
+            "target/android-artifacts/release/apk/foxandhounds.apk"
 
-          echo "==> Signing Release AAB with jarsigner..."
+          echo "==> Signing Release AAB..."
           jarsigner \
             -keystore "$RUNNER_TEMP/release.keystore" \
             -storepass "$KEYSTORE_PASSWORD" \
-            "target/android-artifacts/fox-and-hounds.aab" \
+            "target/android-artifacts/release/apk/foxandhounds.aab" \
             "$KEYSTORE_ALIAS"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/android-artifacts/fox-and-hounds-release.apk
-            target/android-artifacts/fox-and-hounds.aab
+            target/android-artifacts/release/apk/foxandhounds-release.apk
+            target/android-artifacts/release/apk/foxandhounds.aab
+            target/android-artifacts/release/apk/native-debug-symbols.zip
+            target/android-artifacts/release/apk/mapping.txt
           generate_release_notes: true
           draft: false
           prerelease: false
