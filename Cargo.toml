@@ -4,9 +4,14 @@ version = "1.0.0"
 edition = "2021"
 authors = ["Dymka"]
 description = "Fox and Hounds - Turn-Based Asymmetric Graph Strategy Game"
+default-run = "foxandhounds"
 
 [dependencies]
 macroquad = "0.4"
+
+[[bin]]
+name = "foxandhounds"
+path = "src/main.rs"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 macroquad = { version = "0.4", features = ["audio"] }
@@ -26,6 +31,16 @@ build_targets = ["aarch64-linux-android"]
 
 [package.metadata.android.activity_attributes]
 "android:exported" = "true"
+
+[[package.metadata.android.bin]]
+name = "foxandhounds"
+package_name = "org.dymka.foxandhounds"
+label = "Fox and Hounds"
+version_code = 1
+version_name = "1.0.0"
+assets = "assets/"
+res = "res"
+icon = "@mipmap/ic_launcher"
 
 [profile.release]
 opt-level = "z"
