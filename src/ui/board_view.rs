@@ -2,6 +2,7 @@ use crate::audio::SoundTrigger;
 use crate::game::graph::NodeType;
 use crate::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
+use crate::ui::river::RiverSimulation;
 use crate::ui::train::TrainSimulation;
 use macroquad::prelude::*;
 
@@ -16,6 +17,7 @@ pub struct BoardView {
     pub fox_angle: f32,
     pub hover_node_id: Option<usize>,
     pub font: Option<Font>,
+    pub river: RiverSimulation,
     pub train: TrainSimulation,
     pub last_waf_sound_time: f32,
 }
@@ -93,6 +95,7 @@ impl BoardView {
             fox_angle: 0.0,
             hover_node_id: None,
             font,
+            river: RiverSimulation::new(),
             train: TrainSimulation::new(),
             last_waf_sound_time: 0.0,
         }
@@ -136,11 +139,15 @@ impl BoardView {
             );
         }
 
-        // 2. Update & Draw Train on the railway tracks
+        // 2. Update & Draw Floating Water in River
+        self.river.update(dt);
+        self.river.draw(origin, scale);
+
+        // 3. Update & Draw Train on the railway tracks
         self.train.update(dt);
         self.train.draw(origin, scale, self.train_texture.as_ref());
 
-        // 3. Find hovered node & Determine Legal Targets for Player
+        // 4. Find hovered node & Determine Legal Targets for Player
         let board_mouse = (viewport_mouse_pos - origin) / scale;
         let hit_radius = 36.0;
 

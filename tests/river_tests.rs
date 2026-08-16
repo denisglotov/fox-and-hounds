@@ -1,0 +1,152 @@
+use fox_and_hounds::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
+use fox_and_hounds::ui::river::{RiverPath, RiverSimulation};
+use macroquad::prelude::Vec2;
+use std::time::Instant;
+
+#[test]
+fn test_river_path_continuity_and_board_bounds() {
+    let path = RiverPath::new();
+    assert!(
+        path.total_length > 700.0 && path.total_length < 1200.0,
+        "River total length {} is out of expected span",
+        path.total_length
+    );
+
+    // Verify samples along the full arc length
+    let num_checks = 100;
+    for i in 0..=num_checks {
+        let dist = (i as f32 / num_checks as f32) * path.total_length;
+        for &v in &[-1.0, -0.5, 0.0, 0.5, 1.0] {
+            let (pos, tangent, normal, half_width) = path.sample_at(dist, v);
+
+            // Bounds check
+            assert!(
+                pos.x >= -50.0 && pos.x <= BOARD_IMAGE_WIDTH + 50.0,
+                "River pos.x {} out of board bounds at dist {}, v {}",
+                pos.x,
+                dist,
+                v
+            );
+            assert!(
+                pos.y >= 500.0 && pos.y <= BOARD_IMAGE_HEIGHT,
+                "River pos.y {} out of river corridor at dist {}, v {}",
+                pos.y,
+                dist,
+                v
+            );
+
+            // Vectors & widths check
+            assert!(
+                (tangent.length() - 1.0).abs() < 1e-3,
+                "Tangent should be normalized"
+            );
+            assert!(
+                (normal.length() - 1.0).abs() < 1e-3,
+                "Normal should be normalized"
+            );
+            assert!(
+                tangent.dot(normal).abs() < 1e-3,
+                "Normal must be orthogonal to tangent"
+            );
+            assert!(
+                (18.0..=35.0).contains(&half_width),
+                "Half width {} out of bounds",
+                half_width
+            );
+        }
+    }
+}
+
+#[test]
+fn test_river_entrance_and_exit_coordinates() {
+    let path = RiverPath::new();
+
+    // Entrance at s = 0 (Left side near railway)
+    let (start_pos, start_tangent, _, _) = path.sample_at(0.0, 0.0);
+    assert!(
+        (start_pos.x - 0.0).abs() < 1.0,
+        "River must start at left edge x=0, got {}",
+        start_pos.x
+    );
+    assert!(
+        start_pos.y > 1000.0 && start_pos.y < 1035.0,
+        "River start y must be at southwest entrance (~1018), got {}",
+        start_pos.y
+    );
+    assert!(
+        start_tangent.x > 0.5,
+        "River flow must head east/northeast at entrance"
+    );
+
+    // Exit at s = total_length (Right board edge)
+    let (end_pos, end_tangent, _, _) = path.sample_at(path.total_length, 0.0);
+    assert!(
+        (end_pos.x - BOARD_IMAGE_WIDTH).abs() < 2.0,
+        "River must exit at right edge x=848, got {}",
+        end_pos.x
+    );
+    assert!(
+        end_pos.y > 780.0 && end_pos.y < 815.0,
+        "River exit y must be at east bank (~796), got {}",
+        end_pos.y
+    );
+    assert!(end_tangent.x > 0.5, "River flow must head east at exit");
+}
+
+#[test]
+fn test_bridge_occlusion_detection() {
+    let path = RiverPath::new();
+
+    // 1. Under railway bridge (x ≈ 50, y ≈ 1008)
+    let rail_occlusion = path.bridge_occlusion(Vec2::new(50.0, 1008.0));
+    assert!(
+        rail_occlusion > 0.5,
+        "Railway bridge center should have high occlusion, got {}",
+        rail_occlusion
+    );
+
+    // 2. Under M6 wooden bridge (x ≈ 424, y ≈ 908)
+    let wood_occlusion = path.bridge_occlusion(Vec2::new(424.0, 908.0));
+    assert!(
+        wood_occlusion > 0.5,
+        "M6 wooden bridge center should have high occlusion, got {}",
+        wood_occlusion
+    );
+
+    // 3. Open water (not under any bridge)
+    let open_water1 = path.bridge_occlusion(Vec2::new(220.0, 942.0));
+    assert_eq!(
+        open_water1, 0.0,
+        "Open water between bridges should have zero occlusion"
+    );
+
+    let open_water2 = path.bridge_occlusion(Vec2::new(700.0, 835.0));
+    assert_eq!(
+        open_water2, 0.0,
+        "Open water downstream should have zero occlusion"
+    );
+}
+
+#[test]
+fn test_river_simulation_update_and_performance() {
+    let mut sim = RiverSimulation::new();
+    assert_eq!(sim.elapsed_time, 0.0);
+
+    let start = Instant::now();
+    let frames = 10_000;
+    for _ in 0..frames {
+        sim.update(0.016);
+    }
+    let elapsed = start.elapsed();
+    let per_frame_us = elapsed.as_micros() as f64 / frames as f64;
+
+    println!(
+        "RiverSimulation 10,000 updates took: {:?} (approx {:.4} µs / frame)",
+        elapsed, per_frame_us
+    );
+
+    assert!(
+        per_frame_us < 1.0,
+        "River simulation update must be ultra-fast (< 1 microsecond)"
+    );
+}
