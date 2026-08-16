@@ -14,8 +14,8 @@ pub struct LevelConfig {
 
 pub const RIVER_CROSSING_CONFIG: LevelConfig = LevelConfig {
     name: "The River Crossing",
-    description: "3x10 board with a river bottleneck on Row 7 and diamond connectivity",
-    fox_start_node: "M10",
+    description: "3x9 board with a river bottleneck on Row 6 and diamond connectivity",
+    fox_start_node: "M9",
     hounds_start_nodes: &["L1", "M1", "R1"],
     target_coop_node: "M0",
 };
@@ -23,17 +23,16 @@ pub const RIVER_CROSSING_CONFIG: LevelConfig = LevelConfig {
 pub fn build_river_crossing_graph() -> Graph {
     let col_x = [190.0, 424.0, 658.0];
     let row_y = [
-        95.0,   // Row 0
-        198.0,  // Row 1
-        302.0,  // Row 2
-        406.0,  // Row 3
-        510.0,  // Row 4
-        614.0,  // Row 5
-        718.0,  // Row 6
-        822.0,  // Row 7
-        926.0,  // Row 8
-        1030.0, // Row 9
-        1134.0, // Row 10
+        214.0,  // Row 0 (Coop)
+        327.8,  // Row 1
+        441.6,  // Row 2
+        555.3,  // Row 3
+        669.1,  // Row 4
+        782.9,  // Row 5
+        896.7,  // Row 6 (Bridge Bottleneck)
+        1010.4, // Row 7
+        1124.2, // Row 8
+        1238.0, // Row 9 (Fox Den)
     ];
 
     let raw_nodes = vec![
@@ -150,32 +149,32 @@ pub fn build_river_crossing_graph() -> Graph {
             Vec2::new(col_x[2], row_y[5]),
         ),
         (
-            "L6",
-            6,
-            0,
-            NodeType::Standard,
-            Vec2::new(col_x[0], row_y[6]),
-        ),
-        (
             "M6",
             6,
             1,
-            NodeType::Standard,
+            NodeType::Bottleneck,
             Vec2::new(col_x[1], row_y[6]),
         ),
         (
-            "R6",
-            6,
-            2,
+            "L7",
+            7,
+            0,
             NodeType::Standard,
-            Vec2::new(col_x[2], row_y[6]),
+            Vec2::new(col_x[0], row_y[7]),
         ),
         (
             "M7",
             7,
             1,
-            NodeType::Bottleneck,
+            NodeType::Standard,
             Vec2::new(col_x[1], row_y[7]),
+        ),
+        (
+            "R7",
+            7,
+            2,
+            NodeType::Standard,
+            Vec2::new(col_x[2], row_y[7]),
         ),
         (
             "L8",
@@ -199,32 +198,11 @@ pub fn build_river_crossing_graph() -> Graph {
             Vec2::new(col_x[2], row_y[8]),
         ),
         (
-            "L9",
-            9,
-            0,
-            NodeType::Standard,
-            Vec2::new(col_x[0], row_y[9]),
-        ),
-        (
             "M9",
             9,
             1,
-            NodeType::Standard,
-            Vec2::new(col_x[1], row_y[9]),
-        ),
-        (
-            "R9",
-            9,
-            2,
-            NodeType::Standard,
-            Vec2::new(col_x[2], row_y[9]),
-        ),
-        (
-            "M10",
-            10,
-            1,
             NodeType::FoxStart,
-            Vec2::new(col_x[1], row_y[10]),
+            Vec2::new(col_x[1], row_y[9]),
         ),
     ];
 
@@ -283,35 +261,26 @@ pub fn build_river_crossing_graph() -> Graph {
         ("M4", "R5"),
         ("L5", "M5"),
         ("M5", "R5"),
-        ("L5", "L6"),
-        ("M5", "M6"),
-        ("R5", "R6"),
         ("L5", "M6"),
+        ("M5", "M6"),
         ("R5", "M6"),
-        ("M5", "L6"),
-        ("M5", "R6"),
-        ("L6", "M6"),
-        ("M6", "R6"),
-        ("L6", "M7"),
+        ("M6", "L7"),
         ("M6", "M7"),
-        ("R6", "M7"),
-        ("M7", "L8"),
+        ("M6", "R7"),
+        ("L7", "M7"),
+        ("M7", "R7"),
+        ("L7", "L8"),
         ("M7", "M8"),
+        ("R7", "R8"),
+        ("L7", "M8"),
+        ("R7", "M8"),
+        ("M7", "L8"),
         ("M7", "R8"),
         ("L8", "M8"),
         ("M8", "R8"),
-        ("L8", "L9"),
-        ("M8", "M9"),
-        ("R8", "R9"),
         ("L8", "M9"),
+        ("M8", "M9"),
         ("R8", "M9"),
-        ("M8", "L9"),
-        ("M8", "R9"),
-        ("L9", "M9"),
-        ("M9", "R9"),
-        ("L9", "M10"),
-        ("M9", "M10"),
-        ("R9", "M10"),
     ];
 
     let name_to_id: std::collections::HashMap<&str, usize> = nodes

@@ -301,9 +301,9 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph, coop_pos: usize) -> 
         _ => 500,
     };
 
-    // 4. Breakthrough bonus: Has the Fox bypassed the hound defensive line?
+    let max_row = graph.nodes.iter().map(|n| n.row).max().unwrap_or(9);
     let min_hound_row = hound_nodes.iter().map(|n| n.row).min().unwrap_or(0);
-    let max_hound_row = hound_nodes.iter().map(|n| n.row).max().unwrap_or(10);
+    let max_hound_row = hound_nodes.iter().map(|n| n.row).max().unwrap_or(max_row);
 
     let breakthrough_bonus = if fox_node.row < min_hound_row {
         8_000 // Fox is past all hounds!
@@ -327,13 +327,17 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph, coop_pos: usize) -> 
         .count() as i32;
     let danger_penalty = close_hounds * -250;
 
-    // 7. Chokepoint (Row 7 / M7) control bonus
-    let bridge_bonus = if board.fox_pos == 19 {
-        // Fox is on M7 bridge
-        400
-    } else if board.hounds_pos.contains(&19) {
-        // Hounds block bridge
-        -500
+    // 7. Chokepoint (Bridge Bottleneck) control bonus
+    let bridge_bonus = if let Some(bridge_node) = graph.nodes.iter().find(|n| n.node_type == NodeType::Bottleneck) {
+        if board.fox_pos == bridge_node.id {
+            // Fox is on bridge
+            400
+        } else if board.hounds_pos.contains(&bridge_node.id) {
+            // Hounds block bridge
+            -500
+        } else {
+            0
+        }
     } else {
         0
     };

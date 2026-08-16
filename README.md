@@ -39,17 +39,17 @@ One clever **Fox** ($\text{F}$) matches wits against a pack of **$N$ Hounds** ($
 
 ---
 
-## 🗺️ Featured Level: "The River Crossing" (3x10 Bottleneck)
+## 🗺️ Featured Level: "The River Crossing" (3x9 Bottleneck)
 
-A tactical campaign map featuring open flanking grounds, a river bottleneck bridge on Row 7, and the Chicken Coop behind the Hounds' defensive line.
+A tactical campaign map featuring open flanking grounds, a river bottleneck bridge on Row 6, and the Chicken Coop behind the Hounds' defensive line.
 
 ### Graph Architecture
 - **Row 0** (Goal): `M0` — The Chicken Coop target vertex (1 vertex).
 - **Row 1** (Hounds Start): `L1`, `M1`, `R1` — Starting posts of the 3 Hounds (3 vertices).
-- **Rows 2–6** (North Fields): 3 vertices per row (`L`eft, `M`iddle, `R`ight) with centrally symmetric diamond-grid connectivity.
-- **Row 7** (The Bottleneck): `M7` — A single chokepoint bridge over the river connecting North and South fields (1 vertex).
-- **Rows 8–9** (South Fields): 3 vertices per row (`L`eft, `M`iddle, `R`ight).
-- **Row 10** (Fox Start): `M10` — The Fox Den start vertex (1 vertex).
+- **Rows 2–5** (North Fields): 3 vertices per row (`L`eft, `M`iddle, `R`ight) with centrally symmetric diamond-grid connectivity.
+- **Row 6** (The Bottleneck): `M6` — A single chokepoint bridge over the river connecting North and South fields (1 vertex).
+- **Rows 7–8** (South Fields): 3 vertices per row (`L`eft, `M`iddle, `R`ight).
+- **Row 9** (Fox Start): `M9` — The Fox Den start vertex (1 vertex).
 
 ---
 
@@ -80,11 +80,10 @@ graph FoxAndHounds {
     { rank=same; L3; M3; R3; }
     { rank=same; L4; M4; R4; }
     { rank=same; L5; M5; R5; }
-    { rank=same; L6; M6; R6; }
-    { rank=same; M7 [label="M7"]; }
+    { rank=same; M6 [label="M6"]; }
+    { rank=same; L7; M7; R7; }
     { rank=same; L8; M8; R8; }
-    { rank=same; L9; M9; R9; }
-    { rank=same; M10 [label="🦊 M10", fillcolor="#ffcc80", color="#e65100", penwidth=2.5]; }
+    { rank=same; M9 [label="🦊 M9", fillcolor="#ffcc80", color="#e65100", penwidth=2.5]; }
 
     // Row 0 <-> Row 1
     M0 -- {L1; M1; R1};
@@ -95,24 +94,22 @@ graph FoxAndHounds {
     L3 -- M3 -- R3;
     L4 -- M4 -- R4;
     L5 -- M5 -- R5;
-    L6 -- M6 -- R6;
+    L7 -- M7 -- R7;
     L8 -- M8 -- R8;
-    L9 -- M9 -- R9;
 
-    // Symmetric North Field Edges (Rows 1 to 6)
+    // Symmetric North Field Edges (Rows 1 to 5)
     L1 -- {L2; M2};  M1 -- {L2; M2; R2};  R1 -- {M2; R2};
     L2 -- {L3; M3};  M2 -- {L3; M3; R3};  R2 -- {M3; R3};
     L3 -- {L4; M4};  M3 -- {L4; M4; R4};  R3 -- {M4; R4};
     L4 -- {L5; M5};  M4 -- {L5; M5; R5};  R4 -- {M5; R5};
-    L5 -- {L6; M6};  M5 -- {L6; M6; R6};  R5 -- {M6; R6};
 
-    // Bottleneck River Bridge (Row 6 <-> Row 7 <-> Row 8)
-    {L6; M6; R6} -- M7;
-    M7 -- {L8; M8; R8};
+    // Bottleneck River Bridge (Row 5 <-> Row 6 <-> Row 7)
+    {L5; M5; R5} -- M6;
+    M6 -- {L7; M7; R7};
 
-    // Symmetric South Field Edges (Rows 8 to 10)
-    L8 -- {L9; M9};  M8 -- {L9; M9; R9};  R8 -- {M9; R9};
-    {L9; M9; R9} -- M10;
+    // Symmetric South Field Edges (Rows 7 to 9)
+    L7 -- {L8; M8};  M7 -- {L8; M8; R8};  R7 -- {M8; R8};
+    {L8; M8; R8} -- M9;
 }
 ```
 
@@ -125,13 +122,13 @@ Structured graph representation matching the symmetric level layout for programm
 ```json
 {
   "name": "The River Crossing",
-  "description": "3x10 board with a river bottleneck on Row 7 and centrally symmetric diamond connectivity",
+  "description": "3x9 board with a river bottleneck on Row 6 and centrally symmetric diamond connectivity",
   "dimensions": {
-    "rows": 11,
+    "rows": 10,
     "max_width": 3
   },
   "initial_state": {
-    "fox_start": "M10",
+    "fox_start": "M9",
     "hounds_start": ["L1", "M1", "R1"],
     "coop_targets": ["M0"],
     "current_turn": "Fox"
@@ -153,17 +150,14 @@ Structured graph representation matching the symmetric level layout for programm
     { "id": "L5", "row": 5, "col": 0, "type": "standard" },
     { "id": "M5", "row": 5, "col": 1, "type": "standard" },
     { "id": "R5", "row": 5, "col": 2, "type": "standard" },
-    { "id": "L6", "row": 6, "col": 0, "type": "standard" },
-    { "id": "M6", "row": 6, "col": 1, "type": "standard" },
-    { "id": "R6", "row": 6, "col": 2, "type": "standard" },
-    { "id": "M7", "row": 7, "col": 1, "type": "bottleneck" },
+    { "id": "M6", "row": 6, "col": 1, "type": "bottleneck" },
+    { "id": "L7", "row": 7, "col": 0, "type": "standard" },
+    { "id": "M7", "row": 7, "col": 1, "type": "standard" },
+    { "id": "R7", "row": 7, "col": 2, "type": "standard" },
     { "id": "L8", "row": 8, "col": 0, "type": "standard" },
     { "id": "M8", "row": 8, "col": 1, "type": "standard" },
     { "id": "R8", "row": 8, "col": 2, "type": "standard" },
-    { "id": "L9", "row": 9, "col": 0, "type": "standard" },
-    { "id": "M9", "row": 9, "col": 1, "type": "standard" },
-    { "id": "R9", "row": 9, "col": 2, "type": "standard" },
-    { "id": "M10", "row": 10, "col": 1, "type": "fox_start" }
+    { "id": "M9", "row": 9, "col": 1, "type": "fox_start" }
   ],
   "edges": [
     ["M0", "L1"], ["M0", "M1"], ["M0", "R1"],
@@ -180,16 +174,13 @@ Structured graph representation matching the symmetric level layout for programm
     ["L4", "L5"], ["M4", "M5"], ["R4", "R5"],
     ["L4", "M5"], ["R4", "M5"], ["M4", "L5"], ["M4", "R5"],
     ["L5", "M5"], ["M5", "R5"],
-    ["L5", "L6"], ["M5", "M6"], ["R5", "R6"],
-    ["L5", "M6"], ["R5", "M6"], ["M5", "L6"], ["M5", "R6"],
-    ["L6", "M6"], ["M6", "R6"],
-    ["L6", "M7"], ["M6", "M7"], ["R6", "M7"],
-    ["M7", "L8"], ["M7", "M8"], ["M7", "R8"],
+    ["L5", "M6"], ["M5", "M6"], ["R5", "M6"],
+    ["M6", "L7"], ["M6", "M7"], ["M6", "R7"],
+    ["L7", "M7"], ["M7", "R7"],
+    ["L7", "L8"], ["M7", "M8"], ["R7", "R8"],
+    ["L7", "M8"], ["R7", "M8"], ["M7", "L8"], ["M7", "R8"],
     ["L8", "M8"], ["M8", "R8"],
-    ["L8", "L9"], ["M8", "M9"], ["R8", "R9"],
-    ["L8", "M9"], ["R8", "M9"], ["M8", "L9"], ["M8", "R9"],
-    ["L9", "M9"], ["M9", "R9"],
-    ["L9", "M10"], ["M9", "M10"], ["R9", "M10"]
+    ["L8", "M9"], ["M8", "M9"], ["R8", "M9"]
   ]
 }
 ```
@@ -199,11 +190,11 @@ Structured graph representation matching the symmetric level layout for programm
 ## 🎯 Key Strategic Concepts
 
 ### For the Fox 🦊
-1. **Bottleneck Timing**: The bridge at Row 7 (`M7`) is both a barrier and a launchpad. The Fox should feint on Row 8/9 to lure hounds out of formation before dashing through `M7`.
+1. **Bottleneck Timing**: The bridge at Row 6 (`M6`) is both a barrier and a launchpad. The Fox should feint on Row 7/8 to lure hounds out of formation before dashing through `M6`.
 2. **Tempo & Flanking**: Draw two hounds toward one flank, then pivot through the symmetric diagonal connections to exploit the vacant opposite lane.
 3. **Penetration Victory**: Once past the defensive line into Row 1, the Hound pack cannot recover if the Chicken Coop (`M0`) is within one move.
 
 ### For the Hounds 🐶
 1. **Cohesive Wall Formation**: Hounds should advance in rank or hold key cross-lanes (`L`, `M`, `R`) to prevent the Fox from slipping between gaps.
-2. **Bridge Lockout**: Controlling `M7` or establishing a blockade on Row 6 (`L6`, `M6`, `R6`) prevents the Fox from crossing the river.
+2. **Bridge Lockout**: Controlling `M6` or establishing a blockade on Row 5 (`L5`, `M5`, `R5`) prevents the Fox from crossing the river.
 3. **Corner Containment**: Drive the Fox toward boundary nodes (`L` or `R`) and collapse adjacent degrees of freedom to achieve checkmate (0 legal moves).

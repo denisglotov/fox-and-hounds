@@ -99,7 +99,7 @@ impl GameState {
         let graph = build_river_crossing_graph();
         let fox_pos = graph
             .find_id_by_name(RIVER_CROSSING_CONFIG.fox_start_node)
-            .unwrap_or(26);
+            .unwrap_or_else(|| graph.nodes.len().saturating_sub(1));
         let hounds_pos = RIVER_CROSSING_CONFIG
             .hounds_start_nodes
             .iter()
@@ -138,7 +138,7 @@ impl GameState {
         self.fox_pos = self
             .graph
             .find_id_by_name(RIVER_CROSSING_CONFIG.fox_start_node)
-            .unwrap_or(26);
+            .unwrap_or_else(|| self.graph.nodes.len().saturating_sub(1));
         self.hounds_pos = RIVER_CROSSING_CONFIG
             .hounds_start_nodes
             .iter()

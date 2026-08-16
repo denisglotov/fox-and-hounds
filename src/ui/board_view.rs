@@ -1,4 +1,5 @@
 use crate::audio::SoundTrigger;
+use crate::game::graph::NodeType;
 use crate::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
 use crate::ui::{draw_text_styled, measure_text_styled};
@@ -246,8 +247,8 @@ impl BoardView {
             };
             let base_color = if node.id == state.coop_pos {
                 Color::from_rgba(255, 215, 0, 140)
-            } else if node.id == 19 {
-                // M7 Bridge Chokepoint
+            } else if node.node_type == NodeType::Bottleneck {
+                // Bridge Chokepoint
                 Color::from_rgba(79, 195, 247, 90)
             } else {
                 Color::from_rgba(255, 255, 255, 45)
@@ -278,42 +279,7 @@ impl BoardView {
     fn draw_pieces(&self, state: &GameState, origin: Vec2, scale: f32, t: f32) {
         let pulse = (t * 3.5).sin() * 0.5 + 0.5;
 
-        // 1. Draw Chicken Coop on M0
-        if let Some(coop_node) = state.graph.node(state.coop_pos) {
-            let pos = origin + coop_node.visual_pos * scale;
-            let coop_r = (26.0 + pulse * 3.0) * scale;
-
-            // Golden Beacon Aura
-            draw_circle(pos.x, pos.y, coop_r, Color::from_rgba(255, 193, 7, 70));
-            draw_circle(
-                pos.x,
-                pos.y,
-                22.0 * scale,
-                Color::from_rgba(255, 224, 130, 230),
-            );
-            draw_circle_lines(
-                pos.x,
-                pos.y,
-                22.0 * scale,
-                2.5 * scale,
-                Color::from_rgba(255, 143, 0, 255),
-            );
-
-            // Chicken Coop Icon
-            let icon_text = "🐔";
-            let font_size = (24.0 * scale) as u16;
-            let text_dims = measure_text_styled(icon_text, font_size, self.font.as_ref());
-            draw_text_styled(
-                icon_text,
-                pos.x - text_dims.width / 2.0,
-                pos.y + text_dims.height / 3.0,
-                font_size,
-                WHITE,
-                self.font.as_ref(),
-            );
-        }
-
-        // 2. Draw Hounds
+        // 1. Draw Hounds
         for (idx, &hound_pos) in state.hounds_pos.iter().enumerate() {
             let is_selected = state.selected_hound_idx == Some(idx);
             let hound_node = state.graph.node(hound_pos);
@@ -398,7 +364,7 @@ impl BoardView {
             );
         }
 
-        // 3. Draw Fox
+        // 2. Draw Fox
         let fox_node = state.graph.node(state.fox_pos);
         let visual_pos = if let Some(anim) = &state.active_anim {
             if anim.faction == Faction::Fox {

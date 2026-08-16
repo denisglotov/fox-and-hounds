@@ -6,7 +6,7 @@ use fox_and_hounds::game::state::{Difficulty, Faction, GamePhase, GameResult, Ga
 #[test]
 fn test_graph_structure() {
     let graph = build_river_crossing_graph();
-    assert_eq!(graph.node_count(), 27);
+    assert_eq!(graph.node_count(), 24);
 
     // M0 should be TargetCoop
     let m0_idx = graph.find_id_by_name("M0").expect("M0 should exist");
@@ -14,23 +14,23 @@ fn test_graph_structure() {
     assert_eq!(m0_node.node_type, NodeType::TargetCoop);
     assert_eq!(m0_node.row, 0);
 
-    // M7 should be Bottleneck
-    let m7_idx = graph.find_id_by_name("M7").expect("M7 should exist");
-    let m7_node = graph.node(m7_idx).unwrap();
-    assert_eq!(m7_node.node_type, NodeType::Bottleneck);
-    assert_eq!(m7_node.row, 7);
+    // M6 should be Bottleneck
+    let m6_idx = graph.find_id_by_name("M6").expect("M6 should exist");
+    let m6_node = graph.node(m6_idx).unwrap();
+    assert_eq!(m6_node.node_type, NodeType::Bottleneck);
+    assert_eq!(m6_node.row, 6);
 
-    // M10 should be FoxStart
-    let m10_idx = graph.find_id_by_name("M10").expect("M10 should exist");
-    let m10_node = graph.node(m10_idx).unwrap();
-    assert_eq!(m10_node.node_type, NodeType::FoxStart);
-    assert_eq!(m10_node.row, 10);
+    // M9 should be FoxStart
+    let m9_idx = graph.find_id_by_name("M9").expect("M9 should exist");
+    let m9_node = graph.node(m9_idx).unwrap();
+    assert_eq!(m9_node.node_type, NodeType::FoxStart);
+    assert_eq!(m9_node.row, 9);
 
-    // Shortest distance from M10 to M0 with no obstacles should be 10
+    // Shortest distance from M9 to M0 with no obstacles should be 9
     let dist = graph
-        .shortest_distance(m10_idx, m0_idx, &[])
+        .shortest_distance(m9_idx, m0_idx, &[])
         .expect("Path should exist");
-    assert_eq!(dist, 10);
+    assert_eq!(dist, 9);
 }
 
 #[test]
@@ -42,17 +42,17 @@ fn test_initial_state_and_legal_moves() {
     assert_eq!(state.result, GameResult::Ongoing);
     assert_eq!(state.phase, GamePhase::Playing);
 
-    // Fox starts at M10 (Row 10)
-    // Neighbors of M10 are L9, M9, R9
+    // Fox starts at M9 (Row 9)
+    // Neighbors of M9 are L8, M8, R8
     let legal_fox_moves = state.fox_legal_moves();
     assert_eq!(legal_fox_moves.len(), 3);
 
-    // Make a legal move to M9
-    let m9_idx = state.graph.find_id_by_name("M9").unwrap();
-    assert!(legal_fox_moves.contains(&m9_idx));
-    assert!(state.apply_fox_move(m9_idx).is_ok());
+    // Make a legal move to M8
+    let m8_idx = state.graph.find_id_by_name("M8").unwrap();
+    assert!(legal_fox_moves.contains(&m8_idx));
+    assert!(state.apply_fox_move(m8_idx).is_ok());
 
-    assert_eq!(state.fox_pos, m9_idx);
+    assert_eq!(state.fox_pos, m8_idx);
     assert_eq!(state.current_turn, Faction::Hounds);
 }
 
@@ -85,13 +85,13 @@ fn test_hounds_trap_victory_condition() {
     let mut state = GameState::new();
     state.start_game(Faction::Hounds, Difficulty::Medium);
 
-    // Trap fox in corner (e.g. M10 surrounded by L9, M9, R9)
-    let m10_idx = state.graph.find_id_by_name("M10").unwrap();
-    state.fox_pos = m10_idx;
+    // Trap fox in corner (e.g. M9 surrounded by L8, M8, R8)
+    let m9_idx = state.graph.find_id_by_name("M9").unwrap();
+    state.fox_pos = m9_idx;
     state.hounds_pos = vec![
-        state.graph.find_id_by_name("L9").unwrap(),
-        state.graph.find_id_by_name("M9").unwrap(),
-        state.graph.find_id_by_name("R9").unwrap(),
+        state.graph.find_id_by_name("L8").unwrap(),
+        state.graph.find_id_by_name("M8").unwrap(),
+        state.graph.find_id_by_name("R8").unwrap(),
     ];
     state.current_turn = Faction::Fox;
 
