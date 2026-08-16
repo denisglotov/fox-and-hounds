@@ -1,5 +1,9 @@
 # Fox and Hounds
 
+<p align="center">
+  <img src="assets/fox_and_dogs.png" alt="Fox and Hounds" width="600" />
+</p>
+
 A turn-based asymmetric pursuit-evasion game played on arbitrary graph topologies.
 
 One clever **Fox** ($\text{F}$) matches wits against a pack of **$N$ Hounds** ($\text{H}_1, \text{H}_2, \dots, \text{H}_N$). The Fox aims to slip past the pack and infiltrate the **Chicken Coop**, while the Hounds must coordinate as a cohesive unit to encircle and immobilize the Fox.
