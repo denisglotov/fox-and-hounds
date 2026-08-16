@@ -10,8 +10,16 @@ pub struct BoardView {
     pub hound1_texture: Option<Texture2D>,
     pub hound2_texture: Option<Texture2D>,
     pub hound3_texture: Option<Texture2D>,
+    pub hound_angles: [f32; 3],
+    pub fox_angle: f32,
     pub hover_node_id: Option<usize>,
     pub font: Option<Font>,
+}
+
+fn lerp_angle(current: f32, target: f32, speed: f32, dt: f32) -> f32 {
+    let diff = (target - current + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
+        - std::f32::consts::PI;
+    current + diff * (1.0 - (-speed * dt).exp())
 }
 
 impl BoardView {
@@ -67,6 +75,8 @@ impl BoardView {
             hound1_texture,
             hound2_texture,
             hound3_texture,
+            hound_angles: [0.0; 3],
+            fox_angle: 0.0,
             hover_node_id: None,
             font,
         }
@@ -284,10 +294,49 @@ impl BoardView {
         }
     }
 
-    fn draw_pieces(&self, state: &GameState, origin: Vec2, scale: f32, t: f32) {
+    fn draw_pieces(&mut self, state: &GameState, origin: Vec2, scale: f32, t: f32) {
         let pulse = (t * 3.5).sin() * 0.5 + 0.5;
+        let dt = get_frame_time().min(0.1);
 
-        // 1. Draw Hounds (Left: Terrier/User's dog, Mid: Beagle, Right: Golden)
+        // 1. Calculate live visual position of Fox for Hound tracking
+        let fox_node = state.graph.node(state.fox_pos);
+        let is_fox_moving = state
+            .active_anim
+            .as_ref()
+            .is_some_and(|anim| anim.faction == Faction::Fox);
+
+        let (fox_visual_pos, fox_jump_lift, fox_target_rot) = if is_fox_moving {
+            let anim = state.active_anim.as_ref().unwrap();
+            let ease = 1.0 - (1.0 - anim.progress).powi(2);
+            let pos = anim.from.lerp(anim.to, ease);
+            let jump = (anim.progress * std::f32::consts::PI).sin() * 26.0;
+
+            // Dynamic rotation along Fox movement trajectory
+            let delta = anim.to - anim.from;
+            let angle = (delta.y).atan2(delta.x) + std::f32::consts::FRAC_PI_2;
+            (pos, jump, angle)
+        } else if let Some(n) = fox_node {
+            // While idle, orient towards Chicken Coop
+            let coop_pos = state
+                .graph
+                .node(state.coop_pos)
+                .map(|cn| cn.visual_pos)
+                .unwrap_or(Vec2::ZERO);
+            let delta = coop_pos - n.visual_pos;
+            let angle = if delta.length_squared() > 1e-4 {
+                (delta.y).atan2(delta.x) + std::f32::consts::FRAC_PI_2
+            } else {
+                0.0
+            };
+            (n.visual_pos, 0.0, angle)
+        } else {
+            (Vec2::ZERO, 0.0, 0.0)
+        };
+
+        // Smoothly interpolate Fox rotation angle
+        self.fox_angle = lerp_angle(self.fox_angle, fox_target_rot, 10.0, dt);
+
+        // 2. Draw Hounds (Left: Terrier/User's dog, Mid: Beagle, Right: Golden)
         for (idx, &hound_pos) in state.hounds_pos.iter().enumerate() {
             let is_selected = state.selected_hound_idx == Some(idx);
             let hound_node = state.graph.node(hound_pos);
@@ -299,21 +348,31 @@ impl BoardView {
                     })
             });
 
-            let (visual_pos, jump_lift, move_rot) = if is_moving {
+            let (visual_pos, jump_lift, target_hound_rot) = if is_moving {
                 let anim = state.active_anim.as_ref().unwrap();
                 let ease = 1.0 - (1.0 - anim.progress).powi(2);
                 let pos = anim.from.lerp(anim.to, ease);
                 let jump = (anim.progress * std::f32::consts::PI).sin() * 24.0;
 
-                // Dynamic rotation during move
+                // Face movement path during leap
                 let delta = anim.to - anim.from;
                 let angle = (delta.y).atan2(delta.x) - std::f32::consts::FRAC_PI_2;
                 (pos, jump, angle)
             } else if let Some(n) = hound_node {
-                (n.visual_pos, 0.0, 0.0)
+                // When stationary/idle: Face directly towards the Fox's live position!
+                let to_fox = fox_visual_pos - n.visual_pos;
+                let angle = if to_fox.length_squared() > 1e-4 {
+                    (to_fox.y).atan2(to_fox.x) - std::f32::consts::FRAC_PI_2
+                } else {
+                    0.0
+                };
+                (n.visual_pos, 0.0, angle)
             } else {
                 (Vec2::ZERO, 0.0, 0.0)
             };
+
+            // Smoothly interpolate Hound angle towards target (Fox or move direction)
+            self.hound_angles[idx] = lerp_angle(self.hound_angles[idx], target_hound_rot, 12.0, dt);
 
             let ground_pos = origin + visual_pos * scale;
             let pick_up_lift = if is_selected { 8.0 * scale } else { 0.0 };
@@ -359,14 +418,14 @@ impl BoardView {
             };
 
             if let Some(tex) = hound_tex {
-                // Subtle breathing / idle sway
+                // Subtle breathing / idle micro-sway
                 let idle_breathe = if !is_moving {
                     (t * 3.0 + idx as f32 * 1.5).sin() * 0.02
                 } else {
                     0.0
                 };
                 let idle_sway = if !is_moving {
-                    (t * 2.5 + idx as f32 * 1.2).sin() * 0.03
+                    (t * 2.5 + idx as f32 * 1.2).sin() * 0.02
                 } else {
                     0.0
                 };
@@ -375,7 +434,7 @@ impl BoardView {
                 let aspect = tex.width() / tex.height();
                 let target_w = target_h * aspect;
 
-                let rot = move_rot + idle_sway;
+                let rot = self.hound_angles[idx] + idle_sway;
 
                 draw_texture_ex(
                     tex,
@@ -392,31 +451,9 @@ impl BoardView {
             }
         }
 
-        // 2. Draw Fox
-        let fox_node = state.graph.node(state.fox_pos);
-        let is_fox_moving = state
-            .active_anim
-            .as_ref()
-            .is_some_and(|anim| anim.faction == Faction::Fox);
-
-        let (visual_pos, jump_lift, move_rot) = if is_fox_moving {
-            let anim = state.active_anim.as_ref().unwrap();
-            let ease = 1.0 - (1.0 - anim.progress).powi(2);
-            let pos = anim.from.lerp(anim.to, ease);
-            let jump = (anim.progress * std::f32::consts::PI).sin() * 26.0;
-
-            // Dynamic rotation during Fox move
-            let delta = anim.to - anim.from;
-            let angle = (delta.y).atan2(delta.x) + std::f32::consts::FRAC_PI_2;
-            (pos, jump, angle)
-        } else if let Some(n) = fox_node {
-            (n.visual_pos, 0.0, 0.0)
-        } else {
-            (Vec2::ZERO, 0.0, 0.0)
-        };
-
-        let ground_pos = origin + visual_pos * scale;
-        let render_pos = Vec2::new(ground_pos.x, ground_pos.y - (jump_lift * scale));
+        // 3. Draw Fox
+        let ground_pos = origin + fox_visual_pos * scale;
+        let render_pos = Vec2::new(ground_pos.x, ground_pos.y - (fox_jump_lift * scale));
 
         // Active Turn Glow for Fox
         if state.current_turn == Faction::Fox {
@@ -442,7 +479,7 @@ impl BoardView {
                 0.0
             };
             let idle_sway = if !is_fox_moving {
-                (t * 2.2).sin() * 0.03
+                (t * 2.2).sin() * 0.02
             } else {
                 0.0
             };
@@ -451,7 +488,7 @@ impl BoardView {
             let aspect = tex.width() / tex.height();
             let target_w = target_h * aspect;
 
-            let rot = move_rot + idle_sway;
+            let rot = self.fox_angle + idle_sway;
 
             draw_texture_ex(
                 tex,
