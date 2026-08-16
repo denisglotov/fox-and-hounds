@@ -315,7 +315,13 @@ impl BoardView {
         }
     }
 
-    fn draw_pieces(&mut self, state: &GameState, origin: Vec2, scale: f32, t: f32) -> Option<SoundTrigger> {
+    fn draw_pieces(
+        &mut self,
+        state: &GameState,
+        origin: Vec2,
+        scale: f32,
+        t: f32,
+    ) -> Option<SoundTrigger> {
         let pulse = (t * 3.5).sin() * 0.5 + 0.5;
         let dt = get_frame_time().min(0.1);
         let mut waf_sound = None;
@@ -392,7 +398,8 @@ impl BoardView {
                 // If white dog (idx 0) and train is active: Face directly towards the moving train!
                 let angle = if is_waffing {
                     let train_loco_y = self.train.train_locomotive_y().unwrap_or(0.0);
-                    let to_train = Vec2::new(crate::ui::train::TRACK_X, train_loco_y) - n.visual_pos;
+                    let to_train =
+                        Vec2::new(crate::ui::train::TRACK_X, train_loco_y) - n.visual_pos;
                     if to_train.length_squared() > 1e-4 {
                         (to_train.y).atan2(to_train.x) - std::f32::consts::FRAC_PI_2
                     } else {
@@ -414,7 +421,8 @@ impl BoardView {
 
             // Smoothly interpolate Hound angle towards target
             let rot_speed = if is_waffing { 16.0 } else { 12.0 };
-            self.hound_angles[idx] = lerp_angle(self.hound_angles[idx], target_hound_rot, rot_speed, dt);
+            self.hound_angles[idx] =
+                lerp_angle(self.hound_angles[idx], target_hound_rot, rot_speed, dt);
 
             let ground_pos = origin + visual_pos * scale;
             let pick_up_lift = if is_selected { 8.0 * scale } else { 0.0 };
