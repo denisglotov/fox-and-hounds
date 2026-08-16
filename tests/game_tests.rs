@@ -199,3 +199,108 @@ fn test_hounds_cannot_occupy_chicken_coop() {
         assert_ne!(to, m0_idx, "AI should never pick Chicken Coop for Hound");
     }
 }
+
+#[test]
+fn test_hound_ai_advances_from_start() {
+    let mut state = GameState::new();
+    state.start_game(Faction::Fox, Difficulty::Medium); // Player is Fox, AI is Hounds
+
+    // Fox moves M9 -> M8
+    let m8_idx = state.graph.find_id_by_name("M8").unwrap();
+    assert!(state.apply_fox_move(m8_idx).is_ok());
+    assert_eq!(state.current_turn, Faction::Hounds);
+
+    // AI Hound chooses move
+    let best_move = find_best_move(&state).expect("AI should find a move for Hounds");
+    if let fox_and_hounds::game::state::PieceMove::HoundMove {
+        hound_idx,
+        from,
+        to,
+    } = best_move
+    {
+        let from_node = state.graph.node(from).unwrap();
+        let to_node = state.graph.node(to).unwrap();
+        // The hound must advance from Row 1 to Row 2
+        assert_eq!(from_node.row, 1);
+        assert_eq!(to_node.row, 2, "Hound {hound_idx} should advance to Row 2");
+    } else {
+        panic!("Expected a HoundMove");
+    }
+}
+
+#[test]
+fn test_hound_ai_pursues_and_tightens_perimeter() {
+    let mut state = GameState::new();
+    state.start_game(Faction::Fox, Difficulty::Hard);
+
+    // Place Fox at M8, and Hounds across row 5
+    let m8_idx = state.graph.find_id_by_name("M8").unwrap();
+    let l5_idx = state.graph.find_id_by_name("L5").unwrap();
+    let m5_idx = state.graph.find_id_by_name("M5").unwrap();
+    let r5_idx = state.graph.find_id_by_name("R5").unwrap();
+    let m6_idx = state.graph.find_id_by_name("M6").unwrap();
+
+    state.fox_pos = m8_idx;
+    state.hounds_pos = vec![l5_idx, m5_idx, r5_idx];
+    state.current_turn = Faction::Hounds;
+
+    let best_move = find_best_move(&state).expect("AI should find a move");
+    if let fox_and_hounds::game::state::PieceMove::HoundMove { to, from, .. } = best_move {
+        let to_node = state.graph.node(to).unwrap();
+        let from_node = state.graph.node(from).unwrap();
+        assert_eq!(from_node.row, 5);
+        assert_eq!(to, m6_idx, "AI Hound should take the bottleneck bridge M6");
+        assert_eq!(to_node.row, 6);
+    } else {
+        panic!("Expected a HoundMove");
+    }
+}
+
+#[test]
+fn test_multi_turn_hounds_advance_and_surround() {
+    let mut state = GameState::new();
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    // Start with Fox at M9. Over multiple turns, Fox moves between M9 and L8/R8
+    // while AI Hounds take turns.
+    let initial_avg_row: f32 = state
+        .hounds_pos
+        .iter()
+        .map(|&p| state.graph.node(p).unwrap().row as f32)
+        .sum::<f32>()
+        / 3.0;
+    assert_eq!(initial_avg_row, 1.0);
+
+    for _ in 0..4 {
+        // Fox turn: pick legal move that stays in rows 8-9 if possible
+        let fox_moves = state.fox_legal_moves();
+        if fox_moves.is_empty() {
+            break;
+        }
+        let chosen_fox_move = *fox_moves
+            .iter()
+            .max_by_key(|&&m| state.graph.node(m).unwrap().row)
+            .unwrap();
+        assert!(state.apply_fox_move(chosen_fox_move).is_ok());
+
+        // Hound AI turn
+        if let Some(fox_and_hounds::game::state::PieceMove::HoundMove { hound_idx, to, .. }) =
+            find_best_move(&state)
+        {
+            assert!(state.apply_hound_move(hound_idx, to).is_ok());
+        }
+    }
+
+    let end_avg_row: f32 = state
+        .hounds_pos
+        .iter()
+        .map(|&p| state.graph.node(p).unwrap().row as f32)
+        .sum::<f32>()
+        / 3.0;
+
+    // Hounds should have progressed significantly from Row 1 down toward Fox
+    assert!(
+        end_avg_row > 2.0,
+        "Hounds should advance down the board over turns (got avg row {end_avg_row})"
+    );
+}

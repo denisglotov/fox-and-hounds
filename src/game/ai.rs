@@ -150,13 +150,22 @@ fn find_best_fox_move(
         }
     }
 
-    // In Easy difficulty, occasionally choose second best if available
+    // In Easy difficulty, occasionally choose random candidate if available
     let chosen = match difficulty {
         Difficulty::Easy if candidate_moves.len() > 1 => {
             let idx = (macroquad::rand::gen_range(0, candidate_moves.len())) as usize;
             candidate_moves[idx]
         }
-        _ => candidate_moves[0],
+        _ => {
+            // Pick candidate with best immediate static evaluation
+            *candidate_moves
+                .iter()
+                .max_by_key(|&&to| {
+                    let next_b = board.apply_fox_move(to);
+                    evaluate_board(&next_b, graph, coop_pos)
+                })
+                .unwrap_or(&candidate_moves[0])
+        }
     };
 
     Some(PieceMove::FoxMove { to: chosen })
@@ -195,7 +204,16 @@ fn find_best_hound_move(
             let idx = (macroquad::rand::gen_range(0, candidate_moves.len())) as usize;
             candidate_moves[idx]
         }
-        _ => candidate_moves[0],
+        _ => {
+            // Pick candidate with lowest (best for Hounds) immediate static evaluation
+            *candidate_moves
+                .iter()
+                .min_by_key(|&&(hound_idx, to)| {
+                    let next_b = board.apply_hound_move(hound_idx, to);
+                    evaluate_board(&next_b, graph, coop_pos)
+                })
+                .unwrap_or(&candidate_moves[0])
+        }
     };
 
     Some(PieceMove::HoundMove {
@@ -205,7 +223,7 @@ fn find_best_hound_move(
     })
 }
 
-fn minimax(
+pub fn minimax(
     board: &BoardSnapshot,
     graph: &Graph,
     coop_pos: usize,
@@ -282,75 +300,101 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph, coop_pos: usize) -> 
         .filter_map(|&pos| graph.node(pos))
         .collect();
 
-    // 1. Shortest path distance to coop (ignoring or factoring hounds)
-    let shortest_dist = graph
-        .shortest_distance(board.fox_pos, coop_pos, &board.hounds_pos)
-        .unwrap_or(20);
-    let dist_to_coop_score = (15 - shortest_dist as i32) * 250;
-
-    // 2. Row progression score (Row 0 is target, Row 10 is start)
-    let row_progress = (10 - fox_node.row as i32) * 120;
-
-    // 3. Fox degrees of freedom / mobility
-    let fox_degrees = board.fox_legal_moves(graph).len() as i32;
-    let mobility_score = match fox_degrees {
-        0 => -WIN_SCORE,
-        1 => -800,
-        2 => 100,
-        3 => 300,
-        _ => 500,
-    };
-
     let max_row = graph.nodes.iter().map(|n| n.row).max().unwrap_or(9);
     let min_hound_row = hound_nodes.iter().map(|n| n.row).min().unwrap_or(0);
     let max_hound_row = hound_nodes.iter().map(|n| n.row).max().unwrap_or(max_row);
 
+    // 1. Fox breakthrough bonus: if Fox slipped strictly past ALL hounds towards Coop
     let breakthrough_bonus = if fox_node.row < min_hound_row {
-        8_000 // Fox is past all hounds!
-    } else if fox_node.row <= max_hound_row {
-        // Fox is in the fray with hounds
-        1_000
+        10_000
     } else {
         0
     };
 
-    // 5. Hound cohesion & blockade penalty
-    // Check if hounds are positioned on same row or adjacent rows blocking lanes
-    let hound_row_span = (max_hound_row - min_hound_row) as i32;
-    let hound_cohesion_bonus = if hound_row_span <= 1 { -300 } else { 150 };
+    // 2. Fox distance to coop & row progress
+    let dist_to_coop = graph
+        .shortest_distance(board.fox_pos, coop_pos, &[])
+        .unwrap_or(10);
+    let dist_to_coop_score = (10 - dist_to_coop as i32) * 150;
+    let row_progress = (max_row as i32 - fox_node.row as i32) * 150;
 
-    // 6. Proximity penalty: If Fox is within 1 step of multiple hounds, higher danger
+    // 3. Defensive Blockade: Count how many hounds are positioned between Fox and Coop
+    let hounds_ahead = hound_nodes.iter().filter(|h| h.row <= fox_node.row).count() as i32;
+    let blockade_score = (3 - hounds_ahead) * 400;
+
+    // 4. Hound Pursuit / Proximity: Distance from each hound to the Fox
+    // Hounds want to minimize distance to Fox; Fox wants to maximize it.
+    let total_hound_dist: i32 = board
+        .hounds_pos
+        .iter()
+        .map(|&h_pos| {
+            graph
+                .shortest_distance(h_pos, board.fox_pos, &[])
+                .unwrap_or(10) as i32
+        })
+        .sum();
+    let pursuit_score = total_hound_dist * 80;
+
+    // 5. Hound Line Advancement: Reward hounds for advancing their frontline towards the Fox
+    let avg_hound_row =
+        hound_nodes.iter().map(|n| n.row as f32).sum::<f32>() / hound_nodes.len().max(1) as f32;
+    let hound_advance_score = (avg_hound_row * -140.0) as i32;
+
+    // 6. Fox degrees of freedom / mobility & cornering
+    let fox_degrees = board.fox_legal_moves(graph).len();
+    let mobility_score = match fox_degrees {
+        0 => -WIN_SCORE,
+        1 => -2_000, // Fox is on the verge of capture
+        2 => -400,   // Fox options are constrained
+        3 => 200,    // Fox has moderate mobility
+        _ => 600,    // Fox is free to roam
+    };
+
+    // 7. Immediate surrounding pressure: Hounds directly adjacent to Fox
     let close_hounds = board
         .hounds_pos
         .iter()
         .filter(|&&h| graph.neighbors(board.fox_pos).contains(&h))
         .count() as i32;
-    let danger_penalty = close_hounds * -250;
+    let pressure_penalty = close_hounds * -400;
 
-    // 7. Chokepoint (Bridge Bottleneck) control bonus
-    let bridge_bonus = if let Some(bridge_node) = graph
+    // 8. Hound cohesion: Reward maintaining a united rank, penalize disjointed lines
+    let hound_row_span = (max_hound_row - min_hound_row) as i32;
+    let cohesion_score = if hound_row_span <= 1 {
+        -250
+    } else if hound_row_span == 2 {
+        0
+    } else {
+        350
+    };
+
+    // 9. Bottleneck control: Controlling the river bridge (M6)
+    let bridge_score = graph
         .nodes
         .iter()
         .find(|n| n.node_type == NodeType::Bottleneck)
-    {
-        if board.fox_pos == bridge_node.id {
-            // Fox is on bridge
-            400
-        } else if board.hounds_pos.contains(&bridge_node.id) {
-            // Hounds block bridge
-            -500
-        } else {
-            0
-        }
-    } else {
-        0
-    };
+        .map_or(0, |bridge_node| {
+            if board.fox_pos == bridge_node.id {
+                600
+            } else if board.hounds_pos.contains(&bridge_node.id) {
+                if fox_node.row >= bridge_node.row {
+                    -800 // Hound locks down bridge while Fox is south
+                } else {
+                    -200
+                }
+            } else {
+                0
+            }
+        });
 
-    dist_to_coop_score
+    breakthrough_bonus
+        + dist_to_coop_score
         + row_progress
+        + blockade_score
+        + pursuit_score
+        + hound_advance_score
         + mobility_score
-        + breakthrough_bonus
-        + hound_cohesion_bonus
-        + danger_penalty
-        + bridge_bonus
+        + pressure_penalty
+        + cohesion_score
+        + bridge_score
 }
