@@ -105,7 +105,7 @@ impl Screens {
         );
         curr_y += 24.0 * scale;
 
-        let subtitle_text = "Лиса и Гончие • Graph Strategy";
+        let subtitle_text = "Tactical Graph Strategy";
         let sub_font_size = (15.0 * scale) as u16;
         let sub_dims = measure_text_styled(subtitle_text, sub_font_size, font);
         draw_text_styled(

@@ -1,4 +1,4 @@
-# Fox and Hounds (Лиса и Гончие)
+# Fox and Hounds
 
 A turn-based asymmetric pursuit-evasion game played on arbitrary graph topologies.
 
@@ -183,6 +183,99 @@ Structured graph representation matching the symmetric level layout for programm
     ["L8", "M9"], ["M8", "M9"], ["R8", "M9"]
   ]
 }
+```
+
+---
+
+## 🛠️ Build & Run Instructions
+
+The game is built with [Rust](https://www.rust-lang.org/) and [Macroquad](https://macroquad.rs/), supporting Native Desktop (macOS, Linux, Windows), Web (WebAssembly), and Android.
+
+A [`Justfile`](Justfile) is provided for common development tasks.
+
+### Prerequisites
+- **Rust Toolchain**: Install via [rustup](https://rustup.rs/) (stable channel).
+- **Just** (optional): Install with `cargo install just` or `brew install just`.
+
+---
+
+### 🖥️ 1. Native Desktop
+
+Run the native game locally with audio and high-DPI windowing:
+
+```bash
+# Run directly
+cargo run
+# or with Just:
+just run
+
+# Build optimized release binary
+cargo build --release
+```
+
+---
+
+### 🌐 2. WebAssembly (Browser)
+
+To build and run the game in the browser:
+
+```bash
+# Add WASM target
+rustup target add wasm32-unknown-unknown
+
+# Build WASM binary and prepare web assets
+just install-wasm
+
+# Serve locally at http://localhost:8080
+just serve
+```
+
+Alternatively without `just`:
+```bash
+cargo build --target wasm32-unknown-unknown --release
+cp target/wasm32-unknown-unknown/release/foxandhounds.wasm web/fox-and-hounds.wasm
+python3 -m http.server 8080 -d web
+```
+
+---
+
+### 📱 3. Android (APK & App Bundle)
+
+#### Prerequisites
+- Android SDK (API 35, Build-Tools 35.0.0) & NDK (r26+)
+- `cargo-quad-apk`:
+  ```bash
+  cargo install --git https://github.com/not-fl3/cargo-quad-apk --force
+  ```
+- `bundletool` (for `.aab` builds): `brew install bundletool`
+
+#### Building
+```bash
+# Build release APK
+just build-android
+# (or: cargo quad-apk build --release)
+
+# Build Google Play release Android App Bundle (.aab) with R8 optimization
+just build-aab
+# (or: ./scripts/build-aab.sh)
+```
+
+---
+
+### 🧪 4. Testing & Code Quality
+
+```bash
+# Run unit and integration tests
+cargo test
+# or: just test
+
+# Run Clippy linter with strict checks
+cargo clippy -- -D warnings
+# or: just clippy
+
+# Format code
+cargo fmt
+# or: just fmt
 ```
 
 ---
