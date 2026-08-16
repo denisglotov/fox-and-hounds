@@ -1,7 +1,7 @@
 # Fox and Hounds
 
 <p align="center">
-  <img src="assets/fox_and_dogs.png" alt="Fox and Hounds" width="600" />
+  <img src="assets/fox_and_hounds.png" alt="Fox and Hounds" width="600" />
 </p>
 
 A turn-based asymmetric pursuit-evasion game played on arbitrary graph topologies.

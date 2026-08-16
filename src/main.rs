@@ -42,7 +42,7 @@ async fn main() {
     let font = load_ttf_font_from_bytes(include_bytes!("../assets/NotoSansEmoji.ttf")).ok();
     let character_texture = {
         let tex = Texture2D::from_file_with_format(
-            include_bytes!("../assets/fox_and_dogs.png"),
+            include_bytes!("../assets/fox_and_hounds.png"),
             Some(ImageFormat::Png),
         );
         tex.set_filter(FilterMode::Linear);
