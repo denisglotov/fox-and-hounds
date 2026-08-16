@@ -17,6 +17,7 @@ pub struct BoardView {
     pub hover_node_id: Option<usize>,
     pub font: Option<Font>,
     pub train: TrainSimulation,
+    pub last_waf_sound_time: f32,
 }
 
 fn lerp_angle(current: f32, target: f32, speed: f32, dt: f32) -> f32 {
@@ -93,6 +94,7 @@ impl BoardView {
             hover_node_id: None,
             font,
             train: TrainSimulation::new(),
+            last_waf_sound_time: 0.0,
         }
     }
 
@@ -165,13 +167,13 @@ impl BoardView {
             Vec::new()
         };
 
-        // 3. Draw Graph Nodes & Interactive Indicators
+        // 4. Draw Graph Nodes & Interactive Indicators
         self.draw_nodes(state, origin, scale, &legal_destinations, t);
 
-        // 4. Draw Animated Live Characters (Fox & 3 Unique Hounds)
-        self.draw_pieces(state, origin, scale, t);
+        // 5. Draw Animated Live Characters (Fox & 3 Unique Hounds) & play waffing sound
+        let waf_sound = self.draw_pieces(state, origin, scale, t);
 
-        // 5. Handle Player Tap / Click Input (only if not dragging)
+        // 6. Handle Player Tap / Click Input (only if not dragging)
         if is_mouse_button_released(MouseButton::Left)
             && !was_dragging
             && state.phase == GamePhase::Playing
@@ -183,7 +185,7 @@ impl BoardView {
             }
         }
 
-        sound_trigger
+        sound_trigger.or(waf_sound)
     }
 
     fn handle_node_click(
@@ -313,9 +315,10 @@ impl BoardView {
         }
     }
 
-    fn draw_pieces(&mut self, state: &GameState, origin: Vec2, scale: f32, t: f32) {
+    fn draw_pieces(&mut self, state: &GameState, origin: Vec2, scale: f32, t: f32) -> Option<SoundTrigger> {
         let pulse = (t * 3.5).sin() * 0.5 + 0.5;
         let dt = get_frame_time().min(0.1);
+        let mut waf_sound = None;
 
         // 1. Calculate live visual position of Fox for Hound tracking
         let fox_node = state.graph.node(state.fox_pos);
@@ -355,7 +358,7 @@ impl BoardView {
         // Smoothly interpolate Fox rotation angle
         self.fox_angle = lerp_angle(self.fox_angle, fox_target_rot, 10.0, dt);
 
-        // 2. Draw Hounds (Left: Terrier/User's dog, Mid: Beagle, Right: Golden)
+        // 2. Draw Hounds (Left: Terrier/User's white dog, Mid: Beagle, Right: Golden)
         for (idx, &hound_pos) in state.hounds_pos.iter().enumerate() {
             let is_selected = state.selected_hound_idx == Some(idx);
             let hound_node = state.graph.node(hound_pos);
@@ -366,6 +369,14 @@ impl BoardView {
                         matches!(m, crate::game::state::PieceMove::HoundMove { hound_idx, .. } if *hound_idx == idx)
                     })
             });
+
+            // The white dog (idx 0) reacts to the train when it rolls on the tracks
+            let is_waffing = idx == 0 && self.train.is_active() && !is_moving;
+
+            if is_waffing && (t - self.last_waf_sound_time >= 0.70) {
+                self.last_waf_sound_time = t;
+                waf_sound = Some(SoundTrigger::InvalidMove);
+            }
 
             let (visual_pos, jump_lift, target_hound_rot) = if is_moving {
                 let anim = state.active_anim.as_ref().unwrap();
@@ -378,26 +389,51 @@ impl BoardView {
                 let angle = (delta.y).atan2(delta.x) - std::f32::consts::FRAC_PI_2;
                 (pos, jump, angle)
             } else if let Some(n) = hound_node {
-                // When stationary/idle: Face directly towards the Fox's live position!
-                let to_fox = fox_visual_pos - n.visual_pos;
-                let angle = if to_fox.length_squared() > 1e-4 {
-                    (to_fox.y).atan2(to_fox.x) - std::f32::consts::FRAC_PI_2
+                // If white dog (idx 0) and train is active: Face directly towards the moving train!
+                let angle = if is_waffing {
+                    let train_loco_y = self.train.train_locomotive_y().unwrap_or(0.0);
+                    let to_train = Vec2::new(crate::ui::train::TRACK_X, train_loco_y) - n.visual_pos;
+                    if to_train.length_squared() > 1e-4 {
+                        (to_train.y).atan2(to_train.x) - std::f32::consts::FRAC_PI_2
+                    } else {
+                        0.0
+                    }
                 } else {
-                    0.0
+                    // When stationary/idle: Face directly towards the Fox's live position!
+                    let to_fox = fox_visual_pos - n.visual_pos;
+                    if to_fox.length_squared() > 1e-4 {
+                        (to_fox.y).atan2(to_fox.x) - std::f32::consts::FRAC_PI_2
+                    } else {
+                        0.0
+                    }
                 };
                 (n.visual_pos, 0.0, angle)
             } else {
                 (Vec2::ZERO, 0.0, 0.0)
             };
 
-            // Smoothly interpolate Hound angle towards target (Fox or move direction)
-            self.hound_angles[idx] = lerp_angle(self.hound_angles[idx], target_hound_rot, 12.0, dt);
+            // Smoothly interpolate Hound angle towards target
+            let rot_speed = if is_waffing { 16.0 } else { 12.0 };
+            self.hound_angles[idx] = lerp_angle(self.hound_angles[idx], target_hound_rot, rot_speed, dt);
 
             let ground_pos = origin + visual_pos * scale;
             let pick_up_lift = if is_selected { 8.0 * scale } else { 0.0 };
+
+            // Barking / waffing bounce and excited tail-wag jitter
+            let bark_jitter = if is_waffing {
+                (t * 22.0).sin() * 0.10
+            } else {
+                0.0
+            };
+            let bark_lift = if is_waffing {
+                (t * 14.0).sin().abs() * 3.5 * scale
+            } else {
+                0.0
+            };
+
             let render_pos = Vec2::new(
                 ground_pos.x,
-                ground_pos.y - (jump_lift * scale) - pick_up_lift,
+                ground_pos.y - (jump_lift * scale) - pick_up_lift - bark_lift,
             );
 
             // Selection / Active Turn Indicator beneath paws
@@ -427,7 +463,7 @@ impl BoardView {
             }
 
             // Select Hound Texture:
-            // idx 0 -> Terrier (user's dog)
+            // idx 0 -> Terrier (user's white dog)
             // idx 1 -> Beagle
             // idx 2 -> Golden Hound
             let hound_tex = match idx {
@@ -438,12 +474,12 @@ impl BoardView {
 
             if let Some(tex) = hound_tex {
                 // Subtle breathing / idle micro-sway
-                let idle_breathe = if !is_moving {
+                let idle_breathe = if !is_moving && !is_waffing {
                     (t * 3.0 + idx as f32 * 1.5).sin() * 0.02
                 } else {
                     0.0
                 };
-                let idle_sway = if !is_moving {
+                let idle_sway = if !is_moving && !is_waffing {
                     (t * 2.5 + idx as f32 * 1.2).sin() * 0.02
                 } else {
                     0.0
@@ -453,7 +489,7 @@ impl BoardView {
                 let aspect = tex.width() / tex.height();
                 let target_w = target_h * aspect;
 
-                let rot = self.hound_angles[idx] + idle_sway;
+                let rot = self.hound_angles[idx] + idle_sway + bark_jitter;
 
                 draw_texture_ex(
                     tex,
@@ -522,5 +558,7 @@ impl BoardView {
                 },
             );
         }
+
+        waf_sound
     }
 }
