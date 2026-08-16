@@ -21,14 +21,14 @@ pub const RIVER_CROSSING_CONFIG: LevelConfig = LevelConfig {
 };
 
 pub fn build_river_crossing_graph() -> Graph {
-    let col_x = [190.0, 424.0, 658.0];
+    let col_x = [255.5, 424.0, 592.5];
     let row_y = [
         214.0,  // Row 0 (Coop)
         327.8,  // Row 1
-        441.6,  // Row 2
+        430.0,  // Row 2
         555.3,  // Row 3
-        669.1,  // Row 4
-        782.9,  // Row 5
+        680.0,  // Row 4
+        795.0,  // Row 5
         896.7,  // Row 6 (Bridge Bottleneck)
         1010.4, // Row 7
         1124.2, // Row 8
