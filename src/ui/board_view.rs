@@ -2,13 +2,24 @@ use crate::audio::SoundTrigger;
 use crate::game::graph::NodeType;
 use crate::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
-use crate::ui::{draw_text_styled, measure_text_styled};
 use macroquad::prelude::*;
 
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
+    pub fox_texture: Option<Texture2D>,
+    pub hound1_texture: Option<Texture2D>,
+    pub hound2_texture: Option<Texture2D>,
+    pub hound3_texture: Option<Texture2D>,
+    pub hound_angles: [f32; 3],
+    pub fox_angle: f32,
     pub hover_node_id: Option<usize>,
     pub font: Option<Font>,
+}
+
+fn lerp_angle(current: f32, target: f32, speed: f32, dt: f32) -> f32 {
+    let diff = (target - current + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
+        - std::f32::consts::PI;
+    current + diff * (1.0 - (-speed * dt).exp())
 }
 
 impl BoardView {
@@ -22,8 +33,50 @@ impl BoardView {
             Some(tex)
         };
 
+        let fox_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/fox_figure.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
+        let hound1_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/hound1_figure.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
+        let hound2_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/hound2_figure.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
+        let hound3_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/hound3_figure.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
         Self {
             board_texture,
+            fox_texture,
+            hound1_texture,
+            hound2_texture,
+            hound3_texture,
+            hound_angles: [0.0; 3],
+            fox_angle: 0.0,
             hover_node_id: None,
             font,
         }
@@ -93,13 +146,13 @@ impl BoardView {
             Vec::new()
         };
 
-        // 4. Draw Graph Nodes & Interactive Indicators
+        // 3. Draw Graph Nodes & Interactive Indicators
         self.draw_nodes(state, origin, scale, &legal_destinations, t);
 
-        // 5. Draw Animated Pieces (Fox, Hounds, Chicken Coop)
+        // 4. Draw Animated Live Characters (Fox & 3 Unique Hounds)
         self.draw_pieces(state, origin, scale, t);
 
-        // 6. Handle Player Tap / Click Input (only if not dragging)
+        // 5. Handle Player Tap / Click Input (only if not dragging)
         if is_mouse_button_released(MouseButton::Left)
             && !was_dragging
             && state.phase == GamePhase::Playing
@@ -241,164 +294,214 @@ impl BoardView {
         }
     }
 
-    fn draw_pieces(&self, state: &GameState, origin: Vec2, scale: f32, t: f32) {
+    fn draw_pieces(&mut self, state: &GameState, origin: Vec2, scale: f32, t: f32) {
         let pulse = (t * 3.5).sin() * 0.5 + 0.5;
+        let dt = get_frame_time().min(0.1);
 
-        // 1. Draw Hounds
+        // 1. Calculate live visual position of Fox for Hound tracking
+        let fox_node = state.graph.node(state.fox_pos);
+        let is_fox_moving = state
+            .active_anim
+            .as_ref()
+            .is_some_and(|anim| anim.faction == Faction::Fox);
+
+        let (fox_visual_pos, fox_jump_lift, fox_target_rot) = if is_fox_moving {
+            let anim = state.active_anim.as_ref().unwrap();
+            let ease = 1.0 - (1.0 - anim.progress).powi(2);
+            let pos = anim.from.lerp(anim.to, ease);
+            let jump = (anim.progress * std::f32::consts::PI).sin() * 26.0;
+
+            // Dynamic rotation along Fox movement trajectory
+            let delta = anim.to - anim.from;
+            let angle = (delta.y).atan2(delta.x) + std::f32::consts::FRAC_PI_2;
+            (pos, jump, angle)
+        } else if let Some(n) = fox_node {
+            // While idle, orient towards Chicken Coop
+            let coop_pos = state
+                .graph
+                .node(state.coop_pos)
+                .map(|cn| cn.visual_pos)
+                .unwrap_or(Vec2::ZERO);
+            let delta = coop_pos - n.visual_pos;
+            let angle = if delta.length_squared() > 1e-4 {
+                (delta.y).atan2(delta.x) + std::f32::consts::FRAC_PI_2
+            } else {
+                0.0
+            };
+            (n.visual_pos, 0.0, angle)
+        } else {
+            (Vec2::ZERO, 0.0, 0.0)
+        };
+
+        // Smoothly interpolate Fox rotation angle
+        self.fox_angle = lerp_angle(self.fox_angle, fox_target_rot, 10.0, dt);
+
+        // 2. Draw Hounds (Left: Terrier/User's dog, Mid: Beagle, Right: Golden)
         for (idx, &hound_pos) in state.hounds_pos.iter().enumerate() {
             let is_selected = state.selected_hound_idx == Some(idx);
             let hound_node = state.graph.node(hound_pos);
 
-            let visual_pos = if let Some(anim) = &state.active_anim {
-                if anim.faction == Faction::Hounds && state.move_history.last().is_some_and(|m| matches!(m, crate::game::state::PieceMove::HoundMove { hound_idx, .. } if *hound_idx == idx)) {
-                    let ease = 1.0 - (1.0 - anim.progress).powi(2);
-                    anim.from.lerp(anim.to, ease)
-                } else if let Some(n) = hound_node {
-                    n.visual_pos
-                } else {
-                    Vec2::ZERO
-                }
+            let is_moving = state.active_anim.as_ref().is_some_and(|anim| {
+                anim.faction == Faction::Hounds
+                    && state.move_history.last().is_some_and(|m| {
+                        matches!(m, crate::game::state::PieceMove::HoundMove { hound_idx, .. } if *hound_idx == idx)
+                    })
+            });
+
+            let (visual_pos, jump_lift, target_hound_rot) = if is_moving {
+                let anim = state.active_anim.as_ref().unwrap();
+                let ease = 1.0 - (1.0 - anim.progress).powi(2);
+                let pos = anim.from.lerp(anim.to, ease);
+                let jump = (anim.progress * std::f32::consts::PI).sin() * 24.0;
+
+                // Face movement path during leap
+                let delta = anim.to - anim.from;
+                let angle = (delta.y).atan2(delta.x) - std::f32::consts::FRAC_PI_2;
+                (pos, jump, angle)
             } else if let Some(n) = hound_node {
-                n.visual_pos
+                // When stationary/idle: Face directly towards the Fox's live position!
+                let to_fox = fox_visual_pos - n.visual_pos;
+                let angle = if to_fox.length_squared() > 1e-4 {
+                    (to_fox.y).atan2(to_fox.x) - std::f32::consts::FRAC_PI_2
+                } else {
+                    0.0
+                };
+                (n.visual_pos, 0.0, angle)
             } else {
-                Vec2::ZERO
+                (Vec2::ZERO, 0.0, 0.0)
             };
 
-            let pos = origin + visual_pos * scale;
-            let hound_r = 24.0 * scale;
+            // Smoothly interpolate Hound angle towards target (Fox or move direction)
+            self.hound_angles[idx] = lerp_angle(self.hound_angles[idx], target_hound_rot, 12.0, dt);
 
-            // Selected Halo / Active turn glow
+            let ground_pos = origin + visual_pos * scale;
+            let pick_up_lift = if is_selected { 8.0 * scale } else { 0.0 };
+            let render_pos = Vec2::new(
+                ground_pos.x,
+                ground_pos.y - (jump_lift * scale) - pick_up_lift,
+            );
+
+            // Selection / Active Turn Indicator beneath paws
             if is_selected {
                 draw_circle(
-                    pos.x,
-                    pos.y,
-                    hound_r + 8.0 * scale + pulse * 4.0 * scale,
-                    Color::from_rgba(30, 136, 229, 140),
+                    ground_pos.x,
+                    ground_pos.y,
+                    (22.0 + pulse * 4.0) * scale,
+                    Color::from_rgba(30, 136, 229, 90),
                 );
                 draw_circle_lines(
-                    pos.x,
-                    pos.y,
-                    hound_r + 6.0 * scale,
-                    3.0 * scale,
+                    ground_pos.x,
+                    ground_pos.y,
+                    (18.0 + pulse * 2.0) * scale,
+                    2.5 * scale,
                     Color::from_rgba(100, 181, 246, 255),
                 );
             } else if state.current_turn == Faction::Hounds
                 && state.player_faction == Faction::Hounds
             {
                 draw_circle(
-                    pos.x,
-                    pos.y,
-                    hound_r + 4.0 * scale + pulse * 2.0 * scale,
-                    Color::from_rgba(33, 150, 243, 80),
+                    ground_pos.x,
+                    ground_pos.y,
+                    (18.0 + pulse * 3.0) * scale,
+                    Color::from_rgba(33, 150, 243, 60),
                 );
             }
 
-            // Outer Hound Token Body
-            draw_circle(
-                pos.x,
-                pos.y + 2.0 * scale,
-                hound_r,
-                Color::from_rgba(10, 25, 47, 180),
-            ); // Shadow
-            draw_circle(pos.x, pos.y, hound_r, Color::from_rgba(25, 118, 210, 255));
-            draw_circle(
-                pos.x,
-                pos.y,
-                hound_r - 3.0 * scale,
-                Color::from_rgba(66, 165, 245, 255),
-            );
-            draw_circle_lines(
-                pos.x,
-                pos.y,
-                hound_r,
-                2.0 * scale,
-                Color::from_rgba(187, 222, 251, 255),
-            );
+            // Select Hound Texture:
+            // idx 0 -> Terrier (user's dog)
+            // idx 1 -> Beagle
+            // idx 2 -> Golden Hound
+            let hound_tex = match idx {
+                0 => self.hound1_texture.as_ref(),
+                1 => self.hound2_texture.as_ref(),
+                _ => self.hound3_texture.as_ref(),
+            };
 
-            // Hound Icon
-            let icon_text = "🐶";
-            let font_size = (24.0 * scale) as u16;
-            let text_dims = measure_text_styled(icon_text, font_size, self.font.as_ref());
-            draw_text_styled(
-                icon_text,
-                pos.x - text_dims.width / 2.0,
-                pos.y + text_dims.height / 3.0,
-                font_size,
-                WHITE,
-                self.font.as_ref(),
-            );
+            if let Some(tex) = hound_tex {
+                // Subtle breathing / idle micro-sway
+                let idle_breathe = if !is_moving {
+                    (t * 3.0 + idx as f32 * 1.5).sin() * 0.02
+                } else {
+                    0.0
+                };
+                let idle_sway = if !is_moving {
+                    (t * 2.5 + idx as f32 * 1.2).sin() * 0.02
+                } else {
+                    0.0
+                };
+
+                let target_h = (72.0 + idle_breathe * 15.0) * scale;
+                let aspect = tex.width() / tex.height();
+                let target_w = target_h * aspect;
+
+                let rot = self.hound_angles[idx] + idle_sway;
+
+                draw_texture_ex(
+                    tex,
+                    render_pos.x - target_w / 2.0,
+                    render_pos.y - target_h / 2.0,
+                    WHITE,
+                    DrawTextureParams {
+                        dest_size: Some(Vec2::new(target_w, target_h)),
+                        rotation: rot,
+                        pivot: Some(render_pos),
+                        ..Default::default()
+                    },
+                );
+            }
         }
 
-        // 2. Draw Fox
-        let fox_node = state.graph.node(state.fox_pos);
-        let visual_pos = if let Some(anim) = &state.active_anim {
-            if anim.faction == Faction::Fox {
-                let ease = 1.0 - (1.0 - anim.progress).powi(2);
-                anim.from.lerp(anim.to, ease)
-            } else if let Some(n) = fox_node {
-                n.visual_pos
-            } else {
-                Vec2::ZERO
-            }
-        } else if let Some(n) = fox_node {
-            n.visual_pos
-        } else {
-            Vec2::ZERO
-        };
-
-        let pos = origin + visual_pos * scale;
-        let fox_r = 25.0 * scale;
+        // 3. Draw Fox
+        let ground_pos = origin + fox_visual_pos * scale;
+        let render_pos = Vec2::new(ground_pos.x, ground_pos.y - (fox_jump_lift * scale));
 
         // Active Turn Glow for Fox
         if state.current_turn == Faction::Fox {
             draw_circle(
-                pos.x,
-                pos.y,
-                fox_r + 7.0 * scale + pulse * 4.0 * scale,
-                Color::from_rgba(255, 112, 67, 130),
+                ground_pos.x,
+                ground_pos.y,
+                (20.0 + pulse * 4.0) * scale,
+                Color::from_rgba(255, 112, 67, 85),
             );
             draw_circle_lines(
-                pos.x,
-                pos.y,
-                fox_r + 5.0 * scale,
-                2.5 * scale,
-                Color::from_rgba(255, 171, 145, 255),
+                ground_pos.x,
+                ground_pos.y,
+                (16.0 + pulse * 2.0) * scale,
+                2.0 * scale,
+                Color::from_rgba(255, 171, 145, 200),
             );
         }
 
-        // Fox Token Body
-        draw_circle(
-            pos.x,
-            pos.y + 2.0 * scale,
-            fox_r,
-            Color::from_rgba(30, 10, 0, 180),
-        ); // Shadow
-        draw_circle(pos.x, pos.y, fox_r, Color::from_rgba(230, 81, 0, 255));
-        draw_circle(
-            pos.x,
-            pos.y,
-            fox_r - 3.0 * scale,
-            Color::from_rgba(245, 124, 0, 255),
-        );
-        draw_circle_lines(
-            pos.x,
-            pos.y,
-            fox_r,
-            2.0 * scale,
-            Color::from_rgba(255, 204, 128, 255),
-        );
+        if let Some(tex) = &self.fox_texture {
+            let idle_breathe = if !is_fox_moving {
+                (t * 3.2).sin() * 0.02
+            } else {
+                0.0
+            };
+            let idle_sway = if !is_fox_moving {
+                (t * 2.2).sin() * 0.02
+            } else {
+                0.0
+            };
 
-        // Fox Icon
-        let icon_text = "🦊";
-        let font_size = (26.0 * scale) as u16;
-        let text_dims = measure_text_styled(icon_text, font_size, self.font.as_ref());
-        draw_text_styled(
-            icon_text,
-            pos.x - text_dims.width / 2.0,
-            pos.y + text_dims.height / 3.0,
-            font_size,
-            WHITE,
-            self.font.as_ref(),
-        );
+            let target_h = (76.0 + idle_breathe * 15.0) * scale;
+            let aspect = tex.width() / tex.height();
+            let target_w = target_h * aspect;
+
+            let rot = self.fox_angle + idle_sway;
+
+            draw_texture_ex(
+                tex,
+                render_pos.x - target_w / 2.0,
+                render_pos.y - target_h / 2.0,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(Vec2::new(target_w, target_h)),
+                    rotation: rot,
+                    pivot: Some(render_pos),
+                    ..Default::default()
+                },
+            );
+        }
     }
 }
