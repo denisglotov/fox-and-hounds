@@ -1,0 +1,63 @@
+{
+  "name": "The River Crossing",
+  "description": "3x9 board with a river bottleneck on Row 6 and centrally symmetric diamond connectivity",
+  "dimensions": {
+    "rows": 10,
+    "max_width": 3
+  },
+  "initial_state": {
+    "fox_start": "M9",
+    "hounds_start": ["L1", "M1", "R1"],
+    "coop_targets": ["M0"],
+    "current_turn": "Fox"
+  },
+  "nodes": [
+    { "id": "M0", "row": 0, "col": 1, "type": "target_coop" },
+    { "id": "L1", "row": 1, "col": 0, "type": "standard" },
+    { "id": "M1", "row": 1, "col": 1, "type": "standard" },
+    { "id": "R1", "row": 1, "col": 2, "type": "standard" },
+    { "id": "L2", "row": 2, "col": 0, "type": "standard" },
+    { "id": "M2", "row": 2, "col": 1, "type": "standard" },
+    { "id": "R2", "row": 2, "col": 2, "type": "standard" },
+    { "id": "L3", "row": 3, "col": 0, "type": "standard" },
+    { "id": "M3", "row": 3, "col": 1, "type": "standard" },
+    { "id": "R3", "row": 3, "col": 2, "type": "standard" },
+    { "id": "L4", "row": 4, "col": 0, "type": "standard" },
+    { "id": "M4", "row": 4, "col": 1, "type": "standard" },
+    { "id": "R4", "row": 4, "col": 2, "type": "standard" },
+    { "id": "L5", "row": 5, "col": 0, "type": "standard" },
+    { "id": "M5", "row": 5, "col": 1, "type": "standard" },
+    { "id": "R5", "row": 5, "col": 2, "type": "standard" },
+    { "id": "M6", "row": 6, "col": 1, "type": "bottleneck" },
+    { "id": "L7", "row": 7, "col": 0, "type": "standard" },
+    { "id": "M7", "row": 7, "col": 1, "type": "standard" },
+    { "id": "R7", "row": 7, "col": 2, "type": "standard" },
+    { "id": "L8", "row": 8, "col": 0, "type": "standard" },
+    { "id": "M8", "row": 8, "col": 1, "type": "standard" },
+    { "id": "R8", "row": 8, "col": 2, "type": "standard" },
+    { "id": "M9", "row": 9, "col": 1, "type": "fox_start" }
+  ],
+  "edges": [
+    ["M0", "L1"], ["M0", "M1"], ["M0", "R1"],
+    ["L1", "M1"], ["M1", "R1"],
+    ["L1", "L2"], ["M1", "M2"], ["R1", "R2"],
+    ["L1", "M2"], ["R1", "M2"], ["M1", "L2"], ["M1", "R2"],
+    ["L2", "M2"], ["M2", "R2"],
+    ["L2", "L3"], ["M2", "M3"], ["R2", "R3"],
+    ["L2", "M3"], ["R2", "M3"], ["M2", "L3"], ["M2", "R3"],
+    ["L3", "M3"], ["M3", "R3"],
+    ["L3", "L4"], ["M3", "M4"], ["R3", "R4"],
+    ["L3", "M4"], ["R3", "M4"], ["M3", "L4"], ["M3", "R4"],
+    ["L4", "M4"], ["M4", "R4"],
+    ["L4", "L5"], ["M4", "M5"], ["R4", "R5"],
+    ["L4", "M5"], ["R4", "M5"], ["M4", "L5"], ["M4", "R5"],
+    ["L5", "M5"], ["M5", "R5"],
+    ["L5", "M6"], ["M5", "M6"], ["R5", "M6"],
+    ["M6", "L7"], ["M6", "M7"], ["M6", "R7"],
+    ["L7", "M7"], ["M7", "R7"],
+    ["L7", "L8"], ["M7", "M8"], ["R7", "R8"],
+    ["L7", "M8"], ["R7", "M8"], ["M7", "L8"], ["M7", "R8"],
+    ["L8", "M8"], ["M8", "R8"],
+    ["L8", "M9"], ["M8", "M9"], ["R8", "M9"]
+  ]
+}

@@ -1,0 +1,47 @@
+graph FoxAndHounds {
+    layout=dot;
+    rankdir=TB;
+    nodesep=0.6;
+    ranksep=0.5;
+
+    node [shape=circle, style=filled, fillcolor="#f5f5f5", color="#757575", fontname="Helvetica", width=0.8, fixedsize=true];
+    edge [color="#424242", penwidth=1.5];
+
+    // Explicit Horizontal Rank Alignment
+    { rank=same; M0 [label="🐔 M0", fillcolor="#ffe082", color="#ff8f00", penwidth=2.5]; }
+    { rank=same; L1 [label="🐶 L1", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0]; M1 [label="🐶 M1", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0]; R1 [label="🐶 R1", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0]; }
+    { rank=same; L2; M2; R2; }
+    { rank=same; L3; M3; R3; }
+    { rank=same; L4; M4; R4; }
+    { rank=same; L5; M5; R5; }
+    { rank=same; M6 [label="M6"]; }
+    { rank=same; L7; M7; R7; }
+    { rank=same; L8; M8; R8; }
+    { rank=same; M9 [label="🦊 M9", fillcolor="#ffcc80", color="#e65100", penwidth=2.5]; }
+
+    // Row 0 <-> Row 1
+    M0 -- {L1; M1; R1};
+
+    // Horizontal Row Edges
+    L1 -- M1 -- R1;
+    L2 -- M2 -- R2;
+    L3 -- M3 -- R3;
+    L4 -- M4 -- R4;
+    L5 -- M5 -- R5;
+    L7 -- M7 -- R7;
+    L8 -- M8 -- R8;
+
+    // Symmetric North Field Edges (Rows 1 to 5)
+    L1 -- {L2; M2};  M1 -- {L2; M2; R2};  R1 -- {M2; R2};
+    L2 -- {L3; M3};  M2 -- {L3; M3; R3};  R2 -- {M3; R3};
+    L3 -- {L4; M4};  M3 -- {L4; M4; R4};  R3 -- {M4; R4};
+    L4 -- {L5; M5};  M4 -- {L5; M5; R5};  R4 -- {M5; R5};
+
+    // Bottleneck River Bridge (Row 5 <-> Row 6 <-> Row 7)
+    {L5; M5; R5} -- M6;
+    M6 -- {L7; M7; R7};
+
+    // Symmetric South Field Edges (Rows 7 to 9)
+    L7 -- {L8; M8};  M7 -- {L8; M8; R8};  R7 -- {M8; R8};
+    {L8; M8; R8} -- M9;
+}
