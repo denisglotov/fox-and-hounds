@@ -70,8 +70,12 @@ async fn main() {
         };
         #[cfg(not(target_os = "android"))]
         let scale = {
-            let base_scale = (screen_w / 700.0).min(screen_h / 800.0);
-            base_scale.clamp(0.85, 2.0)
+            let base_scale = if screen_w > screen_h {
+                (screen_w / 850.0).min(screen_h / 520.0)
+            } else {
+                (screen_w / 520.0).min(screen_h / 850.0)
+            };
+            base_scale.clamp(0.65, 2.5)
         };
 
         // 1. Update Game State (animations, AI thinking)
