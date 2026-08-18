@@ -71,13 +71,11 @@
 
         if (fetchedBuffers[name]) {
           try {
-            const decoded = await ctx.decodeAudioData(
-              fetchedBuffers[name].slice(0),
-            );
+            const decoded = await ctx.decodeAudioData(fetchedBuffers[name].slice(0));
             audioBuffers[name] = decoded;
             return decoded;
           } catch (e) {
-            console.error("decodeAudioData failed for " + name, e);
+            console.error('decodeAudioData failed for ' + name, e);
           }
         }
 
@@ -90,13 +88,13 @@
           audioBuffers[name] = decoded;
           return decoded;
         } catch (e) {
-          console.error("Failed to load sound " + name, e);
+          console.error('Failed to load sound ' + name, e);
         }
         return null;
       }
 
       (function preloadBytes() {
-        const files = ["move", "select", "invalid", "win", "loss", "click", "train"];
+        const files = ['move', 'select', 'invalid', 'win', 'loss', 'click', 'train'];
         for (const file of files) {
           fetch(`assets/${file}.wav`)
             .then((r) => {
@@ -112,12 +110,11 @@
                   (dec) => {
                     audioBuffers[file] = dec;
                   },
-                  (err) =>
-                    console.warn("Initial decode error for " + file, err),
+                  (err) => console.warn('Initial decode error for ' + file, err)
                 );
               }
             })
-            .catch((e) => console.warn("Preload warning for " + file, e));
+            .catch((e) => console.warn('Preload warning for ' + file, e));
         }
       })();
 
@@ -125,7 +122,7 @@
         let ctx = getGameAudioCtx();
         if (!ctx) return;
 
-        if (ctx.state === "suspended") {
+        if (ctx.state === 'suspended') {
           ctx.resume().catch(() => {});
         }
 
@@ -143,29 +140,19 @@
         }
       }
 
-      [
-        "click",
-        "mousedown",
-        "pointerdown",
-        "keydown",
-        "touchstart",
-        "touchend",
-      ].forEach((evt) => {
+      ['click', 'mousedown', 'pointerdown', 'keydown', 'touchstart', 'touchend'].forEach((evt) => {
         window.addEventListener(
           evt,
           (e) => {
             if (
-              e.type === "keydown" &&
-              (e.key === "Meta" ||
-                e.key === "Control" ||
-                e.key === "Alt" ||
-                e.key === "Shift")
+              e.type === 'keydown' &&
+              (e.key === 'Meta' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Shift')
             ) {
               return;
             }
             unlockAudioContext();
           },
-          { capture: true, passive: true },
+          { capture: true, passive: true }
         );
       });
 
@@ -173,11 +160,11 @@
         let ctx = getGameAudioCtx();
         if (!ctx) return;
 
-        if (ctx.state === "suspended") {
+        if (ctx.state === 'suspended') {
           ctx
             .resume()
             .then(() => playBuffer(ctx, type))
-            .catch((e) => console.warn("Audio blocked", e));
+            .catch((e) => console.warn('Audio blocked', e));
         } else {
           playBuffer(ctx, type);
         }
@@ -199,43 +186,43 @@
           gain.connect(ctx.destination);
           source.start(0);
         } catch (e) {
-          console.error("Audio playback failed for " + type, e);
+          console.error('Audio playback failed for ' + type, e);
         }
       }
     </script>
     <script>
       // Load mq_js_bundle.js with cache busting
-      const script = document.createElement("script");
-      script.src = "mq_js_bundle.js?t=" + Date.now();
+      const script = document.createElement('script');
+      script.src = 'mq_js_bundle.js?t=' + Date.now();
       script.onload = function () {
         miniquad_add_plugin({
           register_plugin: function (env_obj) {
             env_obj.env.play_sound_move = function () {
-              if (window.gamePlaySound) window.gamePlaySound("move");
+              if (window.gamePlaySound) window.gamePlaySound('move');
             };
             env_obj.env.play_sound_select = function () {
-              if (window.gamePlaySound) window.gamePlaySound("select");
+              if (window.gamePlaySound) window.gamePlaySound('select');
             };
             env_obj.env.play_sound_invalid = function () {
-              if (window.gamePlaySound) window.gamePlaySound("invalid");
+              if (window.gamePlaySound) window.gamePlaySound('invalid');
             };
             env_obj.env.play_sound_win = function () {
-              if (window.gamePlaySound) window.gamePlaySound("win");
+              if (window.gamePlaySound) window.gamePlaySound('win');
             };
             env_obj.env.play_sound_loss = function () {
-              if (window.gamePlaySound) window.gamePlaySound("loss");
+              if (window.gamePlaySound) window.gamePlaySound('loss');
             };
             env_obj.env.play_sound_click = function () {
-              if (window.gamePlaySound) window.gamePlaySound("click");
+              if (window.gamePlaySound) window.gamePlaySound('click');
             };
             env_obj.env.play_sound_train = function () {
-              if (window.gamePlaySound) window.gamePlaySound("train");
+              if (window.gamePlaySound) window.gamePlaySound('train');
             };
           },
           version: 1,
-          name: "game_audio",
+          name: 'game_audio',
         });
-        load("fox-and-hounds.wasm?t=" + Date.now());
+        load('fox-and-hounds.wasm?t=' + Date.now());
       };
       document.head.appendChild(script);
     </script>
