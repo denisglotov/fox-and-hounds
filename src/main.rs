@@ -206,4 +206,9 @@ mod wasm_plugin_exports {
     pub extern "C" fn quad_net_crate_version() -> u32 {
         1
     }
+
+    #[no_mangle]
+    pub extern "C" fn game_locale_crate_version() -> u32 {
+        1
+    }
 }

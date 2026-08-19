@@ -222,6 +222,24 @@
           version: 1,
           name: 'game_audio',
         });
+        miniquad_add_plugin({
+          register_plugin: function (env_obj) {
+            env_obj.env.game_get_system_language = function () {
+              const lang = (
+                navigator.language ||
+                (navigator.languages && navigator.languages[0]) ||
+                'en'
+              ).toLowerCase();
+              if (lang.startsWith('ru')) return 1;
+              if (lang.startsWith('es')) return 2;
+              if (lang.startsWith('de')) return 3;
+              if (lang.startsWith('fr')) return 4;
+              return 0; // Default en-US
+            };
+          },
+          version: 1,
+          name: 'game_locale',
+        });
         load('fox-and-hounds.wasm?t=' + Date.now());
       };
       document.head.appendChild(script);

@@ -8,6 +8,8 @@ default-run = "foxandhounds"
 
 [dependencies]
 macroquad = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [[bin]]
 name = "foxandhounds"
@@ -28,6 +30,9 @@ assets = "assets/"
 res = "res"
 icon = "@mipmap/ic_launcher"
 build_targets = ["aarch64-linux-android"]
+
+[package.metadata.android.application_attributes]
+"android:localeConfig" = "@xml/locales_config"
 
 [package.metadata.android.activity_attributes]
 "android:exported" = "true"

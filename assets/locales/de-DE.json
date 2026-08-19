@@ -1,0 +1,33 @@
+{
+  "locale": "de-DE",
+  "language_name": "Deutsch",
+  "title_screen": {
+    "title": "FUCHS UND HUNDE",
+    "subtitle": "Taktische Graphen-Strategie",
+    "choose_faction": "FRAKTION WÄHLEN",
+    "fox_title": "🦊 Der Fuchs",
+    "fox_subtitle": "In den Stall schleichen",
+    "hounds_title": "🐶 Die Hunde",
+    "hounds_subtitle": "Den Fuchs fangen",
+    "ai_difficulty": "KI-SCHWIERIGKEIT",
+    "difficulty_easy": "Einfach",
+    "difficulty_medium": "Mittel",
+    "difficulty_hard": "Schwer",
+    "start_match": "SPIEL STARTEN"
+  },
+  "hud": {
+    "turn_template": "Zug {count}",
+    "fox_turn": "Fuchs am Zug",
+    "hounds_turn": "Hunde am Zug",
+    "thinking": "Denkt nach..."
+  },
+  "game_over": {
+    "victory": "SIEG!",
+    "defeat": "NIEDERLAGE!",
+    "fox_won_msg": "🦊 Der Fuchs hat den Hühnerstall erreicht!",
+    "hounds_won_msg": "🐶 Die Hunde haben den Fuchs eingekesselt!",
+    "stats_template": "In {turns} Zügen beendet • KI {difficulty}",
+    "play_again": "NOCHMAL SPIELEN",
+    "main_menu": "HAUPTMENÜ"
+  }
+}

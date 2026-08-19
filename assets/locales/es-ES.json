@@ -1,0 +1,33 @@
+{
+  "locale": "es-ES",
+  "language_name": "Español",
+  "title_screen": {
+    "title": "EL ZORRO Y LOS SABUESOS",
+    "subtitle": "Estrategia táctica en grafos",
+    "choose_faction": "ELIGE TU BANDO",
+    "fox_title": "🦊 El Zorro",
+    "fox_subtitle": "Entrar al gallinero",
+    "hounds_title": "🐶 Los Sabuesos",
+    "hounds_subtitle": "Atrapar al zorro",
+    "ai_difficulty": "DIFICULTAD DE LA IA",
+    "difficulty_easy": "Fácil",
+    "difficulty_medium": "Medio",
+    "difficulty_hard": "Difícil",
+    "start_match": "EMPEZAR PARTIDA"
+  },
+  "hud": {
+    "turn_template": "Turno {count}",
+    "fox_turn": "Turno del Zorro",
+    "hounds_turn": "Turno de los Sabuesos",
+    "thinking": "Pensando..."
+  },
+  "game_over": {
+    "victory": "¡VICTORIA!",
+    "defeat": "¡DERROTA!",
+    "fox_won_msg": "¡🦊 El Zorro llegó al gallinero!",
+    "hounds_won_msg": "¡🐶 Los Sabuesos acorralaron y atraparon al Zorro!",
+    "stats_template": "Completado en {turns} turnos • IA {difficulty}",
+    "play_again": "JUGAR DE NUEVO",
+    "main_menu": "MENÚ PRINCIPAL"
+  }
+}

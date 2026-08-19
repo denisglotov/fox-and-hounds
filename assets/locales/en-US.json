@@ -1,0 +1,33 @@
+{
+  "locale": "en-US",
+  "language_name": "English",
+  "title_screen": {
+    "title": "FOX & HOUNDS",
+    "subtitle": "Tactical Graph Strategy",
+    "choose_faction": "CHOOSE YOUR FACTION",
+    "fox_title": "🦊 The Fox",
+    "fox_subtitle": "Infiltrate Coop",
+    "hounds_title": "🐶 The Hounds",
+    "hounds_subtitle": "Trap the Fox",
+    "ai_difficulty": "AI DIFFICULTY",
+    "difficulty_easy": "Easy",
+    "difficulty_medium": "Medium",
+    "difficulty_hard": "Hard",
+    "start_match": "START MATCH"
+  },
+  "hud": {
+    "turn_template": "Turn {count}",
+    "fox_turn": "Fox Turn",
+    "hounds_turn": "Hounds Turn",
+    "thinking": "Thinking..."
+  },
+  "game_over": {
+    "victory": "VICTORY!",
+    "defeat": "DEFEAT!",
+    "fox_won_msg": "🦊 The Fox reached the Chicken Coop!",
+    "hounds_won_msg": "🐶 The Hounds encircled and trapped the Fox!",
+    "stats_template": "Completed in {turns} turns • {difficulty} AI",
+    "play_again": "PLAY AGAIN",
+    "main_menu": "MAIN MENU"
+  }
+}

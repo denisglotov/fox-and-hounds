@@ -1,0 +1,33 @@
+{
+  "locale": "fr-FR",
+  "language_name": "Français",
+  "title_screen": {
+    "title": "LE RENARD ET LES CHIENS",
+    "subtitle": "Stratégie tactique sur graphes",
+    "choose_faction": "CHOISISSEZ VOTRE CAMP",
+    "fox_title": "🦊 Le Renard",
+    "fox_subtitle": "Infiltrer le poulailler",
+    "hounds_title": "🐶 Les Chiens",
+    "hounds_subtitle": "Bloquer le renard",
+    "ai_difficulty": "DIFFICULTÉ DE L'IA",
+    "difficulty_easy": "Facile",
+    "difficulty_medium": "Moyen",
+    "difficulty_hard": "Difficile",
+    "start_match": "COMMENCER"
+  },
+  "hud": {
+    "turn_template": "Tour {count}",
+    "fox_turn": "Tour du Renard",
+    "hounds_turn": "Tour des Chiens",
+    "thinking": "Réflexion..."
+  },
+  "game_over": {
+    "victory": "VICTOIRE !",
+    "defeat": "DÉFAITE !",
+    "fox_won_msg": "🦊 Le Renard a atteint le poulailler !",
+    "hounds_won_msg": "🐶 Les Chiens ont encerclé et piégé le Renard !",
+    "stats_template": "Terminé en {turns} tours • IA {difficulty}",
+    "play_again": "REJOUER",
+    "main_menu": "MENU PRINCIPAL"
+  }
+}

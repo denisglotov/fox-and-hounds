@@ -1,0 +1,33 @@
+{
+  "locale": "ru-RU",
+  "language_name": "Русский",
+  "title_screen": {
+    "title": "ЛИСА И ОХОТНИКИ",
+    "subtitle": "Тактическая графовая стратегия",
+    "choose_faction": "ВЫБЕРИТЕ СТОРОНУ",
+    "fox_title": "🦊 Лис",
+    "fox_subtitle": "Пробраться в курятник",
+    "hounds_title": "🐶 Гончие",
+    "hounds_subtitle": "Окружить и поймать лиса",
+    "ai_difficulty": "СЛОЖНОСТЬ ИИ",
+    "difficulty_easy": "Легко",
+    "difficulty_medium": "Средне",
+    "difficulty_hard": "Сложно",
+    "start_match": "НАЧАТЬ МАТЧ"
+  },
+  "hud": {
+    "turn_template": "Ход {count}",
+    "fox_turn": "Ход Лиса",
+    "hounds_turn": "Ход Гончих",
+    "thinking": "Думает..."
+  },
+  "game_over": {
+    "victory": "ПОБЕДА!",
+    "defeat": "ПОРАЖЕНИЕ!",
+    "fox_won_msg": "🦊 Лис пробрался в курятник!",
+    "hounds_won_msg": "🐶 Гончие окружили и заблокировали лиса!",
+    "stats_template": "Завершено за {turns} ходов • ИИ: {difficulty}",
+    "play_again": "СЫГРАТЬ СНОВА",
+    "main_menu": "ГЛАВНОЕ МЕНЮ"
+  }
+}

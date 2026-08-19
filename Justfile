@@ -7,9 +7,9 @@ default:
 build:
     cargo build
 
-# Run the native app
-run:
-    cargo run
+# Run the native app (e.g. `just run --lang ru-RU` or `just run -l es-ES`)
+run *args:
+    cargo run -- {{args}}
 
 # Build release WebAssembly target and copy WASM binary to web directory
 build-wasm:

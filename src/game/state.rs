@@ -1,4 +1,5 @@
 use super::graph::{Graph, NodeType};
+use super::i18n::{detect_locale_tag, resolve_locale, LocaleStrings};
 use super::level::{build_river_crossing_graph, RIVER_CROSSING_CONFIG};
 use crate::audio::SoundTrigger;
 use macroquad::prelude::Vec2;
@@ -23,6 +24,10 @@ impl Difficulty {
             Difficulty::Medium => "Medium",
             Difficulty::Hard => "Hard",
         }
+    }
+
+    pub fn localized_name(self, locales: &LocaleStrings) -> &str {
+        locales.difficulty_name(self)
     }
 }
 
@@ -77,6 +82,7 @@ pub struct GameState {
     pub move_history: Vec<PieceMove>,
     pub ai_think_delay: f32,
     pub active_anim: Option<MoveAnimation>,
+    pub locales: &'static LocaleStrings,
 }
 
 impl Default for GameState {
@@ -87,6 +93,8 @@ impl Default for GameState {
 
 impl GameState {
     pub fn new() -> Self {
+        let detected = detect_locale_tag();
+        let locales = resolve_locale(&detected);
         let graph = build_river_crossing_graph();
         let fox_pos = graph
             .find_id_by_name(RIVER_CROSSING_CONFIG.fox_start_node)
@@ -115,7 +123,12 @@ impl GameState {
             move_history: Vec::new(),
             ai_think_delay: 0.0,
             active_anim: None,
+            locales,
         }
+    }
+
+    pub fn set_locale(&mut self, tag: &str) {
+        self.locales = resolve_locale(tag);
     }
 
     pub fn start_game(&mut self, player_faction: Faction, difficulty: Difficulty) {

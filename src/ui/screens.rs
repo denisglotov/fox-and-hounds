@@ -367,7 +367,7 @@ impl Screens {
             let right = layout.right_column;
 
             // 1. Title & Subtitle in Left Column
-            let title_text = "FOX & HOUNDS";
+            let title_text = &state.locales.title_screen.title;
             let title_font_size = (24.0 * scale) as u16;
             let title_dims = measure_text_styled(title_text, title_font_size, font);
             draw_text_styled(
@@ -379,7 +379,7 @@ impl Screens {
                 font,
             );
 
-            let subtitle_text = "Tactical Graph Strategy";
+            let subtitle_text = &state.locales.title_screen.subtitle;
             let sub_font_size = (12.0 * scale) as u16;
             let sub_dims = measure_text_styled(subtitle_text, sub_font_size, font);
             draw_text_styled(
@@ -426,7 +426,7 @@ impl Screens {
             );
 
             // 3. Right Column: Faction Selection
-            let role_label = "CHOOSE YOUR FACTION";
+            let role_label = &state.locales.title_screen.choose_faction;
             let label_size = (12.0 * scale) as u16;
             let label_dims = measure_text_styled(role_label, label_size, font);
             draw_text_styled(
@@ -441,8 +441,8 @@ impl Screens {
             let is_fox = state.player_faction == Faction::Fox;
             let fox_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
                 bounds: layout.fox_btn_bounds,
-                title: "🦊 The Fox",
-                subtitle: "Infiltrate Coop",
+                title: &state.locales.title_screen.fox_title,
+                subtitle: &state.locales.title_screen.fox_subtitle,
                 is_selected: is_fox,
                 accent_color: Color::from_rgba(230, 81, 0, 255),
                 scale,
@@ -456,8 +456,8 @@ impl Screens {
             let is_hound = state.player_faction == Faction::Hounds;
             let hound_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
                 bounds: layout.hounds_btn_bounds,
-                title: "🐶 The Hounds",
-                subtitle: "Trap the Fox",
+                title: &state.locales.title_screen.hounds_title,
+                subtitle: &state.locales.title_screen.hounds_subtitle,
                 is_selected: is_hound,
                 accent_color: Color::from_rgba(25, 118, 210, 255),
                 scale,
@@ -469,7 +469,7 @@ impl Screens {
             }
 
             // 4. Right Column: AI Difficulty
-            let diff_label = "AI DIFFICULTY";
+            let diff_label = &state.locales.title_screen.ai_difficulty;
             let diff_dims = measure_text_styled(diff_label, label_size, font);
             draw_text_styled(
                 diff_label,
@@ -485,7 +485,7 @@ impl Screens {
                 let is_sel = state.difficulty == diff;
                 let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
                     bounds: layout.difficulty_btn_bounds[idx],
-                    title: diff.name(),
+                    title: diff.localized_name(state.locales),
                     subtitle: "",
                     is_selected: is_sel,
                     accent_color: Color::from_rgba(78, 52, 46, 255),
@@ -501,7 +501,7 @@ impl Screens {
             // 5. Right Column: Start Match Button
             let start_clicked = Self::draw_action_button(&ActionButtonConfig {
                 bounds: layout.start_btn_bounds,
-                text: "START MATCH",
+                text: &state.locales.title_screen.start_match,
                 normal_color: Color::from_rgba(46, 125, 50, 255),
                 hover_color: Color::from_rgba(76, 175, 80, 255),
                 scale,
@@ -518,7 +518,7 @@ impl Screens {
             let mut curr_y = card_y + 20.0 * scale;
 
             // 1. Game Title & Subtitle
-            let title_text = "FOX & HOUNDS";
+            let title_text = &state.locales.title_screen.title;
             let title_font_size = (30.0 * scale) as u16;
             let title_dims = measure_text_styled(title_text, title_font_size, font);
             draw_text_styled(
@@ -531,7 +531,7 @@ impl Screens {
             );
             curr_y += 30.0 * scale;
 
-            let subtitle_text = "Tactical Graph Strategy";
+            let subtitle_text = &state.locales.title_screen.subtitle;
             let sub_font_size = (13.0 * scale) as u16;
             let sub_dims = measure_text_styled(subtitle_text, sub_font_size, font);
             draw_text_styled(
@@ -579,7 +579,7 @@ impl Screens {
             }
 
             // 3. Select Faction Header
-            let role_label = "CHOOSE YOUR FACTION";
+            let role_label = &state.locales.title_screen.choose_faction;
             let label_size = (12.0 * scale) as u16;
             let label_dims = measure_text_styled(role_label, label_size, font);
             draw_text_styled(
@@ -594,8 +594,8 @@ impl Screens {
             let is_fox = state.player_faction == Faction::Fox;
             let fox_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
                 bounds: layout.fox_btn_bounds,
-                title: "🦊 The Fox",
-                subtitle: "Infiltrate Coop",
+                title: &state.locales.title_screen.fox_title,
+                subtitle: &state.locales.title_screen.fox_subtitle,
                 is_selected: is_fox,
                 accent_color: Color::from_rgba(230, 81, 0, 255),
                 scale,
@@ -609,8 +609,8 @@ impl Screens {
             let is_hound = state.player_faction == Faction::Hounds;
             let hound_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
                 bounds: layout.hounds_btn_bounds,
-                title: "🐶 The Hounds",
-                subtitle: "Trap the Fox",
+                title: &state.locales.title_screen.hounds_title,
+                subtitle: &state.locales.title_screen.hounds_subtitle,
                 is_selected: is_hound,
                 accent_color: Color::from_rgba(25, 118, 210, 255),
                 scale,
@@ -622,7 +622,7 @@ impl Screens {
             }
 
             // 4. AI Difficulty Selector
-            let diff_label = "AI DIFFICULTY";
+            let diff_label = &state.locales.title_screen.ai_difficulty;
             let diff_label_dims = measure_text_styled(diff_label, label_size, font);
             draw_text_styled(
                 diff_label,
@@ -638,7 +638,7 @@ impl Screens {
                 let is_sel = state.difficulty == diff;
                 let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
                     bounds: layout.difficulty_btn_bounds[idx],
-                    title: diff.name(),
+                    title: diff.localized_name(state.locales),
                     subtitle: "",
                     is_selected: is_sel,
                     accent_color: Color::from_rgba(78, 52, 46, 255),
@@ -654,7 +654,7 @@ impl Screens {
             // 5. Start Match Button
             let start_clicked = Self::draw_action_button(&ActionButtonConfig {
                 bounds: layout.start_btn_bounds,
-                text: "START MATCH",
+                text: &state.locales.title_screen.start_match,
                 normal_color: Color::from_rgba(46, 125, 50, 255),
                 hover_color: Color::from_rgba(76, 175, 80, 255),
                 scale,
@@ -699,12 +699,20 @@ impl Screens {
         let (turn_icon, turn_title, badge_color) = match state.current_turn {
             Faction::Fox => (
                 "🦊",
-                if is_ai { "Thinking..." } else { "Fox Turn" },
+                if is_ai {
+                    &state.locales.hud.thinking
+                } else {
+                    &state.locales.hud.fox_turn
+                },
                 Color::from_rgba(230, 81, 0, 220),
             ),
             Faction::Hounds => (
                 "🐶",
-                if is_ai { "Thinking..." } else { "Hounds Turn" },
+                if is_ai {
+                    &state.locales.hud.thinking
+                } else {
+                    &state.locales.hud.hounds_turn
+                },
                 Color::from_rgba(25, 118, 210, 220),
             ),
         };
@@ -782,7 +790,7 @@ impl Screens {
         }
 
         // 3. Turn Counter (Center - safely positioned without overlapping badge or buttons)
-        let turn_str = format!("Turn {}", state.turn_count);
+        let turn_str = state.locales.hud.format_turn(state.turn_count);
         let turn_font = (14.0 * scale) as u16;
         let turn_dims = measure_text_styled(&turn_str, turn_font, font);
         let left_edge = badge_x + badge_w + 10.0 * scale;
@@ -845,7 +853,11 @@ impl Screens {
         );
 
         // Header Title
-        let header_text = if player_won { "VICTORY!" } else { "DEFEAT!" };
+        let header_text = if player_won {
+            &state.locales.game_over.victory
+        } else {
+            &state.locales.game_over.defeat
+        };
         let header_color = if player_won {
             Color::from_rgba(76, 175, 80, 255)
         } else {
@@ -865,8 +877,8 @@ impl Screens {
 
         // Detail Message
         let msg = match state.result {
-            GameResult::FoxWon => "🦊 The Fox reached the Chicken Coop!",
-            GameResult::HoundsWon => "🐶 The Hounds encircled and trapped the Fox!",
+            GameResult::FoxWon => &state.locales.game_over.fox_won_msg,
+            GameResult::HoundsWon => &state.locales.game_over.hounds_won_msg,
             GameResult::Ongoing => "",
         };
         let msg_font = (13.0 * scale) as u16;
@@ -882,10 +894,9 @@ impl Screens {
         curr_y += 24.0 * scale;
 
         // Stats line
-        let stats = format!(
-            "Completed in {} turns • {} AI",
+        let stats = state.locales.game_over.format_stats(
             state.turn_count,
-            state.difficulty.name()
+            state.difficulty.localized_name(state.locales),
         );
         let stats_font = (12.0 * scale) as u16;
         let stats_dims = measure_text_styled(&stats, stats_font, font);
@@ -901,7 +912,7 @@ impl Screens {
         // Play Again Button
         let rematch_clicked = Self::draw_action_button(&ActionButtonConfig {
             bounds: layout.rematch_btn_bounds,
-            text: "PLAY AGAIN",
+            text: &state.locales.game_over.play_again,
             normal_color: Color::from_rgba(25, 118, 210, 255),
             hover_color: Color::from_rgba(66, 165, 245, 255),
             scale,
@@ -916,7 +927,7 @@ impl Screens {
         // Main Menu Button
         let menu_clicked = Self::draw_action_button(&ActionButtonConfig {
             bounds: layout.menu_btn_bounds,
-            text: "MAIN MENU",
+            text: &state.locales.game_over.main_menu,
             normal_color: Color::from_rgba(55, 71, 79, 255),
             hover_color: Color::from_rgba(96, 125, 139, 255),
             scale,
