@@ -1,7 +1,7 @@
 {
   "name": "Fox and Hounds",
   "short_name": "Fox & Hounds",
-  "description": "Fox and Hounds asymmetric turn-based graph strategy game written in Rust & Macroquad, compiled to WebAssembly.",
+  "description": "Fox and Hounds asymmetric turn-based graph strategy game",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -16,9 +16,5 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": [
-    "games",
-    "strategy",
-    "puzzle"
-  ]
+  "categories": ["games", "strategy", "puzzle"]
 }
