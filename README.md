@@ -54,7 +54,7 @@ A tactical campaign map featuring open flanking grounds, a river bottleneck brid
 ### Board Graph Visualization
 
 <p align="center">
-  <img src="assets/board_graph.svg" alt="The River Crossing Board Graph" width="380" />
+  <img src="docs/board_graph.svg" alt="The River Crossing Board Graph" width="380" />
 </p>
 
 ### Level Specifications
