@@ -1,6 +1,6 @@
 [package]
 name = "fox-and-hounds"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 authors = ["Dymka"]
 description = "Fox and Hounds - Turn-Based Asymmetric Graph Strategy Game"
@@ -42,7 +42,7 @@ name = "foxandhounds"
 package_name = "org.dymka.foxandhounds"
 label = "Fox and Hounds"
 version_code = 1
-version_name = "1.0"
+version_name = "1.1"
 assets = "assets/"
 res = "res"
 icon = "@mipmap/ic_launcher"

@@ -27,6 +27,10 @@ build-android:
 build-aab: build-android
     ./scripts/build-aab.sh
 
+# Build debug APK with separate application ID (installs alongside Play Store version)
+build-android-debug:
+    ./scripts/build-debug-apk.sh
+
 # Check for compilation errors
 check:
     cargo check

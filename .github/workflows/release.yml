@@ -94,7 +94,7 @@ jobs:
             --ks "$RUNNER_TEMP/release.keystore" \
             --ks-key-alias "$KEYSTORE_ALIAS" \
             --ks-pass "pass:$KEYSTORE_PASSWORD" \
-            --out "target/android-artifacts/release/apk/foxandhounds-release.apk" \
+            --out "target/android-artifacts/release/apk/foxandhounds.apk" \
             "target/android-artifacts/release/apk/foxandhounds.apk"
 
           echo "==> Signing Release AAB..."
@@ -108,7 +108,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/android-artifacts/release/apk/foxandhounds-release.apk
+            target/android-artifacts/release/apk/foxandhounds.apk
             target/android-artifacts/release/apk/foxandhounds.aab
             target/android-artifacts/release/apk/native-debug-symbols.zip
             target/android-artifacts/release/apk/mapping.txt
