@@ -1,0 +1,33 @@
+{
+  "locale": "ja-JP",
+  "language_name": "日本語",
+  "title_screen": {
+    "title": "狐と猟犬",
+    "subtitle": "戦術的グラフ戦略ゲーム",
+    "choose_faction": "勢力を選択",
+    "fox_title": "🦊 狐",
+    "fox_subtitle": "鶏小屋に潜入する",
+    "hounds_title": "🐶 猟犬",
+    "hounds_subtitle": "狐を追い詰めて捕獲する",
+    "ai_difficulty": "AIの難易度",
+    "difficulty_easy": "初級",
+    "difficulty_medium": "中級",
+    "difficulty_hard": "上級",
+    "start_match": "対局開始"
+  },
+  "hud": {
+    "turn_template": "ターン {count}",
+    "fox_turn": "狐の手番",
+    "hounds_turn": "猟犬の手番",
+    "thinking": "思考中..."
+  },
+  "game_over": {
+    "victory": "勝利！",
+    "defeat": "敗北...",
+    "fox_won_msg": "🦊 狐が鶏小屋に到達しました！",
+    "hounds_won_msg": "🐶 猟犬が狐を包囲して捕獲しました！",
+    "stats_template": "{turns}ターンで決着 • AI難易度: {difficulty}",
+    "play_again": "もう一度プレイ",
+    "main_menu": "メインメニュー"
+  }
+}

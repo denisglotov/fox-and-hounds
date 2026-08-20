@@ -1,0 +1,33 @@
+{
+  "locale": "zh-CN",
+  "language_name": "简体中文",
+  "title_screen": {
+    "title": "狐狸与猎犬",
+    "subtitle": "战术图论策略博弈",
+    "choose_faction": "选择阵营",
+    "fox_title": "🦊 狐狸",
+    "fox_subtitle": "潜入鸡舍",
+    "hounds_title": "🐶 猎犬",
+    "hounds_subtitle": "包围并困住狐狸",
+    "ai_difficulty": "AI 难度",
+    "difficulty_easy": "简单",
+    "difficulty_medium": "中等",
+    "difficulty_hard": "困难",
+    "start_match": "开始对局"
+  },
+  "hud": {
+    "turn_template": "第 {count} 回合",
+    "fox_turn": "狐狸回合",
+    "hounds_turn": "猎犬回合",
+    "thinking": "思考中..."
+  },
+  "game_over": {
+    "victory": "胜利！",
+    "defeat": "失败...",
+    "fox_won_msg": "🦊 狐狸成功到达了鸡舍！",
+    "hounds_won_msg": "🐶 猎犬成功包围并困住了狐狸！",
+    "stats_template": "在 {turns} 回合内完成 • AI难度: {difficulty}",
+    "play_again": "再玩一次",
+    "main_menu": "返回主菜单"
+  }
+}

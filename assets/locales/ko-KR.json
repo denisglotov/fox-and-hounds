@@ -1,0 +1,33 @@
+{
+  "locale": "ko-KR",
+  "language_name": "한국어",
+  "title_screen": {
+    "title": "여우와 사냥개",
+    "subtitle": "전술 그래프 전략 게임",
+    "choose_faction": "진영 선택",
+    "fox_title": "🦊 여우",
+    "fox_subtitle": "닭장에 침투",
+    "hounds_title": "🐶 사냥개",
+    "hounds_subtitle": "여우를 포위하여 포획",
+    "ai_difficulty": "AI 난이도",
+    "difficulty_easy": "쉬움",
+    "difficulty_medium": "보통",
+    "difficulty_hard": "어려움",
+    "start_match": "경기 시작"
+  },
+  "hud": {
+    "turn_template": "{count}번째 턴",
+    "fox_turn": "여우 턴",
+    "hounds_turn": "사냥개 턴",
+    "thinking": "생각 중..."
+  },
+  "game_over": {
+    "victory": "승리!",
+    "defeat": "패배...",
+    "fox_won_msg": "🦊 여우가 닭장에 도달했습니다!",
+    "hounds_won_msg": "🐶 사냥개가 여우를 포위하여 가두었습니다!",
+    "stats_template": "{turns}턴 만에 종료 • AI 난이도: {difficulty}",
+    "play_again": "다시 플레이",
+    "main_menu": "메인 메뉴"
+  }
+}
