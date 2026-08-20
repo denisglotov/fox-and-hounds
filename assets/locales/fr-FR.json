@@ -26,7 +26,7 @@
     "defeat": "DÉFAITE !",
     "fox_won_msg": "🦊 Le Renard a atteint le poulailler !",
     "hounds_won_msg": "🐶 Les Chiens ont encerclé et piégé le Renard !",
-    "stats_template": "Terminé en {turns} tours • IA {difficulty}",
+    "stats_template": "Terminé en {turns} tours • IA : {difficulty}",
     "play_again": "REJOUER",
     "main_menu": "MENU PRINCIPAL"
   }

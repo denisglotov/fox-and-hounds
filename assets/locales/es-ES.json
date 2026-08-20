@@ -26,7 +26,7 @@
     "defeat": "¡DERROTA!",
     "fox_won_msg": "¡🦊 El Zorro llegó al gallinero!",
     "hounds_won_msg": "¡🐶 Los Sabuesos acorralaron y atraparon al Zorro!",
-    "stats_template": "Completado en {turns} turnos • IA {difficulty}",
+    "stats_template": "Completado en {turns} turnos • IA: {difficulty}",
     "play_again": "JUGAR DE NUEVO",
     "main_menu": "MENÚ PRINCIPAL"
   }

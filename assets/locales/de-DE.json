@@ -26,7 +26,7 @@
     "defeat": "NIEDERLAGE!",
     "fox_won_msg": "🦊 Der Fuchs hat den Hühnerstall erreicht!",
     "hounds_won_msg": "🐶 Die Hunde haben den Fuchs eingekesselt!",
-    "stats_template": "In {turns} Zügen beendet • KI {difficulty}",
+    "stats_template": "In {turns} Zügen beendet • KI: {difficulty}",
     "play_again": "NOCHMAL SPIELEN",
     "main_menu": "HAUPTMENÜ"
   }

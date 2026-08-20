@@ -13,7 +13,7 @@
     "difficulty_easy": "쉬움",
     "difficulty_medium": "보통",
     "difficulty_hard": "어려움",
-    "start_match": "경기 시작"
+    "start_match": "게임 시작"
   },
   "hud": {
     "turn_template": "{count}번째 턴",
