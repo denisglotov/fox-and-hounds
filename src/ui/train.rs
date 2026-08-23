@@ -2,9 +2,9 @@ use crate::audio::SoundTrigger;
 use crate::game::level::BOARD_IMAGE_HEIGHT;
 use macroquad::prelude::*;
 
-pub const TRACK_X: f32 = 50.0;
+pub const TRACK_X: f32 = 40.0;
 pub const TRAIN_START_Y: f32 = -270.0;
-pub const TRAIN_END_Y: f32 = 1534.0;
+pub const TRAIN_END_Y: f32 = 1620.0;
 pub const INITIAL_DELAY: f32 = 15.0;
 pub const CYCLE_DURATION: f32 = 60.0;
 pub const TRANSIT_DURATION: f32 = 5.2;
