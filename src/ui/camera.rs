@@ -340,7 +340,7 @@ impl ViewportCamera {
         let cur_board_size = base_board_size * self.zoom;
         let pad = 12.0 * scale;
         let left_ext = 384.0 * base_board_scale * self.zoom;
-        let right_ext = 384.0 * base_board_scale * self.zoom;
+        let right_ext = 256.0 * base_board_scale * self.zoom;
 
         if !self.initialized {
             self.pan_offset.x = (viewport_rect.w - cur_board_size.x) / 2.0;

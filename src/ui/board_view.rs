@@ -14,7 +14,7 @@ pub fn roll_sit_threshold() -> f32 {
 }
 
 pub const BOARD_LEFT_WIDTH: f32 = 384.0;
-pub const BOARD_RIGHT_WIDTH: f32 = 384.0;
+pub const BOARD_RIGHT_WIDTH: f32 = 256.0;
 
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
