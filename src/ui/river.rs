@@ -1,9 +1,9 @@
 use macroquad::prelude::*;
 
-const SPLINE_SAMPLES: usize = 240;
+const SPLINE_SAMPLES: usize = 480;
 const STREAMLINE_CHANNELS: [f32; 7] = [-0.72, -0.48, -0.24, 0.0, 0.24, 0.48, 0.72];
 const CAUSTIC_LANES: [f32; 5] = [-0.60, -0.30, 0.0, 0.30, 0.60];
-const NUM_TRAVELING_CRESTS: usize = 4;
+const NUM_TRAVELING_CRESTS: usize = 7;
 
 /// A sampled point along the river's center path.
 #[derive(Debug, Clone, Copy)]
@@ -30,23 +30,36 @@ impl Default for RiverPath {
 
 impl RiverPath {
     pub fn new() -> Self {
-        // Control points: (x, y, half_width) defining the exact river channel on board_image.png
+        // Control points: (x, y, half_width) defining the continuous river channel across all background panels
         let control_points = [
-            (Vec2::new(0.0, 1018.0), 28.0),
-            (Vec2::new(50.0, 1008.0), 25.0), // Under railroad bridge
-            (Vec2::new(100.0, 998.0), 24.0),
-            (Vec2::new(160.0, 970.0), 22.0),
-            (Vec2::new(220.0, 942.0), 24.0),
-            (Vec2::new(280.0, 922.0), 25.0),
-            (Vec2::new(340.0, 908.0), 24.0),
-            (Vec2::new(424.0, 908.0), 26.0), // Under M6 wooden bridge
-            (Vec2::new(520.0, 908.0), 24.0),
-            (Vec2::new(580.0, 884.0), 26.0),
-            (Vec2::new(640.0, 856.0), 24.0),
-            (Vec2::new(700.0, 835.0), 22.0),
-            (Vec2::new(760.0, 824.0), 23.0),
-            (Vec2::new(810.0, 810.0), 26.0),
-            (Vec2::new(848.0, 796.0), 24.0),
+            // Left extension (board_left.png: x = -384.0 .. 0.0)
+            (Vec2::new(-384.0, 721.0), 22.0),
+            (Vec2::new(-320.0, 745.0), 20.0),
+            (Vec2::new(-256.0, 770.0), 22.0),
+            (Vec2::new(-192.0, 790.0), 22.0),
+            (Vec2::new(-128.0, 818.0), 20.0),
+            (Vec2::new(-64.0, 838.0), 20.0),
+            // Central board (board_image.png: x = 0.0 .. 768.0)
+            (Vec2::new(0.0, 856.0), 24.0),
+            (Vec2::new(45.0, 848.0), 22.0), // Under railroad bridge
+            (Vec2::new(100.0, 832.0), 20.0),
+            (Vec2::new(160.0, 810.0), 20.0),
+            (Vec2::new(220.0, 780.0), 20.0),
+            (Vec2::new(280.0, 758.0), 22.0),
+            (Vec2::new(384.0, 755.0), 24.0), // Under M6 wooden bridge
+            (Vec2::new(480.0, 755.0), 22.0),
+            (Vec2::new(540.0, 732.0), 22.0),
+            (Vec2::new(600.0, 702.0), 20.0),
+            (Vec2::new(660.0, 686.0), 20.0),
+            (Vec2::new(720.0, 670.0), 22.0),
+            (Vec2::new(768.0, 655.0), 22.0),
+            // Right extension (board_right.png: x = 768.0 .. 1024.0)
+            (Vec2::new(816.0, 661.0), 24.0),
+            (Vec2::new(864.0, 668.0), 26.0),
+            (Vec2::new(912.0, 682.0), 24.0),
+            (Vec2::new(960.0, 676.0), 24.0),
+            (Vec2::new(1008.0, 662.0), 22.0),
+            (Vec2::new(1024.0, 658.0), 20.0),
         ];
 
         let n = control_points.len();
@@ -160,16 +173,16 @@ impl RiverPath {
     /// Returns an occlusion factor in [0.0, 1.0], where 1.0 is fully under the bridge deck.
     pub fn bridge_occlusion(&self, pos: Vec2) -> f32 {
         // Railroad bridge region
-        let in_rail_bridge = pos.x >= 15.0 && pos.x <= 75.0 && pos.y >= 960.0 && pos.y <= 1055.0;
+        let in_rail_bridge = pos.x >= 10.0 && pos.x <= 75.0 && pos.y >= 800.0 && pos.y <= 895.0;
         if in_rail_bridge {
-            let edge_dist = ((pos.x - 15.0).min(75.0 - pos.x) / 16.0).clamp(0.0, 1.0);
+            let edge_dist = ((pos.x - 10.0).min(75.0 - pos.x) / 16.0).clamp(0.0, 1.0);
             return 0.88 * edge_dist;
         }
 
         // Row 6 M6 bottleneck bridge region
-        let in_wood_bridge = pos.x >= 335.0 && pos.x <= 510.0 && pos.y >= 850.0 && pos.y <= 970.0;
+        let in_wood_bridge = pos.x >= 300.0 && pos.x <= 470.0 && pos.y >= 700.0 && pos.y <= 810.0;
         if in_wood_bridge {
-            let edge_dist = ((pos.x - 335.0).min(510.0 - pos.x) / 24.0).clamp(0.0, 1.0);
+            let edge_dist = ((pos.x - 300.0).min(470.0 - pos.x) / 24.0).clamp(0.0, 1.0);
             return 0.88 * edge_dist;
         }
 

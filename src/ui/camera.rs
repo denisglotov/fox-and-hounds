@@ -7,6 +7,16 @@ pub const DOUBLE_TAP_ZOOM: f32 = 2.0;
 pub const DOUBLE_TAP_TIME_WINDOW: f64 = 0.30;
 pub const DOUBLE_TAP_MAX_DISTANCE: f32 = 24.0;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CameraAnimation {
+    pub start_zoom: f32,
+    pub target_zoom: f32,
+    pub start_pan: Vec2,
+    pub target_pan: Vec2,
+    pub duration: f32,
+    pub elapsed: f32,
+}
+
 pub struct ViewportCamera {
     pub pan_offset: Vec2,
     pub zoom: f32,
@@ -19,6 +29,7 @@ pub struct ViewportCamera {
     pub pinch_prev_dist: Option<f32>,
     pub render_target: Option<RenderTarget>,
     pub initialized: bool,
+    pub anim: Option<CameraAnimation>,
 }
 
 impl Default for ViewportCamera {
@@ -41,6 +52,7 @@ impl ViewportCamera {
             pinch_prev_dist: None,
             render_target: None,
             initialized: false,
+            anim: None,
         }
     }
 
@@ -55,6 +67,79 @@ impl ViewportCamera {
         self.last_tap_pos = Vec2::ZERO;
         self.pinch_prev_dist = None;
         self.initialized = false;
+        self.anim = None;
+    }
+
+    /// Starts a cinematic slow zooming animation into the Coop-to-Fox playing field at match start.
+    pub fn start_coop_fox_intro(
+        &mut self,
+        viewport_rect: Rect,
+        base_board_size: Vec2,
+        base_board_scale: f32,
+        _scale: f32,
+        duration: f32,
+    ) {
+        // 1. Initial wide overview framing at MIN_ZOOM (1.0x)
+        let start_zoom = MIN_ZOOM;
+        let start_board_size = base_board_size * start_zoom;
+        let start_pan_x = (viewport_rect.w - start_board_size.x) / 2.0;
+        let start_pan_y = if start_board_size.y <= viewport_rect.h {
+            (viewport_rect.h - start_board_size.y) / 2.0
+        } else {
+            0.0
+        };
+        let start_pan = Vec2::new(start_pan_x, start_pan_y);
+
+        // 2. Target "Coop-to-Fox" framing
+        // Chicken Coop is at y ≈ 80..156, Fox Den is at y ≈ 1052..1120.
+        // The playable vertical span is ~1040px out of total BOARD_IMAGE_HEIGHT (1376px).
+        const COOP_FOX_PLAYABLE_HEIGHT: f32 = 1040.0;
+        const COOP_FOX_CENTER_Y: f32 = 600.0;
+        const COOP_FOX_CENTER_X: f32 = crate::game::level::BOARD_IMAGE_WIDTH / 2.0; // 384.0
+
+        let target_zoom =
+            (viewport_rect.h / (COOP_FOX_PLAYABLE_HEIGHT * base_board_scale)).clamp(1.20, 1.85);
+
+        let target_board_size = base_board_size * target_zoom;
+        let target_left_ext = 384.0 * base_board_scale * target_zoom;
+        let target_right_ext = 256.0 * base_board_scale * target_zoom;
+
+        let mut target_pan_x =
+            viewport_rect.w / 2.0 - (COOP_FOX_CENTER_X * base_board_scale * target_zoom);
+        let mut target_pan_y =
+            viewport_rect.h / 2.0 - (COOP_FOX_CENTER_Y * base_board_scale * target_zoom);
+
+        // Boundary clamp target pan
+        let min_x = (viewport_rect.w - target_board_size.x - target_right_ext)
+            .min((viewport_rect.w - target_board_size.x) / 2.0);
+        let max_x = (target_left_ext).max((viewport_rect.w - target_board_size.x) / 2.0);
+        target_pan_x = target_pan_x.clamp(min_x, max_x);
+
+        if target_board_size.y <= viewport_rect.h {
+            target_pan_y = (viewport_rect.h - target_board_size.y) / 2.0;
+        } else {
+            let min_y = viewport_rect.h - target_board_size.y;
+            let max_y = 0.0;
+            target_pan_y = target_pan_y.clamp(min_y, max_y);
+        }
+
+        let target_pan = Vec2::new(target_pan_x, target_pan_y);
+
+        self.zoom = start_zoom;
+        self.target_zoom = target_zoom;
+        self.pan_offset = start_pan;
+        self.drag_start = None;
+        self.is_dragging = false;
+        self.initialized = true;
+
+        self.anim = Some(CameraAnimation {
+            start_zoom,
+            target_zoom,
+            start_pan,
+            target_pan,
+            duration: duration.max(0.1),
+            elapsed: 0.0,
+        });
     }
 
     /// Centers camera on player's pieces at match start (bottom for Fox, top for Hounds).
@@ -71,7 +156,7 @@ impl ViewportCamera {
         } else {
             self.pan_offset.y = match faction {
                 crate::game::state::Faction::Fox => (viewport_rect.h - cur_board_size.y).min(0.0),
-                crate::game::state::Faction::Hounds => 12.0,
+                crate::game::state::Faction::Hounds => 0.0,
             };
         }
         self.drag_start = None;
@@ -162,6 +247,7 @@ impl ViewportCamera {
             || is_key_down(KeyCode::RightSuper);
 
         if is_ctrl && wheel_y != 0.0 && in_viewport {
+            self.anim = None;
             let old_zoom = self.zoom;
             let zoom_delta = wheel_y * 0.15;
             self.target_zoom = (self.zoom + zoom_delta).clamp(MIN_ZOOM, MAX_ZOOM);
@@ -172,13 +258,33 @@ impl ViewportCamera {
                 self.pan_offset = focal_vp - (focal_vp - self.pan_offset) * zoom_ratio;
             }
         } else if wheel_y != 0.0 || wheel_x != 0.0 {
+            self.anim = None;
             let scroll_speed = 35.0 * scale;
             self.pan_offset.y += wheel_y * scroll_speed;
             self.pan_offset.x -= wheel_x * scroll_speed;
         }
 
-        // 4. Smooth Zoom Transition Lerp
-        if (self.zoom - self.target_zoom).abs() > 0.001 {
+        if is_pinching || double_tap_triggered {
+            self.anim = None;
+        }
+
+        // 4. Smooth Zoom / Camera Intro Animation
+        if let Some(mut anim) = self.anim {
+            anim.elapsed += dt;
+            let t = (anim.elapsed / anim.duration).clamp(0.0, 1.0);
+            // Smooth cubic ease-out deceleration
+            let ease = 1.0 - (1.0 - t).powi(3);
+
+            self.zoom = anim.start_zoom + (anim.target_zoom - anim.start_zoom) * ease;
+            self.target_zoom = anim.target_zoom;
+            self.pan_offset = anim.start_pan.lerp(anim.target_pan, ease);
+
+            if t >= 1.0 {
+                self.anim = None;
+            } else {
+                self.anim = Some(anim);
+            }
+        } else if (self.zoom - self.target_zoom).abs() > 0.001 {
             let old_zoom = self.zoom;
             let lerp_rate = 14.0;
             let lerp_factor = (1.0 - (-lerp_rate * dt).exp()).clamp(0.0, 1.0);
@@ -207,6 +313,7 @@ impl ViewportCamera {
                     let delta = mouse_pos - start;
                     if delta.length_squared() > (6.0 * scale) * (6.0 * scale) {
                         self.is_dragging = true;
+                        self.anim = None;
                     }
 
                     if self.is_dragging {
@@ -223,37 +330,33 @@ impl ViewportCamera {
             self.is_dragging = false;
         }
 
-        // 6. Dynamic Boundary Clamping based on effective board size
+        // 6. Dynamic Boundary Clamping based on effective board and extension sizes
         let cur_board_size = base_board_size * self.zoom;
-        let pad = 12.0 * scale;
-        let total_w = cur_board_size.x + pad * 2.0;
-        let total_h = cur_board_size.y + pad * 2.0;
+        let left_ext = 384.0 * base_board_scale * self.zoom;
+        let right_ext = 256.0 * base_board_scale * self.zoom;
 
         if !self.initialized {
             self.pan_offset.x = (viewport_rect.w - cur_board_size.x) / 2.0;
-            self.pan_offset.y = if total_h <= viewport_rect.h {
+            self.pan_offset.y = if cur_board_size.y <= viewport_rect.h {
                 (viewport_rect.h - cur_board_size.y) / 2.0
             } else {
-                pad
+                0.0
             };
             self.initialized = true;
         }
 
-        // Clamp or center horizontally
-        if total_w <= viewport_rect.w {
-            self.pan_offset.x = (viewport_rect.w - cur_board_size.x) / 2.0;
-        } else {
-            let min_x = viewport_rect.w - cur_board_size.x - pad;
-            let max_x = pad;
-            self.pan_offset.x = self.pan_offset.x.clamp(min_x, max_x);
-        }
+        // Clamp horizontally across board and left/right scenery extensions
+        let min_x = (viewport_rect.w - cur_board_size.x - right_ext)
+            .min((viewport_rect.w - cur_board_size.x) / 2.0);
+        let max_x = (left_ext).max((viewport_rect.w - cur_board_size.x) / 2.0);
+        self.pan_offset.x = self.pan_offset.x.clamp(min_x, max_x);
 
-        // Clamp or center vertically
-        if total_h <= viewport_rect.h {
+        // Clamp vertically strictly across board with zero black margins
+        if cur_board_size.y <= viewport_rect.h {
             self.pan_offset.y = (viewport_rect.h - cur_board_size.y) / 2.0;
         } else {
-            let min_y = viewport_rect.h - cur_board_size.y - pad;
-            let max_y = pad;
+            let min_y = viewport_rect.h - cur_board_size.y;
+            let max_y = 0.0;
             self.pan_offset.y = self.pan_offset.y.clamp(min_y, max_y);
         }
 

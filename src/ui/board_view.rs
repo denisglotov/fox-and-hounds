@@ -13,8 +13,13 @@ pub fn roll_sit_threshold() -> f32 {
     MIN_IDLE_SIT_SECONDS + macroquad::rand::gen_range(0.0, RANDOM_IDLE_SIT_SECONDS_RANGE)
 }
 
+pub const BOARD_LEFT_WIDTH: f32 = 384.0;
+pub const BOARD_RIGHT_WIDTH: f32 = 256.0;
+
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
+    pub board_left_texture: Option<Texture2D>,
+    pub board_right_texture: Option<Texture2D>,
     pub fox_texture: Option<Texture2D>,
     pub hound1_texture: Option<Texture2D>,
     pub hound2_texture: Option<Texture2D>,
@@ -46,6 +51,24 @@ impl BoardView {
         let board_texture = {
             let tex = Texture2D::from_file_with_format(
                 include_bytes!("../../assets/board_image.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
+        let board_left_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/board_left.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
+        let board_right_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/board_right.png"),
                 Some(ImageFormat::Png),
             );
             tex.set_filter(FilterMode::Linear);
@@ -126,6 +149,8 @@ impl BoardView {
 
         Self {
             board_texture,
+            board_left_texture,
+            board_right_texture,
             fox_texture,
             hound1_texture,
             hound2_texture,
@@ -179,7 +204,39 @@ impl BoardView {
         let t = get_time() as f32;
         let dt = get_frame_time().min(0.1);
 
-        // 1. Draw Background Board Image
+        // 1. Draw Background Board Image and Extensions
+        if let Some(tex) = &self.board_left_texture {
+            draw_texture_ex(
+                tex,
+                origin.x - BOARD_LEFT_WIDTH * scale,
+                origin.y,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(Vec2::new(
+                        BOARD_LEFT_WIDTH * scale,
+                        BOARD_IMAGE_HEIGHT * scale,
+                    )),
+                    ..Default::default()
+                },
+            );
+        }
+
+        if let Some(tex) = &self.board_right_texture {
+            draw_texture_ex(
+                tex,
+                origin.x + BOARD_IMAGE_WIDTH * scale,
+                origin.y,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(Vec2::new(
+                        BOARD_RIGHT_WIDTH * scale,
+                        BOARD_IMAGE_HEIGHT * scale,
+                    )),
+                    ..Default::default()
+                },
+            );
+        }
+
         if let Some(tex) = &self.board_texture {
             draw_texture_ex(
                 tex,
@@ -355,39 +412,39 @@ impl BoardView {
                 );
             }
 
-            // 2. Base Node Circle Plate
-            let base_radius = if is_hovered {
-                20.0 * scale
-            } else {
-                16.0 * scale
-            };
-            let base_color = if node.id == state.coop_pos {
-                Color::from_rgba(255, 215, 0, 140)
-            } else if node.node_type == NodeType::Bottleneck {
-                // Bridge Chokepoint
-                Color::from_rgba(79, 195, 247, 90)
-            } else {
-                Color::from_rgba(255, 255, 255, 45)
-            };
+            // 2. Base Node Circle Plate (skip for the chicken coop)
+            if node.id != state.coop_pos {
+                let base_radius = if is_hovered {
+                    20.0 * scale
+                } else {
+                    16.0 * scale
+                };
+                let base_color = if node.node_type == NodeType::Bottleneck {
+                    // Bridge Chokepoint
+                    Color::from_rgba(79, 195, 247, 90)
+                } else {
+                    Color::from_rgba(255, 255, 255, 45)
+                };
 
-            draw_circle(pos.x, pos.y, base_radius, base_color);
-            draw_circle_lines(
-                pos.x,
-                pos.y,
-                base_radius,
-                1.5 * scale,
-                Color::from_rgba(255, 255, 255, 120),
-            );
-
-            // Hover indicator ring
-            if is_hovered {
+                draw_circle(pos.x, pos.y, base_radius, base_color);
                 draw_circle_lines(
                     pos.x,
                     pos.y,
-                    base_radius + 4.0 * scale,
-                    2.0 * scale,
-                    Color::from_rgba(255, 255, 255, 200),
+                    base_radius,
+                    1.5 * scale,
+                    Color::from_rgba(255, 255, 255, 120),
                 );
+
+                // Hover indicator ring
+                if is_hovered {
+                    draw_circle_lines(
+                        pos.x,
+                        pos.y,
+                        base_radius + 4.0 * scale,
+                        2.0 * scale,
+                        Color::from_rgba(255, 255, 255, 200),
+                    );
+                }
             }
         }
     }

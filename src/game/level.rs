@@ -1,8 +1,8 @@
 use super::graph::{Graph, Node, NodeType};
 use macroquad::prelude::Vec2;
 
-pub const BOARD_IMAGE_WIDTH: f32 = 848.0;
-pub const BOARD_IMAGE_HEIGHT: f32 = 1264.0;
+pub const BOARD_IMAGE_WIDTH: f32 = 768.0;
+pub const BOARD_IMAGE_HEIGHT: f32 = 1376.0;
 
 pub struct LevelConfig {
     pub name: &'static str,
@@ -21,18 +21,18 @@ pub const RIVER_CROSSING_CONFIG: LevelConfig = LevelConfig {
 };
 
 pub fn build_river_crossing_graph() -> Graph {
-    let col_x = [255.5, 424.0, 592.5];
+    let col_x = [230.0, 384.0, 538.0];
     let row_y = [
-        214.0,  // Row 0 (Coop)
-        327.8,  // Row 1
-        430.0,  // Row 2
-        555.3,  // Row 3
-        680.0,  // Row 4
-        795.0,  // Row 5
-        896.7,  // Row 6 (Bridge Bottleneck)
-        1010.4, // Row 7
-        1124.2, // Row 8
-        1230.0, // Row 9 (Fox Den)
+        156.0,  // Row 0 (Coop)
+        226.0,  // Row 1
+        328.0,  // Row 2
+        438.0,  // Row 3
+        558.0,  // Row 4
+        660.0,  // Row 5
+        755.0,  // Row 6 (Bridge Bottleneck)
+        852.0,  // Row 7
+        955.0,  // Row 8
+        1052.0, // Row 9 (Fox Den)
     ];
 
     let raw_nodes = vec![

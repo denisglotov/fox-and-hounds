@@ -1,4 +1,5 @@
 use fox_and_hounds::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
+use fox_and_hounds::ui::board_view::{BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH};
 use fox_and_hounds::ui::river::RiverPath;
 use macroquad::prelude::Vec2;
 
@@ -6,7 +7,7 @@ use macroquad::prelude::Vec2;
 fn test_river_path_continuity_and_board_bounds() {
     let path = RiverPath::new();
     assert!(
-        path.total_length > 700.0 && path.total_length < 1200.0,
+        path.total_length > 1300.0 && path.total_length < 1800.0,
         "River total length {} is out of expected span",
         path.total_length
     );
@@ -18,10 +19,11 @@ fn test_river_path_continuity_and_board_bounds() {
         for &v in &[-1.0, -0.5, 0.0, 0.5, 1.0] {
             let (pos, tangent, normal, half_width) = path.sample_at(dist, v);
 
-            // Bounds check
+            // Bounds check across entire left extension, board, and right extension
             assert!(
-                pos.x >= -50.0 && pos.x <= BOARD_IMAGE_WIDTH + 50.0,
-                "River pos.x {} out of board bounds at dist {}, v {}",
+                pos.x >= -BOARD_LEFT_WIDTH - 50.0
+                    && pos.x <= BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH + 50.0,
+                "River pos.x {} out of background bounds at dist {}, v {}",
                 pos.x,
                 dist,
                 v
@@ -60,16 +62,16 @@ fn test_river_path_continuity_and_board_bounds() {
 fn test_river_entrance_and_exit_coordinates() {
     let path = RiverPath::new();
 
-    // Entrance at s = 0 (Left side near railway)
+    // Entrance at s = 0 (Leftmost extension boundary x = -384)
     let (start_pos, start_tangent, _, _) = path.sample_at(0.0, 0.0);
     assert!(
-        (start_pos.x - 0.0).abs() < 1.0,
-        "River must start at left edge x=0, got {}",
+        (start_pos.x - (-BOARD_LEFT_WIDTH)).abs() < 2.0,
+        "River must start at left extension edge x=-384, got {}",
         start_pos.x
     );
     assert!(
-        start_pos.y > 1000.0 && start_pos.y < 1035.0,
-        "River start y must be at southwest entrance (~1018), got {}",
+        start_pos.y > 700.0 && start_pos.y < 740.0,
+        "River start y must be at western entrance (~721), got {}",
         start_pos.y
     );
     assert!(
@@ -77,16 +79,18 @@ fn test_river_entrance_and_exit_coordinates() {
         "River flow must head east/northeast at entrance"
     );
 
-    // Exit at s = total_length (Right board edge)
+    // Exit at s = total_length (Rightmost extension boundary x = 1024)
     let (end_pos, end_tangent, _, _) = path.sample_at(path.total_length, 0.0);
+    let expected_exit_x = BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH;
     assert!(
-        (end_pos.x - BOARD_IMAGE_WIDTH).abs() < 2.0,
-        "River must exit at right edge x=848, got {}",
+        (end_pos.x - expected_exit_x).abs() < 2.0,
+        "River must exit at right extension edge x={}, got {}",
+        expected_exit_x,
         end_pos.x
     );
     assert!(
-        end_pos.y > 780.0 && end_pos.y < 815.0,
-        "River exit y must be at east bank (~796), got {}",
+        end_pos.y > 640.0 && end_pos.y < 680.0,
+        "River exit y must be at eastern outflow (~658), got {}",
         end_pos.y
     );
     assert!(end_tangent.x > 0.5, "River flow must head east at exit");
@@ -96,16 +100,16 @@ fn test_river_entrance_and_exit_coordinates() {
 fn test_bridge_occlusion_detection() {
     let path = RiverPath::new();
 
-    // 1. Under railway bridge (x ≈ 50, y ≈ 1008)
-    let rail_occlusion = path.bridge_occlusion(Vec2::new(50.0, 1008.0));
+    // 1. Under railway bridge (x ≈ 45, y ≈ 848)
+    let rail_occlusion = path.bridge_occlusion(Vec2::new(45.0, 848.0));
     assert!(
         rail_occlusion > 0.5,
         "Railway bridge center should have high occlusion, got {}",
         rail_occlusion
     );
 
-    // 2. Under M6 wooden bridge (x ≈ 424, y ≈ 908)
-    let wood_occlusion = path.bridge_occlusion(Vec2::new(424.0, 908.0));
+    // 2. Under M6 wooden bridge (x ≈ 384, y ≈ 755)
+    let wood_occlusion = path.bridge_occlusion(Vec2::new(384.0, 755.0));
     assert!(
         wood_occlusion > 0.5,
         "M6 wooden bridge center should have high occlusion, got {}",
@@ -113,13 +117,13 @@ fn test_bridge_occlusion_detection() {
     );
 
     // 3. Open water (not under any bridge)
-    let open_water1 = path.bridge_occlusion(Vec2::new(220.0, 942.0));
+    let open_water1 = path.bridge_occlusion(Vec2::new(220.0, 780.0));
     assert_eq!(
         open_water1, 0.0,
         "Open water between bridges should have zero occlusion"
     );
 
-    let open_water2 = path.bridge_occlusion(Vec2::new(700.0, 835.0));
+    let open_water2 = path.bridge_occlusion(Vec2::new(600.0, 702.0));
     assert_eq!(
         open_water2, 0.0,
         "Open water downstream should have zero occlusion"
