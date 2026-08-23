@@ -108,9 +108,9 @@ async fn main() {
                     sound_manager.play(snd);
                 }
                 if state.phase == GamePhase::Playing {
-                    let (viewport_rect, _, board_size) =
+                    let (viewport_rect, board_scale, board_size) =
                         compute_board_layout(screen_w, screen_h, scale);
-                    camera.center_on_faction(state.player_faction, viewport_rect, board_size);
+                    camera.start_coop_fox_intro(viewport_rect, board_size, board_scale, scale, 2.0);
                 }
             }
             GamePhase::Playing | GamePhase::GameOver => {
@@ -150,7 +150,13 @@ async fn main() {
                 if let Some(snd) = hud_sound {
                     sound_manager.play(snd);
                     if state.turn_count == 1 && state.phase == GamePhase::Playing {
-                        camera.center_on_faction(state.player_faction, viewport_rect, board_size);
+                        camera.start_coop_fox_intro(
+                            viewport_rect,
+                            board_size,
+                            board_scale,
+                            scale,
+                            2.0,
+                        );
                     }
                 }
 
@@ -170,10 +176,12 @@ async fn main() {
                     if let Some(snd) = modal_sound {
                         sound_manager.play(snd);
                         if state.phase == GamePhase::Playing {
-                            camera.center_on_faction(
-                                state.player_faction,
+                            camera.start_coop_fox_intro(
                                 viewport_rect,
                                 board_size,
+                                board_scale,
+                                scale,
+                                2.0,
                             );
                         }
                     }

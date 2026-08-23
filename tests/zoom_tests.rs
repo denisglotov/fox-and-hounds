@@ -40,3 +40,29 @@ fn test_camera_center_on_faction() {
     camera.center_on_faction(Faction::Hounds, viewport, large_board);
     assert_eq!(camera.pan_offset.y, 12.0); // Hounds at top
 }
+
+#[test]
+fn test_coop_fox_intro_initialization() {
+    let mut camera = ViewportCamera::new();
+    let viewport = Rect::new(0.0, 50.0, 960.0, 1300.0);
+    let board_scale = 0.94;
+    let board_size = Vec2::new(768.0 * board_scale, 1376.0 * board_scale);
+    let scale = 1.0;
+
+    camera.start_coop_fox_intro(viewport, board_size, board_scale, scale, 2.0);
+
+    assert_eq!(camera.zoom, MIN_ZOOM);
+    assert!(camera.target_zoom > 1.20 && camera.target_zoom <= 1.85);
+    assert!(camera.anim.is_some());
+
+    let anim = camera.anim.unwrap();
+    assert_eq!(anim.start_zoom, MIN_ZOOM);
+    assert_eq!(anim.target_zoom, camera.target_zoom);
+    assert_eq!(anim.duration, 2.0);
+    assert_eq!(anim.elapsed, 0.0);
+
+    // Reset should cancel the animation
+    camera.reset_pan();
+    assert!(camera.anim.is_none());
+    assert_eq!(camera.zoom, MIN_ZOOM);
+}
