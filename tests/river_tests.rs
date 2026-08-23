@@ -1,4 +1,5 @@
 use fox_and_hounds::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
+use fox_and_hounds::ui::board_view::{BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH};
 use fox_and_hounds::ui::river::RiverPath;
 use macroquad::prelude::Vec2;
 
@@ -6,7 +7,7 @@ use macroquad::prelude::Vec2;
 fn test_river_path_continuity_and_board_bounds() {
     let path = RiverPath::new();
     assert!(
-        path.total_length > 700.0 && path.total_length < 1200.0,
+        path.total_length > 1300.0 && path.total_length < 1800.0,
         "River total length {} is out of expected span",
         path.total_length
     );
@@ -18,10 +19,11 @@ fn test_river_path_continuity_and_board_bounds() {
         for &v in &[-1.0, -0.5, 0.0, 0.5, 1.0] {
             let (pos, tangent, normal, half_width) = path.sample_at(dist, v);
 
-            // Bounds check
+            // Bounds check across entire left extension, board, and right extension
             assert!(
-                pos.x >= -50.0 && pos.x <= BOARD_IMAGE_WIDTH + 50.0,
-                "River pos.x {} out of board bounds at dist {}, v {}",
+                pos.x >= -BOARD_LEFT_WIDTH - 50.0
+                    && pos.x <= BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH + 50.0,
+                "River pos.x {} out of background bounds at dist {}, v {}",
                 pos.x,
                 dist,
                 v
@@ -60,16 +62,16 @@ fn test_river_path_continuity_and_board_bounds() {
 fn test_river_entrance_and_exit_coordinates() {
     let path = RiverPath::new();
 
-    // Entrance at s = 0 (Left side near railway)
+    // Entrance at s = 0 (Leftmost extension boundary x = -384)
     let (start_pos, start_tangent, _, _) = path.sample_at(0.0, 0.0);
     assert!(
-        (start_pos.x - 0.0).abs() < 1.0,
-        "River must start at left edge x=0, got {}",
+        (start_pos.x - (-BOARD_LEFT_WIDTH)).abs() < 2.0,
+        "River must start at left extension edge x=-384, got {}",
         start_pos.x
     );
     assert!(
-        start_pos.y > 840.0 && start_pos.y < 870.0,
-        "River start y must be at southwest entrance (~856), got {}",
+        start_pos.y > 700.0 && start_pos.y < 740.0,
+        "River start y must be at western entrance (~721), got {}",
         start_pos.y
     );
     assert!(
@@ -77,16 +79,18 @@ fn test_river_entrance_and_exit_coordinates() {
         "River flow must head east/northeast at entrance"
     );
 
-    // Exit at s = total_length (Right board edge)
+    // Exit at s = total_length (Rightmost extension boundary x = 1024)
     let (end_pos, end_tangent, _, _) = path.sample_at(path.total_length, 0.0);
+    let expected_exit_x = BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH;
     assert!(
-        (end_pos.x - BOARD_IMAGE_WIDTH).abs() < 2.0,
-        "River must exit at right edge x=768, got {}",
+        (end_pos.x - expected_exit_x).abs() < 2.0,
+        "River must exit at right extension edge x={}, got {}",
+        expected_exit_x,
         end_pos.x
     );
     assert!(
-        end_pos.y > 640.0 && end_pos.y < 670.0,
-        "River exit y must be at east bank (~655), got {}",
+        end_pos.y > 640.0 && end_pos.y < 680.0,
+        "River exit y must be at eastern outflow (~658), got {}",
         end_pos.y
     );
     assert!(end_tangent.x > 0.5, "River flow must head east at exit");
