@@ -412,39 +412,39 @@ impl BoardView {
                 );
             }
 
-            // 2. Base Node Circle Plate
-            let base_radius = if is_hovered {
-                20.0 * scale
-            } else {
-                16.0 * scale
-            };
-            let base_color = if node.id == state.coop_pos {
-                Color::from_rgba(255, 215, 0, 140)
-            } else if node.node_type == NodeType::Bottleneck {
-                // Bridge Chokepoint
-                Color::from_rgba(79, 195, 247, 90)
-            } else {
-                Color::from_rgba(255, 255, 255, 45)
-            };
+            // 2. Base Node Circle Plate (skip for the chicken coop)
+            if node.id != state.coop_pos {
+                let base_radius = if is_hovered {
+                    20.0 * scale
+                } else {
+                    16.0 * scale
+                };
+                let base_color = if node.node_type == NodeType::Bottleneck {
+                    // Bridge Chokepoint
+                    Color::from_rgba(79, 195, 247, 90)
+                } else {
+                    Color::from_rgba(255, 255, 255, 45)
+                };
 
-            draw_circle(pos.x, pos.y, base_radius, base_color);
-            draw_circle_lines(
-                pos.x,
-                pos.y,
-                base_radius,
-                1.5 * scale,
-                Color::from_rgba(255, 255, 255, 120),
-            );
-
-            // Hover indicator ring
-            if is_hovered {
+                draw_circle(pos.x, pos.y, base_radius, base_color);
                 draw_circle_lines(
                     pos.x,
                     pos.y,
-                    base_radius + 4.0 * scale,
-                    2.0 * scale,
-                    Color::from_rgba(255, 255, 255, 200),
+                    base_radius,
+                    1.5 * scale,
+                    Color::from_rgba(255, 255, 255, 120),
                 );
+
+                // Hover indicator ring
+                if is_hovered {
+                    draw_circle_lines(
+                        pos.x,
+                        pos.y,
+                        base_radius + 4.0 * scale,
+                        2.0 * scale,
+                        Color::from_rgba(255, 255, 255, 200),
+                    );
+                }
             }
         }
     }
