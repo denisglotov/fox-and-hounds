@@ -97,9 +97,8 @@ impl ViewportCamera {
         const COOP_FOX_CENTER_Y: f32 = 600.0;
         const COOP_FOX_CENTER_X: f32 = crate::game::level::BOARD_IMAGE_WIDTH / 2.0; // 384.0
 
-        let target_zoom = (viewport_rect.h
-            / (COOP_FOX_PLAYABLE_HEIGHT * base_board_scale))
-            .clamp(1.20, 1.85);
+        let target_zoom =
+            (viewport_rect.h / (COOP_FOX_PLAYABLE_HEIGHT * base_board_scale)).clamp(1.20, 1.85);
 
         let target_board_size = base_board_size * target_zoom;
         let target_left_ext = 384.0 * base_board_scale * target_zoom;
