@@ -13,8 +13,13 @@ pub fn roll_sit_threshold() -> f32 {
     MIN_IDLE_SIT_SECONDS + macroquad::rand::gen_range(0.0, RANDOM_IDLE_SIT_SECONDS_RANGE)
 }
 
+pub const BOARD_LEFT_WIDTH: f32 = 384.0;
+pub const BOARD_RIGHT_WIDTH: f32 = 384.0;
+
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
+    pub board_left_texture: Option<Texture2D>,
+    pub board_right_texture: Option<Texture2D>,
     pub fox_texture: Option<Texture2D>,
     pub hound1_texture: Option<Texture2D>,
     pub hound2_texture: Option<Texture2D>,
@@ -46,6 +51,24 @@ impl BoardView {
         let board_texture = {
             let tex = Texture2D::from_file_with_format(
                 include_bytes!("../../assets/board_image.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
+        let board_left_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/board_left.png"),
+                Some(ImageFormat::Png),
+            );
+            tex.set_filter(FilterMode::Linear);
+            Some(tex)
+        };
+
+        let board_right_texture = {
+            let tex = Texture2D::from_file_with_format(
+                include_bytes!("../../assets/board_right.png"),
                 Some(ImageFormat::Png),
             );
             tex.set_filter(FilterMode::Linear);
@@ -126,6 +149,8 @@ impl BoardView {
 
         Self {
             board_texture,
+            board_left_texture,
+            board_right_texture,
             fox_texture,
             hound1_texture,
             hound2_texture,
@@ -179,7 +204,39 @@ impl BoardView {
         let t = get_time() as f32;
         let dt = get_frame_time().min(0.1);
 
-        // 1. Draw Background Board Image
+        // 1. Draw Background Board Image and Extensions
+        if let Some(tex) = &self.board_left_texture {
+            draw_texture_ex(
+                tex,
+                origin.x - BOARD_LEFT_WIDTH * scale,
+                origin.y,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(Vec2::new(
+                        BOARD_LEFT_WIDTH * scale,
+                        BOARD_IMAGE_HEIGHT * scale,
+                    )),
+                    ..Default::default()
+                },
+            );
+        }
+
+        if let Some(tex) = &self.board_right_texture {
+            draw_texture_ex(
+                tex,
+                origin.x + BOARD_IMAGE_WIDTH * scale,
+                origin.y,
+                WHITE,
+                DrawTextureParams {
+                    dest_size: Some(Vec2::new(
+                        BOARD_RIGHT_WIDTH * scale,
+                        BOARD_IMAGE_HEIGHT * scale,
+                    )),
+                    ..Default::default()
+                },
+            );
+        }
+
         if let Some(tex) = &self.board_texture {
             draw_texture_ex(
                 tex,

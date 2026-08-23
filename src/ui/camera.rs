@@ -336,15 +336,15 @@ impl ViewportCamera {
             self.is_dragging = false;
         }
 
-        // 6. Dynamic Boundary Clamping based on effective board size
+        // 6. Dynamic Boundary Clamping based on effective board and extension sizes
         let cur_board_size = base_board_size * self.zoom;
         let pad = 12.0 * scale;
-        let total_w = cur_board_size.x + pad * 2.0;
-        let total_h = cur_board_size.y + pad * 2.0;
+        let left_ext = 384.0 * base_board_scale * self.zoom;
+        let right_ext = 384.0 * base_board_scale * self.zoom;
 
         if !self.initialized {
             self.pan_offset.x = (viewport_rect.w - cur_board_size.x) / 2.0;
-            self.pan_offset.y = if total_h <= viewport_rect.h {
+            self.pan_offset.y = if (cur_board_size.y + pad * 2.0) <= viewport_rect.h {
                 (viewport_rect.h - cur_board_size.y) / 2.0
             } else {
                 pad
@@ -352,16 +352,14 @@ impl ViewportCamera {
             self.initialized = true;
         }
 
-        // Clamp or center horizontally
-        if total_w <= viewport_rect.w {
-            self.pan_offset.x = (viewport_rect.w - cur_board_size.x) / 2.0;
-        } else {
-            let min_x = viewport_rect.w - cur_board_size.x - pad;
-            let max_x = pad;
-            self.pan_offset.x = self.pan_offset.x.clamp(min_x, max_x);
-        }
+        // Clamp horizontally across board and left/right scenery extensions
+        let min_x = (viewport_rect.w - cur_board_size.x - right_ext)
+            .min((viewport_rect.w - cur_board_size.x) / 2.0);
+        let max_x = (left_ext).max((viewport_rect.w - cur_board_size.x) / 2.0);
+        self.pan_offset.x = self.pan_offset.x.clamp(min_x, max_x);
 
-        // Clamp or center vertically
+        // Clamp vertically across board
+        let total_h = cur_board_size.y + pad * 2.0;
         if total_h <= viewport_rect.h {
             self.pan_offset.y = (viewport_rect.h - cur_board_size.y) / 2.0;
         } else {
