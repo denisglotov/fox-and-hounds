@@ -38,7 +38,7 @@ fn test_camera_center_on_faction() {
     assert_eq!(camera.pan_offset.y, 600.0 - 1000.0); // Fox at bottom
 
     camera.center_on_faction(Faction::Hounds, viewport, large_board);
-    assert_eq!(camera.pan_offset.y, 12.0); // Hounds at top
+    assert_eq!(camera.pan_offset.y, 0.0); // Hounds at top (flush with viewport)
 }
 
 #[test]

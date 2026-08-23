@@ -23,11 +23,8 @@ fn window_conf() -> Conf {
 fn compute_board_layout(screen_w: f32, screen_h: f32, scale: f32) -> (Rect, f32, Vec2) {
     let hud_h = 56.0 * scale;
     let viewport_rect = Rect::new(0.0, hud_h, screen_w, (screen_h - hud_h).max(1.0));
-    let pad = (12.0 * scale).min(24.0);
 
-    let fit_w = (viewport_rect.w - pad * 2.0).max(10.0) / BOARD_IMAGE_WIDTH;
-    let fit_h = (viewport_rect.h - pad * 2.0).max(10.0) / BOARD_IMAGE_HEIGHT;
-    let board_scale = fit_w.min(fit_h).max(0.1);
+    let board_scale = (viewport_rect.h / BOARD_IMAGE_HEIGHT).max(0.1);
 
     let board_size = Vec2::new(
         BOARD_IMAGE_WIDTH * board_scale,
