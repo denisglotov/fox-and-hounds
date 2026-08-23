@@ -34,7 +34,7 @@ jobs:
 
           # Accept licenses and ensure required platform and build-tools are installed
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;26.1.10909125"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;26.1.10909125"
 
           # Resolve and export NDK_HOME for cargo-quad-apk
           NDK_PATH=$(ls -d "$ANDROID_HOME/ndk/"* 2>/dev/null | tail -n 1)

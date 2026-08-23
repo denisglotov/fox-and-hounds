@@ -111,7 +111,7 @@ python3 -m http.server 8080 -d web
 ### 📱 3. Android (APK & App Bundle)
 
 #### Prerequisites
-- Android SDK (API 35, Build-Tools 35.0.0) & NDK (r26+)
+- Android SDK (API 36, Build-Tools 36.0.0) & NDK (r26+)
 - `cargo-quad-apk`:
   ```bash
   cargo install --git https://github.com/not-fl3/cargo-quad-apk --force

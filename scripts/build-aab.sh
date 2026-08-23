@@ -7,13 +7,13 @@ if [ -z "${ANDROID_HOME:-}" ]; then
 fi
 
 # Locate build-tools and android.jar
-BUILD_TOOLS_DIR="${ANDROID_HOME}/build-tools/35.0.0"
+BUILD_TOOLS_DIR="${ANDROID_HOME}/build-tools/36.0.0"
 if [ ! -d "$BUILD_TOOLS_DIR" ]; then
   BUILD_TOOLS_DIR=$(ls -d "${ANDROID_HOME}/build-tools/"* 2>/dev/null | tail -n 1)
 fi
 
 AAPT2="${BUILD_TOOLS_DIR}/aapt2"
-ANDROID_JAR="${ANDROID_HOME}/platforms/android-35/android.jar"
+ANDROID_JAR="${ANDROID_HOME}/platforms/android-36/android.jar"
 if [ ! -f "$ANDROID_JAR" ]; then
   ANDROID_JAR=$(ls "${ANDROID_HOME}/platforms/android-"*/android.jar 2>/dev/null | tail -n 1)
 fi
