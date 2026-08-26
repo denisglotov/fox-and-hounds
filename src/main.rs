@@ -53,7 +53,7 @@ async fn main() {
     let mut last_result = GameResult::Ongoing;
 
     loop {
-        let dt = get_frame_time();
+        let dt = get_frame_time().min(0.04);
         let screen_w = screen_width();
         let screen_h = screen_height();
 

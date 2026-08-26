@@ -64,6 +64,7 @@ pub struct MoveAnimation {
     pub progress: f32,
     pub duration: f32,
     pub faction: Faction,
+    pub hound_idx: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -243,8 +244,9 @@ impl GameState {
             from: from_visual,
             to: to_visual,
             progress: 0.0,
-            duration: 0.18,
+            duration: 0.26,
             faction: Faction::Fox,
+            hound_idx: None,
         });
 
         self.evaluate_game_result();
@@ -289,8 +291,9 @@ impl GameState {
             from: from_visual,
             to: to_visual,
             progress: 0.0,
-            duration: 0.18,
+            duration: 0.26,
             faction: Faction::Hounds,
+            hound_idx: Some(hound_idx),
         });
 
         self.evaluate_game_result();

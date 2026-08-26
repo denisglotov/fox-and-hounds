@@ -503,12 +503,10 @@ impl BoardView {
             let is_selected = state.selected_hound_idx == Some(idx);
             let hound_node = state.graph.node(hound_pos);
 
-            let is_moving = state.active_anim.as_ref().is_some_and(|anim| {
-                anim.faction == Faction::Hounds
-                    && state.move_history.last().is_some_and(|m| {
-                        matches!(m, crate::game::state::PieceMove::HoundMove { hound_idx, .. } if *hound_idx == idx)
-                    })
-            });
+            let is_moving = state
+                .active_anim
+                .as_ref()
+                .is_some_and(|anim| anim.faction == Faction::Hounds && anim.hound_idx == Some(idx));
 
             // The white dog (idx 0) reacts to the train when it rolls on the tracks
             let is_waffing = idx == 0 && self.train.is_active() && !is_moving;
@@ -560,8 +558,14 @@ impl BoardView {
                 (Vec2::ZERO, 0.0, 0.0)
             };
 
-            // Smoothly interpolate Hound angle towards target
-            let rot_speed = if is_waffing { 16.0 } else { 12.0 };
+            // Smoothly interpolate Hound angle towards target (faster during leap for crisp orientation)
+            let rot_speed = if is_moving {
+                24.0
+            } else if is_waffing {
+                16.0
+            } else {
+                12.0
+            };
             self.hound_angles[idx] =
                 lerp_angle(self.hound_angles[idx], target_hound_rot, rot_speed, dt);
 
@@ -615,6 +619,9 @@ impl BoardView {
             // When moving, selected, or waffing -> active, resets idle timer and re-rolls threshold
             let is_active = is_moving || is_selected || is_waffing;
             self.update_hound_idle(idx, is_active, dt);
+            if is_moving {
+                self.hound_sit_blend[idx] = 0.0;
+            }
             let is_sitting = self.is_hound_sitting(idx);
 
             // Smoothly blend sitting transition

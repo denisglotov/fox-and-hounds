@@ -295,3 +295,57 @@ fn test_multi_turn_hounds_advance_and_surround() {
         "Hounds should advance down the board over turns (got avg row {end_avg_row})"
     );
 }
+
+#[test]
+fn test_move_animation_state_tracking() {
+    let mut state = GameState::new();
+    state.start_game(Faction::Fox, Difficulty::Easy);
+
+    let fox_legal = state.fox_legal_moves();
+    assert!(!fox_legal.is_empty());
+    let fox_target = fox_legal[0];
+
+    assert!(state.apply_fox_move(fox_target).is_ok());
+    let fox_anim = state
+        .active_anim
+        .as_ref()
+        .expect("Fox move should create active_anim");
+    assert_eq!(fox_anim.faction, Faction::Fox);
+    assert_eq!(fox_anim.hound_idx, None);
+    assert_eq!(fox_anim.progress, 0.0);
+    assert!(
+        fox_anim.duration >= 0.25,
+        "Duration should be at least 0.25s for smooth animation"
+    );
+
+    // Advance animation partially
+    state.update(0.10);
+    let updated_anim = state
+        .active_anim
+        .as_ref()
+        .expect("Animation should still be active");
+    assert!(updated_anim.progress > 0.0 && updated_anim.progress < 1.0);
+
+    // Complete animation
+    state.update(0.30);
+    assert!(
+        state.active_anim.is_none(),
+        "Animation should complete after full duration"
+    );
+
+    // Now test Hound move animation
+    state.current_turn = Faction::Hounds;
+    let hound_legal = state.hound_legal_moves(1);
+    assert!(!hound_legal.is_empty());
+    let hound_target = hound_legal[0];
+
+    assert!(state.apply_hound_move(1, hound_target).is_ok());
+    let hound_anim = state
+        .active_anim
+        .as_ref()
+        .expect("Hound move should create active_anim");
+    assert_eq!(hound_anim.faction, Faction::Hounds);
+    assert_eq!(hound_anim.hound_idx, Some(1));
+    assert_eq!(hound_anim.progress, 0.0);
+    assert!(hound_anim.duration >= 0.25);
+}
