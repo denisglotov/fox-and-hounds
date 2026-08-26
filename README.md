@@ -137,7 +137,7 @@ cargo test
 # or: just test
 
 # Run Clippy linter with strict checks
-cargo clippy -- -D warnings
+cargo clippy --all-targets -- -D warnings
 # or: just clippy
 
 # Format code

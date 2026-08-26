@@ -37,7 +37,7 @@ check:
 
 # Run Clippy linter with strict warning checks
 clippy:
-    cargo clippy -- -D warnings
+    cargo clippy --all-targets -- -D warnings
 
 # Format code using rustfmt
 fmt:

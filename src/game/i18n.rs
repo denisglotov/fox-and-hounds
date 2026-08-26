@@ -491,23 +491,20 @@ mod tests {
     #[test]
     fn test_parse_cli_locale() {
         assert_eq!(
-            parse_cli_locale(&["--lang", "ru-RU"]),
+            parse_cli_locale(["--lang", "ru-RU"]),
             Some("ru-RU".to_string())
         );
+        assert_eq!(parse_cli_locale(["-l", "es-ES"]), Some("es-ES".to_string()));
         assert_eq!(
-            parse_cli_locale(&["-l", "es-ES"]),
-            Some("es-ES".to_string())
-        );
-        assert_eq!(
-            parse_cli_locale(&["--lang=de-DE"]),
+            parse_cli_locale(["--lang=de-DE"]),
             Some("de-DE".to_string())
         );
-        assert_eq!(parse_cli_locale(&["--lang=fr"]), Some("fr".to_string()));
+        assert_eq!(parse_cli_locale(["--lang=fr"]), Some("fr".to_string()));
         assert_eq!(
-            parse_cli_locale(&["--other", "val", "-l", "pt+BR"]),
+            parse_cli_locale(["--other", "val", "-l", "pt+BR"]),
             Some("pt+BR".to_string())
         );
-        assert_eq!(parse_cli_locale(&["--other", "val"]), None);
+        assert_eq!(parse_cli_locale(["--other", "val"]), None);
     }
 
     #[test]
