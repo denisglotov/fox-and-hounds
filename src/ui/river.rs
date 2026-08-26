@@ -172,18 +172,18 @@ impl RiverPath {
     /// Check if a position is occluded beneath either the railway bridge or the M6 bottleneck bridge.
     /// Returns an occlusion factor in [0.0, 1.0], where 1.0 is fully under the bridge deck.
     pub fn bridge_occlusion(&self, pos: Vec2) -> f32 {
-        // Railroad bridge region
-        let in_rail_bridge = pos.x >= 10.0 && pos.x <= 75.0 && pos.y >= 800.0 && pos.y <= 895.0;
+        // Railroad bridge region (train track centered at x = 40.0, deck span x in [0.0, 85.0], y in [790.0, 905.0])
+        let in_rail_bridge = pos.x >= 0.0 && pos.x <= 85.0 && pos.y >= 790.0 && pos.y <= 905.0;
         if in_rail_bridge {
-            let edge_dist = ((pos.x - 10.0).min(75.0 - pos.x) / 16.0).clamp(0.0, 1.0);
-            return 0.88 * edge_dist;
+            let edge_dist = ((pos.x - 0.0).min(85.0 - pos.x) / 12.0).clamp(0.0, 1.0);
+            return edge_dist;
         }
 
-        // Row 6 M6 bottleneck bridge region
-        let in_wood_bridge = pos.x >= 300.0 && pos.x <= 470.0 && pos.y >= 700.0 && pos.y <= 810.0;
+        // Row 6 M6 bottleneck wooden bridge region (node M6 at x = 384.0, y = 755.0, bridge deck x in [310.0, 460.0], y in [700.0, 810.0])
+        let in_wood_bridge = pos.x >= 310.0 && pos.x <= 460.0 && pos.y >= 700.0 && pos.y <= 810.0;
         if in_wood_bridge {
-            let edge_dist = ((pos.x - 300.0).min(470.0 - pos.x) / 24.0).clamp(0.0, 1.0);
-            return 0.88 * edge_dist;
+            let edge_dist = ((pos.x - 310.0).min(460.0 - pos.x) / 15.0).clamp(0.0, 1.0);
+            return edge_dist;
         }
 
         0.0
@@ -258,7 +258,7 @@ impl RiverSimulation {
 
             let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
             let breathe = ((mid_d * 0.03 - t * 1.5).sin() * 0.5 + 0.5) * 0.3 + 0.7;
-            let alpha = 0.28 * breathe * (1.0 - occlusion * 0.85);
+            let alpha = 0.28 * breathe * (1.0 - occlusion);
 
             if alpha > 0.02 {
                 let screen_p0 = origin + p0 * scale;
@@ -309,7 +309,7 @@ impl RiverSimulation {
                 if wave > -0.15 {
                     let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
                     let intensity = ((wave + 0.15) / 1.15).clamp(0.0, 1.0);
-                    let alpha = intensity.powf(1.5) * bank_fade * (1.0 - occlusion * 0.88);
+                    let alpha = intensity.powf(1.5) * bank_fade * (1.0 - occlusion);
 
                     if alpha > 0.015 {
                         let screen_p0 = origin + p0 * scale;
@@ -332,7 +332,7 @@ impl RiverSimulation {
                         );
 
                         // Layer 2: Silky bright specular center
-                        if wave > 0.35 {
+                        if wave > 0.35 && occlusion < 0.99 {
                             let core_intensity = ((wave - 0.35) / 0.65 * bank_fade).clamp(0.0, 1.0);
                             let core_color = Color::from_rgba(
                                 255,
@@ -384,7 +384,7 @@ impl RiverSimulation {
                 if caustic_val > 0.05 {
                     let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
                     let alpha =
-                        (caustic_val / 0.95 * bank_fade * (1.0 - occlusion * 0.90)).clamp(0.0, 1.0);
+                        (caustic_val / 0.95 * bank_fade * (1.0 - occlusion)).clamp(0.0, 1.0);
 
                     if alpha > 0.02 {
                         let screen_p0 = origin + p0 * scale;
@@ -407,7 +407,7 @@ impl RiverSimulation {
                         );
 
                         // Occasional caustic sparkle node at intersections
-                        if caustic_val > 0.45 {
+                        if caustic_val > 0.45 && occlusion < 0.99 {
                             let sparkle_alpha =
                                 ((caustic_val - 0.45) / 0.55 * bank_fade * (1.0 - occlusion))
                                     .clamp(0.0, 1.0);
@@ -468,7 +468,7 @@ impl RiverSimulation {
                 let (board_pos, _, _, _) = self.path.sample_at(sample_d, v);
                 let occlusion = self.path.bridge_occlusion(board_pos);
                 let bank_fade = (1.0 - (v / 0.85).abs()).max(0.0);
-                let point_alpha = (bank_fade * (1.0 - occlusion * 0.90)).clamp(0.0, 1.0);
+                let point_alpha = (bank_fade * (1.0 - occlusion)).clamp(0.0, 1.0);
 
                 let screen_pos = origin + board_pos * scale;
                 *pt = (screen_pos, point_alpha);
@@ -478,9 +478,9 @@ impl RiverSimulation {
             for j in 0..NUM_ARC_PTS - 1 {
                 let (p0, a0) = arc_points[j];
                 let (p1, a1) = arc_points[j + 1];
-                let seg_alpha = (a0 + a1) * 0.5;
 
-                if seg_alpha > 0.05 {
+                if a0 > 0.05 && a1 > 0.05 {
+                    let seg_alpha = (a0 + a1) * 0.5;
                     let crest_color = Color::from_rgba(
                         255,
                         255,

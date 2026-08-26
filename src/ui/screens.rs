@@ -683,17 +683,6 @@ impl Screens {
         let hud_h = 56.0 * scale;
         let pad = 12.0 * scale;
 
-        // Semi-transparent Top HUD Banner
-        draw_rectangle(0.0, 0.0, screen_w, hud_h, Color::from_rgba(11, 17, 24, 215));
-        draw_line(
-            0.0,
-            hud_h,
-            screen_w,
-            hud_h,
-            1.0 * scale,
-            Color::from_rgba(255, 255, 255, 25),
-        );
-
         // 1. Turn Badge Pill (Left)
         let is_ai = state.is_ai_turn();
         let (turn_icon, turn_title, badge_color) = match state.current_turn {
@@ -787,26 +776,6 @@ impl Screens {
         if mute_clicked {
             toggle_mute_requested = true;
             sound_trigger = Some(SoundTrigger::ButtonClick);
-        }
-
-        // 3. Turn Counter (Center - safely positioned without overlapping badge or buttons)
-        let turn_str = state.locales.hud.format_turn(state.turn_count);
-        let turn_font = (14.0 * scale) as u16;
-        let turn_dims = measure_text_styled(&turn_str, turn_font, font);
-        let left_edge = badge_x + badge_w + 10.0 * scale;
-        let right_edge = mute_x - 10.0 * scale;
-
-        if right_edge > left_edge + turn_dims.width {
-            let ideal_x = (screen_w - turn_dims.width) / 2.0;
-            let clamped_x = ideal_x.clamp(left_edge, right_edge - turn_dims.width);
-            draw_text_styled(
-                &turn_str,
-                clamped_x,
-                hud_h / 2.0 + turn_dims.height / 3.0,
-                turn_font,
-                Color::from_rgba(207, 216, 220, 255),
-                font,
-            );
         }
 
         (sound_trigger, toggle_mute_requested)

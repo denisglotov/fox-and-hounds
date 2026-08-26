@@ -3,6 +3,11 @@ use macroquad::prelude::Vec2;
 
 pub const BOARD_IMAGE_WIDTH: f32 = 768.0;
 pub const BOARD_IMAGE_HEIGHT: f32 = 1376.0;
+pub const BOARD_LEFT_WIDTH: f32 = 384.0;
+pub const BOARD_RIGHT_WIDTH: f32 = 256.0;
+pub const BOARD_TOTAL_WIDTH: f32 = BOARD_LEFT_WIDTH + BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH;
+pub const BOARD_COMPOSITION_CENTER_X: f32 =
+    (BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH - BOARD_LEFT_WIDTH) / 2.0;
 
 pub struct LevelConfig {
     pub name: &'static str,

@@ -1,3 +1,7 @@
+use crate::game::level::{
+    BOARD_COMPOSITION_CENTER_X, BOARD_IMAGE_WIDTH, BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH,
+    BOARD_TOTAL_WIDTH,
+};
 use macroquad::input::TouchPhase;
 use macroquad::prelude::*;
 
@@ -6,6 +10,36 @@ pub const MAX_ZOOM: f32 = 2.5;
 pub const DOUBLE_TAP_ZOOM: f32 = 2.0;
 pub const DOUBLE_TAP_TIME_WINDOW: f64 = 0.30;
 pub const DOUBLE_TAP_MAX_DISTANCE: f32 = 24.0;
+
+/// Returns the (min_x, max_x) allowed pan_offset.x for the given viewport width and scale.
+/// When the composite artwork (left extension + board + right extension) fits inside the viewport,
+/// returns `(centered_x, centered_x)` so the composition is centered with equal left and right margins.
+/// When the artwork is wider than the viewport, returns `(min_x, max_x)` allowing full panning without exposing dark margins.
+pub fn horizontal_pan_bounds(viewport_w: f32, effective_scale: f32) -> (f32, f32) {
+    let total_artwork_w = BOARD_TOTAL_WIDTH * effective_scale;
+    if total_artwork_w <= viewport_w {
+        let centered_x = viewport_w / 2.0 - BOARD_COMPOSITION_CENTER_X * effective_scale;
+        (centered_x, centered_x)
+    } else {
+        let min_x = viewport_w - (BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH) * effective_scale;
+        let max_x = BOARD_LEFT_WIDTH * effective_scale;
+        (min_x, max_x)
+    }
+}
+
+/// Returns the (min_y, max_y) allowed pan_offset.y for the given viewport height and effective board height.
+/// When the board fits inside the viewport vertically, returns `(centered_y, centered_y)`.
+/// When the board is taller than the viewport, returns `(min_y, max_y)` allowing vertical panning.
+pub fn vertical_pan_bounds(viewport_h: f32, cur_board_h: f32) -> (f32, f32) {
+    if cur_board_h <= viewport_h {
+        let centered_y = (viewport_h - cur_board_h) / 2.0;
+        (centered_y, centered_y)
+    } else {
+        let min_y = viewport_h - cur_board_h;
+        let max_y = 0.0;
+        (min_y, max_y)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CameraAnimation {
@@ -81,47 +115,44 @@ impl ViewportCamera {
     ) {
         // 1. Initial wide overview framing at MIN_ZOOM (1.0x)
         let start_zoom = MIN_ZOOM;
-        let start_board_size = base_board_size * start_zoom;
-        let start_pan_x = (viewport_rect.w - start_board_size.x) / 2.0;
-        let start_pan_y = if start_board_size.y <= viewport_rect.h {
-            (viewport_rect.h - start_board_size.y) / 2.0
-        } else {
-            0.0
-        };
+        let start_scale = base_board_scale * start_zoom;
+        let (start_min_x, start_max_x) = horizontal_pan_bounds(viewport_rect.w, start_scale);
+        let start_pan_x = (viewport_rect.w / 2.0 - BOARD_COMPOSITION_CENTER_X * start_scale)
+            .clamp(start_min_x, start_max_x);
+        let start_board_h = base_board_size.y * start_zoom;
+        let (start_min_y, start_max_y) = vertical_pan_bounds(viewport_rect.h, start_board_h);
+        let start_pan_y = ((viewport_rect.h - start_board_h) / 2.0).clamp(start_min_y, start_max_y);
         let start_pan = Vec2::new(start_pan_x, start_pan_y);
 
         // 2. Target "Coop-to-Fox" framing
-        // Chicken Coop is at y ≈ 80..156, Fox Den is at y ≈ 1052..1120.
-        // The playable vertical span is ~1040px out of total BOARD_IMAGE_HEIGHT (1376px).
-        const COOP_FOX_PLAYABLE_HEIGHT: f32 = 1040.0;
+        // Chicken Coop roof is at y ≈ 60..156, Fox Den is at y ≈ 1052..1140.
+        // The playable vertical span is ~1080px out of total BOARD_IMAGE_HEIGHT (1376px).
+        const COOP_FOX_PLAYABLE_HEIGHT: f32 = 1080.0;
         const COOP_FOX_CENTER_Y: f32 = 600.0;
-        const COOP_FOX_CENTER_X: f32 = crate::game::level::BOARD_IMAGE_WIDTH / 2.0; // 384.0
+        const COOP_FOX_CENTER_X: f32 = BOARD_IMAGE_WIDTH / 2.0; // 384.0
 
         let target_zoom =
-            (viewport_rect.h / (COOP_FOX_PLAYABLE_HEIGHT * base_board_scale)).clamp(1.20, 1.85);
+            (viewport_rect.h / (COOP_FOX_PLAYABLE_HEIGHT * base_board_scale)).clamp(MIN_ZOOM, 1.85);
 
-        let target_board_size = base_board_size * target_zoom;
-        let target_left_ext = 384.0 * base_board_scale * target_zoom;
-        let target_right_ext = 256.0 * base_board_scale * target_zoom;
+        let target_scale = base_board_scale * target_zoom;
+        let (target_min_x, target_max_x) = horizontal_pan_bounds(viewport_rect.w, target_scale);
+        let target_total_w = BOARD_TOTAL_WIDTH * target_scale;
 
-        let mut target_pan_x =
-            viewport_rect.w / 2.0 - (COOP_FOX_CENTER_X * base_board_scale * target_zoom);
-        let mut target_pan_y =
-            viewport_rect.h / 2.0 - (COOP_FOX_CENTER_Y * base_board_scale * target_zoom);
-
-        // Boundary clamp target pan
-        let min_x = (viewport_rect.w - target_board_size.x - target_right_ext)
-            .min((viewport_rect.w - target_board_size.x) / 2.0);
-        let max_x = (target_left_ext).max((viewport_rect.w - target_board_size.x) / 2.0);
-        target_pan_x = target_pan_x.clamp(min_x, max_x);
-
-        if target_board_size.y <= viewport_rect.h {
-            target_pan_y = (viewport_rect.h - target_board_size.y) / 2.0;
+        let target_pan_x = if target_total_w <= viewport_rect.w {
+            viewport_rect.w / 2.0 - BOARD_COMPOSITION_CENTER_X * target_scale
         } else {
-            let min_y = viewport_rect.h - target_board_size.y;
-            let max_y = 0.0;
-            target_pan_y = target_pan_y.clamp(min_y, max_y);
-        }
+            (viewport_rect.w / 2.0 - COOP_FOX_CENTER_X * target_scale)
+                .clamp(target_min_x, target_max_x)
+        };
+
+        let target_board_h = base_board_size.y * target_zoom;
+        let (target_min_y, target_max_y) = vertical_pan_bounds(viewport_rect.h, target_board_h);
+        let target_pan_y = if target_board_h <= viewport_rect.h {
+            (viewport_rect.h - target_board_h) / 2.0
+        } else {
+            (viewport_rect.h / 2.0 - COOP_FOX_CENTER_Y * target_scale)
+                .clamp(target_min_y, target_max_y)
+        };
 
         let target_pan = Vec2::new(target_pan_x, target_pan_y);
 
@@ -149,14 +180,26 @@ impl ViewportCamera {
         viewport_rect: Rect,
         base_board_size: Vec2,
     ) {
-        let cur_board_size = base_board_size * self.zoom;
-        self.pan_offset.x = (viewport_rect.w - cur_board_size.x) / 2.0;
-        if cur_board_size.y <= viewport_rect.h {
-            self.pan_offset.y = (viewport_rect.h - cur_board_size.y) / 2.0;
+        let base_board_scale = base_board_size.x / BOARD_IMAGE_WIDTH;
+        let effective_scale = base_board_scale * self.zoom;
+        let (min_x, max_x) = horizontal_pan_bounds(viewport_rect.w, effective_scale);
+        let total_artwork_w = BOARD_TOTAL_WIDTH * effective_scale;
+
+        self.pan_offset.x = if total_artwork_w <= viewport_rect.w {
+            viewport_rect.w / 2.0 - BOARD_COMPOSITION_CENTER_X * effective_scale
+        } else {
+            (viewport_rect.w / 2.0 - (BOARD_IMAGE_WIDTH / 2.0) * effective_scale)
+                .clamp(min_x, max_x)
+        };
+
+        let cur_board_h = base_board_size.y * self.zoom;
+        let (min_y, max_y) = vertical_pan_bounds(viewport_rect.h, cur_board_h);
+        if cur_board_h <= viewport_rect.h {
+            self.pan_offset.y = (viewport_rect.h - cur_board_h) / 2.0;
         } else {
             self.pan_offset.y = match faction {
-                crate::game::state::Faction::Fox => (viewport_rect.h - cur_board_size.y).min(0.0),
-                crate::game::state::Faction::Hounds => 0.0,
+                crate::game::state::Faction::Fox => min_y,
+                crate::game::state::Faction::Hounds => max_y,
             };
         }
         self.drag_start = None;
@@ -331,14 +374,21 @@ impl ViewportCamera {
         }
 
         // 6. Dynamic Boundary Clamping based on effective board and extension sizes
-        let cur_board_size = base_board_size * self.zoom;
-        let left_ext = 384.0 * base_board_scale * self.zoom;
-        let right_ext = 256.0 * base_board_scale * self.zoom;
+        let effective_scale = base_board_scale * self.zoom;
+        let cur_board_h = base_board_size.y * self.zoom;
+        let (min_x, max_x) = horizontal_pan_bounds(viewport_rect.w, effective_scale);
+        let (min_y, max_y) = vertical_pan_bounds(viewport_rect.h, cur_board_h);
 
         if !self.initialized {
-            self.pan_offset.x = (viewport_rect.w - cur_board_size.x) / 2.0;
-            self.pan_offset.y = if cur_board_size.y <= viewport_rect.h {
-                (viewport_rect.h - cur_board_size.y) / 2.0
+            let total_artwork_w = BOARD_TOTAL_WIDTH * effective_scale;
+            self.pan_offset.x = if total_artwork_w <= viewport_rect.w {
+                viewport_rect.w / 2.0 - BOARD_COMPOSITION_CENTER_X * effective_scale
+            } else {
+                (viewport_rect.w / 2.0 - (BOARD_IMAGE_WIDTH / 2.0) * effective_scale)
+                    .clamp(min_x, max_x)
+            };
+            self.pan_offset.y = if cur_board_h <= viewport_rect.h {
+                (viewport_rect.h - cur_board_h) / 2.0
             } else {
                 0.0
             };
@@ -346,19 +396,10 @@ impl ViewportCamera {
         }
 
         // Clamp horizontally across board and left/right scenery extensions
-        let min_x = (viewport_rect.w - cur_board_size.x - right_ext)
-            .min((viewport_rect.w - cur_board_size.x) / 2.0);
-        let max_x = (left_ext).max((viewport_rect.w - cur_board_size.x) / 2.0);
         self.pan_offset.x = self.pan_offset.x.clamp(min_x, max_x);
 
         // Clamp vertically strictly across board with zero black margins
-        if cur_board_size.y <= viewport_rect.h {
-            self.pan_offset.y = (viewport_rect.h - cur_board_size.y) / 2.0;
-        } else {
-            let min_y = viewport_rect.h - cur_board_size.y;
-            let max_y = 0.0;
-            self.pan_offset.y = self.pan_offset.y.clamp(min_y, max_y);
-        }
+        self.pan_offset.y = self.pan_offset.y.clamp(min_y, max_y);
 
         // 7. Render Target Setup for Crisp Smooth Subpixel Rendering
         let rt_w = (viewport_rect.w as u32).max(1);
@@ -378,7 +419,6 @@ impl ViewportCamera {
 
         clear_background(Color::from_rgba(11, 17, 24, 255));
 
-        let effective_scale = base_board_scale * self.zoom;
         (rt, self.pan_offset, effective_scale, was_dragging)
     }
 

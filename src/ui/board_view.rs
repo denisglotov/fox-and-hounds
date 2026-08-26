@@ -1,10 +1,13 @@
 use crate::audio::{SoundManager, SoundTrigger};
 use crate::game::graph::NodeType;
-use crate::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
 use crate::ui::river::RiverSimulation;
 use crate::ui::train::TrainSimulation;
 use macroquad::prelude::*;
+
+pub use crate::game::level::{
+    BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH, BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH,
+};
 
 pub const MIN_IDLE_SIT_SECONDS: f32 = 10.0;
 pub const RANDOM_IDLE_SIT_SECONDS_RANGE: f32 = 5.0;
@@ -12,9 +15,6 @@ pub const RANDOM_IDLE_SIT_SECONDS_RANGE: f32 = 5.0;
 pub fn roll_sit_threshold() -> f32 {
     MIN_IDLE_SIT_SECONDS + macroquad::rand::gen_range(0.0, RANDOM_IDLE_SIT_SECONDS_RANGE)
 }
-
-pub const BOARD_LEFT_WIDTH: f32 = 384.0;
-pub const BOARD_RIGHT_WIDTH: f32 = 256.0;
 
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
@@ -204,7 +204,7 @@ impl BoardView {
         let t = get_time() as f32;
         let dt = get_frame_time().min(0.1);
 
-        // 1. Draw Background Board Image and Extensions
+        // 1. Draw Background Board Image and Extensions (exact natural 1:1 proportions, no distortion)
         if let Some(tex) = &self.board_left_texture {
             draw_texture_ex(
                 tex,
