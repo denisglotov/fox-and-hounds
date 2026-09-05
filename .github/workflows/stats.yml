@@ -1,0 +1,54 @@
+name: Code Stats
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  stats:
+    name: Code Stats
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install scc
+        run: |
+          curl -sSL https://github.com/boyter/scc/releases/latest/download/scc_Linux_x86_64.tar.gz | sudo tar -xz -C /usr/local/bin scc
+          scc --version
+
+      - name: Calculate stats
+        env:
+          NO_COLOR: "1"
+        run: |
+          {
+            echo "## 📊 Code Statistics"
+            echo ""
+            echo "### Source Code (\`src/\`)"
+            echo '```'
+            scc --ci src/
+            echo '```'
+            echo ""
+            echo "### Test Code (\`tests/\`)"
+            echo '```'
+            scc --ci tests/
+            echo '```'
+          } > stats_summary.md
+          cat stats_summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Post sticky PR comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: code-stats
+          path: stats_summary.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
