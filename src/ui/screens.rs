@@ -706,10 +706,13 @@ impl Screens {
             ),
         };
 
-        let badge_text = format!("{} {}", turn_icon, turn_title);
         let badge_font = (13.0 * scale) as u16;
-        let badge_dims = measure_text_styled(&badge_text, badge_font, font);
-        let badge_w = badge_dims.width + 20.0 * scale;
+        let icon_dims = measure_text_styled(turn_icon, badge_font, font);
+        let space_dims = measure_text_styled(" ", badge_font, font);
+        let title_dims = measure_text_styled(turn_title, badge_font, font);
+        let text_w = icon_dims.width + space_dims.width + title_dims.width;
+        let text_h = icon_dims.height.max(title_dims.height);
+        let badge_w = text_w + 20.0 * scale;
         let badge_h = 36.0 * scale;
         let badge_y = (hud_h - badge_h) / 2.0;
         let badge_x = pad;
@@ -724,10 +727,13 @@ impl Screens {
             Color::from_rgba(255, 255, 255, 80),
         );
 
+        let text_start_x = badge_x + (badge_w - text_w) / 2.0;
+        let text_y = badge_y + badge_h / 2.0 + text_h / 3.0;
+        draw_text_styled(turn_icon, text_start_x, text_y, badge_font, WHITE, font);
         draw_text_styled(
-            &badge_text,
-            badge_x + (badge_w - badge_dims.width) / 2.0,
-            badge_y + badge_h / 2.0 + badge_dims.height / 3.0,
+            turn_title,
+            text_start_x + icon_dims.width + space_dims.width,
+            text_y,
             badge_font,
             WHITE,
             font,
@@ -862,15 +868,21 @@ impl Screens {
         );
         curr_y += 24.0 * scale;
 
-        // Stats line
-        let stats = state.locales.game_over.format_stats(
-            state.turn_count,
-            state.difficulty.localized_name(state.locales),
-        );
+        // Stats line (read from cached string, zero allocation)
+        let fallback_stats;
+        let stats: &str = if let Some(cached) = &state.cached_game_over_stats {
+            cached.as_str()
+        } else {
+            fallback_stats = state.locales.game_over.format_stats(
+                state.turn_count,
+                state.difficulty.localized_name(state.locales),
+            );
+            &fallback_stats
+        };
         let stats_font = (12.0 * scale) as u16;
-        let stats_dims = measure_text_styled(&stats, stats_font, font);
+        let stats_dims = measure_text_styled(stats, stats_font, font);
         draw_text_styled(
-            &stats,
+            stats,
             center_x - stats_dims.width / 2.0,
             curr_y + stats_dims.height / 1.2,
             stats_font,

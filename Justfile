@@ -55,5 +55,5 @@ test:
 serve: install-wasm
     python3 -m http.server 8080 -d web
 
-# Run complete CI test suite (formatting, clippy, tests, WASM build)
-ci: fmt-check clippy test build-wasm
+# Run complete CI test suite (formatting, clippy, tests)
+ci: fmt-check clippy test

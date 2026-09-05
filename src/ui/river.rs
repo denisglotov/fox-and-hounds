@@ -3,7 +3,6 @@ use macroquad::prelude::*;
 const SPLINE_SAMPLES: usize = 480;
 const STREAMLINE_CHANNELS: [f32; 7] = [-0.72, -0.48, -0.24, 0.0, 0.24, 0.48, 0.72];
 const CAUSTIC_LANES: [f32; 5] = [-0.60, -0.30, 0.0, 0.30, 0.60];
-const NUM_TRAVELING_CRESTS: usize = 7;
 
 /// A sampled point along the river's center path.
 #[derive(Debug, Clone, Copy)]
@@ -135,10 +134,11 @@ impl RiverPath {
         let clamped_dist = dist.clamp(0.0, self.total_length);
 
         // Binary search for the bounding segment in cumulative distance
-        let idx = match self
-            .samples
-            .binary_search_by(|s| s.cum_dist.partial_cmp(&clamped_dist).unwrap())
-        {
+        let idx = match self.samples.binary_search_by(|s| {
+            s.cum_dist
+                .partial_cmp(&clamped_dist)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }) {
             Ok(i) => i,
             Err(i) => {
                 if i == 0 {
@@ -179,10 +179,11 @@ impl RiverPath {
             return edge_dist;
         }
 
-        // Row 6 M6 bottleneck wooden bridge region (node M6 at x = 384.0, y = 755.0, bridge deck x in [310.0, 460.0], y in [700.0, 810.0])
-        let in_wood_bridge = pos.x >= 310.0 && pos.x <= 460.0 && pos.y >= 700.0 && pos.y <= 810.0;
+        // Row 6 M6 bottleneck wooden bridge region (node M6 at x = 384.0, y = 755.0)
+        // Wider box accounts for thick river effect line widths bleeding past deck edges
+        let in_wood_bridge = pos.x >= 290.0 && pos.x <= 470.0 && pos.y >= 690.0 && pos.y <= 815.0;
         if in_wood_bridge {
-            let edge_dist = ((pos.x - 310.0).min(460.0 - pos.x) / 15.0).clamp(0.0, 1.0);
+            let edge_dist = ((pos.x - 290.0).min(470.0 - pos.x) / 25.0).clamp(0.0, 1.0);
             return edge_dist;
         }
 
@@ -235,9 +236,6 @@ impl RiverSimulation {
 
         // 3. Sunlight Caustics Network (Glistening Caustic Webs)
         self.draw_sunlight_caustics(origin, scale, t);
-
-        // 4. Gentle Traveling Curved Wave Crests
-        self.draw_traveling_wave_crests(origin, scale, t);
     }
 
     /// Soft, luminous liquid glow that gives the river clear depth and vibrancy
@@ -438,62 +436,6 @@ impl RiverSimulation {
                             );
                         }
                     }
-                }
-            }
-        }
-    }
-
-    /// Delicate curved wave crests that gently travel downstream
-    fn draw_traveling_wave_crests(&self, origin: Vec2, scale: f32, t: f32) {
-        let total_len = self.path.total_length;
-        let wave_speed = 42.0; // px / sec
-        let cycle_len = total_len / NUM_TRAVELING_CRESTS as f32;
-
-        for k in 0..NUM_TRAVELING_CRESTS {
-            let crest_d =
-                ((t * wave_speed + k as f32 * cycle_len) % total_len).clamp(0.0, total_len);
-
-            // Draw a curved wave crest across the channel from v = -0.75 to v = 0.75
-            const NUM_ARC_PTS: usize = 12;
-            let mut arc_points = [(Vec2::ZERO, 0.0f32); NUM_ARC_PTS];
-
-            for (j, pt) in arc_points.iter_mut().enumerate() {
-                let frac = j as f32 / (NUM_ARC_PTS - 1) as f32;
-                let v = -0.75 + frac * 1.50; // cross channel [-0.75, 0.75]
-
-                // Parabolic downstream curve: center (v=0) travels slightly ahead of edges
-                let curve_lead = (1.0 - (v / 0.75).powi(2)) * 14.0;
-                let sample_d = (crest_d + curve_lead).clamp(0.0, total_len);
-
-                let (board_pos, _, _, _) = self.path.sample_at(sample_d, v);
-                let occlusion = self.path.bridge_occlusion(board_pos);
-                let bank_fade = (1.0 - (v / 0.85).abs()).max(0.0);
-                let point_alpha = (bank_fade * (1.0 - occlusion)).clamp(0.0, 1.0);
-
-                let screen_pos = origin + board_pos * scale;
-                *pt = (screen_pos, point_alpha);
-            }
-
-            // Draw connected crest segments
-            for j in 0..NUM_ARC_PTS - 1 {
-                let (p0, a0) = arc_points[j];
-                let (p1, a1) = arc_points[j + 1];
-
-                if a0 > 0.05 && a1 > 0.05 {
-                    let seg_alpha = (a0 + a1) * 0.5;
-                    let crest_color = Color::from_rgba(
-                        255,
-                        255,
-                        255,
-                        (seg_alpha * 140.0).clamp(0.0, 255.0) as u8,
-                    );
-                    let soft_cyan =
-                        Color::from_rgba(178, 235, 242, (seg_alpha * 90.0).clamp(0.0, 255.0) as u8);
-
-                    // Soft back ripple
-                    draw_line(p0.x, p0.y, p1.x, p1.y, 2.4 * scale, soft_cyan);
-                    // Fine white crest
-                    draw_line(p0.x, p0.y, p1.x, p1.y, 1.2 * scale, crest_color);
                 }
             }
         }
