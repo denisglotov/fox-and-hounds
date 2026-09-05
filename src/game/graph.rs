@@ -24,6 +24,7 @@ pub struct Graph {
     pub nodes: Vec<Node>,
     pub name_to_id: HashMap<String, usize>,
     pub adjacency: Vec<Vec<usize>>,
+    pub dist_matrix: Vec<Option<usize>>,
 }
 
 impl Graph {
@@ -46,10 +47,30 @@ impl Graph {
             }
         }
 
+        // Precompute All-Pairs Shortest Path (APSP) matrix with BFS
+        let n = nodes.len();
+        let mut dist_matrix = vec![None; n * n];
+        for start in 0..n {
+            dist_matrix[start * n + start] = Some(0);
+            let mut queue = VecDeque::new();
+            queue.push_back(start);
+            while let Some(current) = queue.pop_front() {
+                let curr_dist = dist_matrix[start * n + current].unwrap();
+                for &next in &adjacency[current] {
+                    let idx = start * n + next;
+                    if dist_matrix[idx].is_none() {
+                        dist_matrix[idx] = Some(curr_dist + 1);
+                        queue.push_back(next);
+                    }
+                }
+            }
+        }
+
         Self {
             nodes,
             name_to_id,
             adjacency,
+            dist_matrix,
         }
     }
 
@@ -69,13 +90,28 @@ impl Graph {
         self.adjacency.get(node_id).map_or(&[], |n| n.as_slice())
     }
 
+    /// Returns precomputed shortest distance between two nodes in O(1) time without allocations.
+    pub fn distance(&self, start: usize, target: usize) -> Option<usize> {
+        let n = self.nodes.len();
+        if start < n && target < n {
+            self.dist_matrix[start * n + target]
+        } else {
+            None
+        }
+    }
+
     /// Computes BFS shortest distance from `start` to `target`, avoiding any `obstacles`.
+    /// Fast-paths to O(1) precomputed lookup when obstacles slice is empty.
     pub fn shortest_distance(
         &self,
         start: usize,
         target: usize,
         obstacles: &[usize],
     ) -> Option<usize> {
+        if obstacles.is_empty() {
+            return self.distance(start, target);
+        }
+
         if start == target {
             return Some(0);
         }
@@ -87,7 +123,7 @@ impl Graph {
         queue.push_back(start);
 
         while let Some(current) = queue.pop_front() {
-            let curr_dist = distances[current].unwrap_or(0);
+            let curr_dist = distances[current].unwrap();
             if current == target {
                 return Some(curr_dist);
             }
@@ -104,5 +140,38 @@ impl Graph {
         }
 
         distances[target]
+    }
+
+    /// Generates an iterator over legal destination nodes for the Fox.
+    pub fn fox_legal_moves<'a>(
+        &'a self,
+        fox_pos: usize,
+        hounds_pos: &'a [usize],
+    ) -> impl Iterator<Item = usize> + 'a {
+        self.neighbors(fox_pos)
+            .iter()
+            .copied()
+            .filter(move |&target| !hounds_pos.contains(&target))
+    }
+
+    /// Generates an iterator over legal destination nodes for a Hound at `hound_pos`.
+    pub fn hound_legal_moves<'a>(
+        &'a self,
+        hound_pos: usize,
+        fox_pos: usize,
+        coop_pos: usize,
+        hounds_pos: &'a [usize],
+    ) -> impl Iterator<Item = usize> + 'a {
+        self.neighbors(hound_pos)
+            .iter()
+            .copied()
+            .filter(move |&target| {
+                target != fox_pos
+                    && target != coop_pos
+                    && !hounds_pos.contains(&target)
+                    && self
+                        .node(target)
+                        .is_none_or(|n| n.node_type != NodeType::TargetCoop)
+            })
     }
 }

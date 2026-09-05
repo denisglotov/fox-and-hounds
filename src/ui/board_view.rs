@@ -16,17 +16,19 @@ pub fn roll_sit_threshold() -> f32 {
     MIN_IDLE_SIT_SECONDS + macroquad::rand::gen_range(0.0, RANDOM_IDLE_SIT_SECONDS_RANGE)
 }
 
+fn load_texture(bytes: &[u8]) -> Option<Texture2D> {
+    let tex = Texture2D::from_file_with_format(bytes, Some(ImageFormat::Png));
+    tex.set_filter(FilterMode::Linear);
+    Some(tex)
+}
+
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
     pub board_left_texture: Option<Texture2D>,
     pub board_right_texture: Option<Texture2D>,
     pub fox_texture: Option<Texture2D>,
-    pub hound1_texture: Option<Texture2D>,
-    pub hound2_texture: Option<Texture2D>,
-    pub hound3_texture: Option<Texture2D>,
-    pub hound1_sit_texture: Option<Texture2D>,
-    pub hound2_sit_texture: Option<Texture2D>,
-    pub hound3_sit_texture: Option<Texture2D>,
+    pub hound_textures: [Option<Texture2D>; 3],
+    pub hound_sit_textures: [Option<Texture2D>; 3],
     pub train_texture: Option<Texture2D>,
     pub hound_angles: [f32; 3],
     pub fox_angle: f32,
@@ -46,118 +48,40 @@ fn lerp_angle(current: f32, target: f32, speed: f32, dt: f32) -> f32 {
     current + diff * (1.0 - (-speed * dt).exp())
 }
 
+pub struct BoardViewParams<'a> {
+    pub origin: Vec2,
+    pub scale: f32,
+    pub viewport_mouse_pos: Vec2,
+    pub was_dragging: bool,
+    pub sound_manager: &'a SoundManager,
+    pub dt: f32,
+}
+
 impl BoardView {
     pub async fn new(font: Option<Font>) -> Self {
-        let board_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/board_image.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
-
-        let board_left_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/board_left.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
-
-        let board_right_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/board_right.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
-
-        let fox_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/fox_figure.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
-
-        let hound1_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/hound1_figure.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
-
-        let hound2_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/hound2_figure.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
-
-        let hound3_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/hound3_figure.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
-
-        let hound1_sit_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/hound1_figure_sit.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
-
-        let hound2_sit_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/hound2_figure_sit.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
-
-        let hound3_sit_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/hound3_figure_sit.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
-
-        let train_texture = {
-            let tex = Texture2D::from_file_with_format(
-                include_bytes!("../../assets/train_figure.png"),
-                Some(ImageFormat::Png),
-            );
-            tex.set_filter(FilterMode::Linear);
-            Some(tex)
-        };
+        let board_texture = load_texture(include_bytes!("../../assets/board_image.png"));
+        let board_left_texture = load_texture(include_bytes!("../../assets/board_left.png"));
+        let board_right_texture = load_texture(include_bytes!("../../assets/board_right.png"));
+        let fox_texture = load_texture(include_bytes!("../../assets/fox_figure.png"));
+        let hound_textures = [
+            load_texture(include_bytes!("../../assets/hound1_figure.png")),
+            load_texture(include_bytes!("../../assets/hound2_figure.png")),
+            load_texture(include_bytes!("../../assets/hound3_figure.png")),
+        ];
+        let hound_sit_textures = [
+            load_texture(include_bytes!("../../assets/hound1_figure_sit.png")),
+            load_texture(include_bytes!("../../assets/hound2_figure_sit.png")),
+            load_texture(include_bytes!("../../assets/hound3_figure_sit.png")),
+        ];
+        let train_texture = load_texture(include_bytes!("../../assets/train_figure.png"));
 
         Self {
             board_texture,
             board_left_texture,
             board_right_texture,
             fox_texture,
-            hound1_texture,
-            hound2_texture,
-            hound3_texture,
-            hound1_sit_texture,
-            hound2_sit_texture,
-            hound3_sit_texture,
+            hound_textures,
+            hound_sit_textures,
             train_texture,
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
@@ -192,17 +116,14 @@ impl BoardView {
         }
     }
 
-    pub fn draw_and_handle_input(
-        &mut self,
-        state: &mut GameState,
-        origin: Vec2,
-        scale: f32,
-        viewport_mouse_pos: Vec2,
-        was_dragging: bool,
-        sound_manager: &SoundManager,
-    ) {
+    pub fn draw_and_handle_input(&mut self, state: &mut GameState, params: &BoardViewParams) {
+        let origin = params.origin;
+        let scale = params.scale;
+        let viewport_mouse_pos = params.viewport_mouse_pos;
+        let was_dragging = params.was_dragging;
+        let sound_manager = params.sound_manager;
+        let dt = params.dt;
         let t = get_time() as f32;
-        let dt = get_frame_time().min(0.1);
 
         // 1. Draw Background Board Image and Extensions (exact natural 1:1 proportions, no distortion)
         if let Some(tex) = &self.board_left_texture {
@@ -287,13 +208,9 @@ impl BoardView {
         let legal_destinations = if state.phase == GamePhase::Playing && !state.is_ai_turn() {
             match state.player_faction {
                 Faction::Fox => state.fox_legal_moves(),
-                Faction::Hounds => {
-                    if let Some(h_idx) = state.selected_hound_idx {
-                        state.hound_legal_moves(h_idx)
-                    } else {
-                        Vec::new()
-                    }
-                }
+                Faction::Hounds => state
+                    .selected_hound_idx
+                    .map_or_else(Vec::new, |h_idx| state.hound_legal_moves(h_idx)),
             }
         } else {
             Vec::new()
@@ -303,7 +220,7 @@ impl BoardView {
         self.draw_nodes(state, origin, scale, &legal_destinations, t);
 
         // 5. Draw Animated Live Characters (Fox & 3 Unique Hounds) & play waffing sound
-        if let Some(snd) = self.draw_pieces(state, origin, scale, t) {
+        if let Some(snd) = self.draw_pieces(state, origin, scale, t, dt) {
             sound_manager.play(snd);
         }
 
@@ -455,9 +372,9 @@ impl BoardView {
         origin: Vec2,
         scale: f32,
         t: f32,
+        dt: f32,
     ) -> Option<SoundTrigger> {
         let pulse = (t * 3.5).sin() * 0.5 + 0.5;
-        let dt = get_frame_time().min(0.1);
         let mut waf_sound = None;
 
         // 1. Calculate live visual position of Fox for Hound tracking
@@ -633,13 +550,10 @@ impl BoardView {
             // idx 0 -> Terrier (user's white dog)
             // idx 1 -> Beagle
             // idx 2 -> Golden Hound
-            let hound_tex = match (idx, is_sitting) {
-                (0, false) => self.hound1_texture.as_ref(),
-                (0, true) => self.hound1_sit_texture.as_ref(),
-                (1, false) => self.hound2_texture.as_ref(),
-                (1, true) => self.hound2_sit_texture.as_ref(),
-                (_, false) => self.hound3_texture.as_ref(),
-                (_, true) => self.hound3_sit_texture.as_ref(),
+            let hound_tex = if is_sitting {
+                self.hound_sit_textures.get(idx).and_then(|t| t.as_ref())
+            } else {
+                self.hound_textures.get(idx).and_then(|t| t.as_ref())
             };
 
             if let Some(tex) = hound_tex {

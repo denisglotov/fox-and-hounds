@@ -86,3 +86,16 @@ fn test_train_sound_trigger_lifecycle() {
     assert_eq!(snd, Some(SoundTrigger::Train));
     assert!(train.is_active());
 }
+
+#[test]
+fn test_train_large_dt_step_no_panic() {
+    let mut train = TrainSimulation::new();
+
+    // Sudden 125-second frame spike (e.g., app sleep/resume)
+    let _ = train.update(125.0);
+    assert!(train.elapsed_time >= 125.0);
+    // Should compute progress or inactivity cleanly without panic
+    let _ = train.is_active();
+    let _ = train.train_progress();
+    let _ = train.train_locomotive_y();
+}

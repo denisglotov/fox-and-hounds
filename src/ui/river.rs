@@ -135,10 +135,11 @@ impl RiverPath {
         let clamped_dist = dist.clamp(0.0, self.total_length);
 
         // Binary search for the bounding segment in cumulative distance
-        let idx = match self
-            .samples
-            .binary_search_by(|s| s.cum_dist.partial_cmp(&clamped_dist).unwrap())
-        {
+        let idx = match self.samples.binary_search_by(|s| {
+            s.cum_dist
+                .partial_cmp(&clamped_dist)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }) {
             Ok(i) => i,
             Err(i) => {
                 if i == 0 {

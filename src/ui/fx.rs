@@ -38,6 +38,7 @@ impl FxManager {
             Color::from_rgba(255, 235, 59, 255), // Yellow
         ];
 
+        self.particles.reserve(count);
         for _ in 0..count {
             let angle = rand::gen_range(0.0, std::f32::consts::TAU);
             let speed = rand::gen_range(120.0, 480.0);

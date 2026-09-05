@@ -1,7 +1,9 @@
 use fox_and_hounds::game::ai::{find_best_move, BoardSnapshot};
 use fox_and_hounds::game::graph::NodeType;
 use fox_and_hounds::game::level::build_river_crossing_graph;
-use fox_and_hounds::game::state::{Difficulty, Faction, GamePhase, GameResult, GameState};
+use fox_and_hounds::game::state::{
+    Difficulty, Faction, GamePhase, GameResult, GameState, MoveError,
+};
 
 #[test]
 fn test_graph_structure() {
@@ -163,25 +165,27 @@ fn test_hounds_cannot_occupy_chicken_coop() {
     // AI snapshot must also exclude M0
     let snapshot = BoardSnapshot::from_state(&state);
     for hound_idx in 0..3 {
-        let legal = snapshot.hound_legal_moves(&state.graph, hound_idx);
-        assert!(!legal.contains(&m0_idx));
+        assert!(snapshot
+            .hound_legal_moves(&state.graph, hound_idx)
+            .all(|target| target != m0_idx));
     }
-    let all_ai_moves = snapshot.all_hound_moves(&state.graph);
-    assert!(all_ai_moves.iter().all(|&(_, target)| target != m0_idx));
+    assert!(snapshot
+        .all_hound_moves(&state.graph)
+        .all(|(_, target)| target != m0_idx));
 
     // Manually setting turn to Hounds and attempting to move to M0 must be rejected
     state.current_turn = Faction::Hounds;
     assert_eq!(
         state.apply_hound_move(0, m0_idx),
-        Err("Illegal move for Hound")
+        Err(MoveError::IllegalMove)
     );
     assert_eq!(
         state.apply_hound_move(1, m0_idx),
-        Err("Illegal move for Hound")
+        Err(MoveError::IllegalMove)
     );
     assert_eq!(
         state.apply_hound_move(2, m0_idx),
-        Err("Illegal move for Hound")
+        Err(MoveError::IllegalMove)
     );
 
     // Best move for Hounds should never be M0
@@ -348,4 +352,93 @@ fn test_move_animation_state_tracking() {
     assert_eq!(hound_anim.hound_idx, Some(1));
     assert_eq!(hound_anim.progress, 0.0);
     assert!(hound_anim.duration >= 0.25);
+}
+
+#[test]
+fn test_move_errors_and_turn_validation() {
+    let mut state = GameState::new();
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    // Fox turn: moving a hound should yield NotYourTurn
+    assert_eq!(state.apply_hound_move(0, 1), Err(MoveError::NotYourTurn));
+
+    // Invalid hound index
+    state.current_turn = Faction::Hounds;
+    assert_eq!(state.apply_hound_move(99, 1), Err(MoveError::InvalidHound));
+
+    // Hounds turn: moving the fox should yield NotYourTurn
+    assert_eq!(state.apply_fox_move(0), Err(MoveError::NotYourTurn));
+
+    // Verify Display on MoveError
+    assert_eq!(format!("{}", MoveError::NotYourTurn), "Not your turn");
+    assert_eq!(format!("{}", MoveError::IllegalMove), "Illegal move");
+    assert_eq!(
+        format!("{}", MoveError::InvalidHound),
+        "Invalid hound index"
+    );
+}
+
+#[test]
+fn test_piece_collision_rejection() {
+    let mut state = GameState::new();
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    // Position Fox directly adjacent to Hound 0
+    let m6_idx = state.graph.find_id_by_name("M6").unwrap();
+    let m7_idx = state.graph.find_id_by_name("M7").unwrap();
+    state.fox_pos = m7_idx;
+    state.hounds_pos[0] = m6_idx; // M6 is adjacent to M7
+
+    // Fox cannot move onto the hound's node
+    let fox_legal = state.fox_legal_moves();
+    assert!(!fox_legal.contains(&m6_idx));
+    assert_eq!(state.apply_fox_move(m6_idx), Err(MoveError::IllegalMove));
+
+    // Hound cannot move onto the fox's node
+    state.current_turn = Faction::Hounds;
+    let hound_legal = state.hound_legal_moves(0);
+    assert!(!hound_legal.contains(&m7_idx));
+    assert_eq!(
+        state.apply_hound_move(0, m7_idx),
+        Err(MoveError::IllegalMove)
+    );
+
+    // Hound cannot move onto another hound's node
+    let r7_idx = state.graph.find_id_by_name("R7").unwrap();
+    state.hounds_pos[1] = r7_idx;
+    let hound_legal = state.hound_legal_moves(0);
+    assert!(!hound_legal.contains(&r7_idx));
+    assert_eq!(
+        state.apply_hound_move(0, r7_idx),
+        Err(MoveError::IllegalMove)
+    );
+}
+
+#[test]
+fn test_ai_handles_trapped_fox_position() {
+    let mut state = GameState::new();
+    state.start_game(Faction::Fox, Difficulty::Hard);
+
+    // Trap fox at M9 by placing hounds on L8, M8, R8 (all neighbors of M9)
+    let m9_idx = state.graph.find_id_by_name("M9").unwrap();
+    let l8_idx = state.graph.find_id_by_name("L8").unwrap();
+    let m8_idx = state.graph.find_id_by_name("M8").unwrap();
+    let r8_idx = state.graph.find_id_by_name("R8").unwrap();
+
+    state.fox_pos = m9_idx;
+    state.hounds_pos = vec![l8_idx, m8_idx, r8_idx];
+    state.current_turn = Faction::Fox;
+
+    // Fox has 0 legal moves
+    assert_eq!(state.fox_legal_moves().len(), 0);
+
+    // AI should evaluate this without crashing
+    let best_move = find_best_move(&state);
+    assert_eq!(best_move, None);
+
+    // Evaluating game result triggers game over
+    state.evaluate_game_result();
+    assert_eq!(state.result, GameResult::HoundsWon);
+    assert_eq!(state.phase, GamePhase::GameOver);
+    assert!(state.cached_game_over_stats.is_some());
 }

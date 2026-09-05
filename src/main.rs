@@ -1,7 +1,7 @@
 use fox_and_hounds::audio::SoundManager;
 use fox_and_hounds::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
 use fox_and_hounds::game::state::{GamePhase, GameResult, GameState};
-use fox_and_hounds::ui::board_view::BoardView;
+use fox_and_hounds::ui::board_view::{BoardView, BoardViewParams};
 use fox_and_hounds::ui::camera::ViewportCamera;
 use fox_and_hounds::ui::fx::FxManager;
 use fox_and_hounds::ui::screens::Screens;
@@ -114,7 +114,7 @@ async fn main() {
                     compute_board_layout(screen_w, screen_h, scale);
 
                 // Viewport Camera & Render Target setup for smooth subpixel scrolling & zooming
-                let (rt, pan_offset, effective_scale, was_dragging) =
+                let camera_ctx =
                     camera.update_and_begin(viewport_rect, board_size, board_scale, scale, dt);
 
                 let mouse_pos = Vec2::from(mouse_position());
@@ -122,14 +122,17 @@ async fn main() {
 
                 board_view.draw_and_handle_input(
                     &mut state,
-                    pan_offset,
-                    effective_scale,
-                    viewport_mouse,
-                    was_dragging,
-                    &sound_manager,
+                    &BoardViewParams {
+                        origin: camera_ctx.pan_offset,
+                        scale: camera_ctx.effective_scale,
+                        viewport_mouse_pos: viewport_mouse,
+                        was_dragging: camera_ctx.was_dragging,
+                        sound_manager: &sound_manager,
+                        dt,
+                    },
                 );
 
-                camera.end_camera(viewport_rect, rt);
+                camera.end_camera(viewport_rect, camera_ctx.render_target);
 
                 // Draw Top Minimal In-Game HUD
                 let (hud_sound, toggle_mute) = Screens::draw_ingame_hud(

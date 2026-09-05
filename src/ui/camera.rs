@@ -51,6 +51,14 @@ pub struct CameraAnimation {
     pub elapsed: f32,
 }
 
+#[derive(Clone)]
+pub struct CameraContext {
+    pub render_target: RenderTarget,
+    pub pan_offset: Vec2,
+    pub effective_scale: f32,
+    pub was_dragging: bool,
+}
+
 pub struct ViewportCamera {
     pub pan_offset: Vec2,
     pub zoom: f32,
@@ -180,18 +188,7 @@ impl ViewportCamera {
         viewport_rect: Rect,
         base_board_size: Vec2,
     ) {
-        let base_board_scale = base_board_size.x / BOARD_IMAGE_WIDTH;
-        let effective_scale = base_board_scale * self.zoom;
-        let (min_x, max_x) = horizontal_pan_bounds(viewport_rect.w, effective_scale);
-        let total_artwork_w = BOARD_TOTAL_WIDTH * effective_scale;
-
-        self.pan_offset.x = if total_artwork_w <= viewport_rect.w {
-            viewport_rect.w / 2.0 - BOARD_COMPOSITION_CENTER_X * effective_scale
-        } else {
-            (viewport_rect.w / 2.0 - (BOARD_IMAGE_WIDTH / 2.0) * effective_scale)
-                .clamp(min_x, max_x)
-        };
-
+        self.pan_offset.x = (viewport_rect.w - base_board_size.x * self.zoom) / 2.0;
         let cur_board_h = base_board_size.y * self.zoom;
         let (min_y, max_y) = vertical_pan_bounds(viewport_rect.h, cur_board_h);
         if cur_board_h <= viewport_rect.h {
@@ -208,7 +205,7 @@ impl ViewportCamera {
     }
 
     /// Handles pinch-to-zoom, double-tap zoom, mouse drag/pan, and wheel zoom/scroll.
-    /// Returns (render_target, pan_offset, effective_scale, was_dragging).
+    /// Returns CameraContext containing render target and camera properties.
     pub fn update_and_begin(
         &mut self,
         viewport_rect: Rect,
@@ -216,7 +213,7 @@ impl ViewportCamera {
         base_board_scale: f32,
         scale: f32,
         dt: f32,
-    ) -> (RenderTarget, Vec2, f32, bool) {
+    ) -> CameraContext {
         let mouse_pos = Vec2::from(mouse_position());
         let mouse_down = is_mouse_button_down(MouseButton::Left);
         let mouse_pressed = is_mouse_button_pressed(MouseButton::Left);
@@ -224,16 +221,15 @@ impl ViewportCamera {
         let (wheel_x, wheel_y) = mouse_wheel();
         let in_viewport = viewport_rect.contains(mouse_pos);
 
-        // 1. Multi-Touch Pinch-to-Zoom
-        let active_touches: Vec<_> = touches()
+        // 1. Multi-Touch Pinch-to-Zoom (zero allocation)
+        let mut active = touches()
             .into_iter()
-            .filter(|t| t.phase != TouchPhase::Cancelled && t.phase != TouchPhase::Ended)
-            .collect();
+            .filter(|t| t.phase != TouchPhase::Cancelled && t.phase != TouchPhase::Ended);
 
         let mut is_pinching = false;
-        if active_touches.len() >= 2 {
-            let p0 = active_touches[0].position;
-            let p1 = active_touches[1].position;
+        if let (Some(t0), Some(t1)) = (active.next(), active.next()) {
+            let p0 = t0.position;
+            let p1 = t1.position;
             let current_dist = (p0 - p1).length();
             let focal_screen = (p0 + p1) * 0.5;
             let focal_vp = focal_screen - Vec2::new(viewport_rect.x, viewport_rect.y);
@@ -253,8 +249,8 @@ impl ViewportCamera {
             }
             self.pinch_prev_dist = Some(current_dist);
             self.is_dragging = true;
+            self.anim = None;
             is_pinching = true;
-            self.drag_start = None;
         } else {
             self.pinch_prev_dist = None;
         }
@@ -419,7 +415,12 @@ impl ViewportCamera {
 
         clear_background(Color::from_rgba(11, 17, 24, 255));
 
-        (rt, self.pan_offset, effective_scale, was_dragging)
+        CameraContext {
+            render_target: rt,
+            pan_offset: self.pan_offset,
+            effective_scale,
+            was_dragging,
+        }
     }
 
     pub fn end_camera(&self, viewport_rect: Rect, rt: RenderTarget) {
