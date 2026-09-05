@@ -236,8 +236,6 @@ impl RiverSimulation {
 
         // 3. Sunlight Caustics Network (Glistening Caustic Webs)
         self.draw_sunlight_caustics(origin, scale, t);
-
-
     }
 
     /// Soft, luminous liquid glow that gives the river clear depth and vibrancy
@@ -442,6 +440,4 @@ impl RiverSimulation {
             }
         }
     }
-
 }
-
