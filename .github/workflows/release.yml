@@ -1,4 +1,4 @@
-name: Release Android
+name: Release & Deploy
 
 on:
   push:
@@ -8,15 +8,81 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build & Release Android App
+  build-wasm:
+    name: Build WebAssembly & Web Bundle
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pages: write
+      id-token: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install Just runner
+        uses: taiki-e/install-action@just
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build WebAssembly
+        run: |
+          just install-wasm
+          # Replace symlink with real directory content for self-contained static hosting
+          rm -rf web/assets
+          cp -r assets web/assets
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - name: Upload WASM Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: foxandhounds-wasm
+          path: web/fox-and-hounds.wasm
+
+      - name: Attach WASM to GitHub Release
+        uses: softprops/action-gh-release@v3
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: web/fox-and-hounds.wasm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build-wasm
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  build-android:
+    name: Build & Release Android App
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -49,7 +115,10 @@ jobs:
       - name: Install bundletool
         run: |
           sudo curl -fsSL -o /usr/local/bin/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar
-          printf '#!/bin/sh\nexec java -jar /usr/local/bin/bundletool.jar "$@"\n' | sudo tee /usr/local/bin/bundletool > /dev/null
+          sudo tee /usr/local/bin/bundletool > /dev/null << 'EOF'
+          #!/bin/sh
+          exec java -jar /usr/local/bin/bundletool.jar "$@"
+          EOF
           sudo chmod +x /usr/local/bin/bundletool
 
       - name: Install Rust toolchain
@@ -88,30 +157,50 @@ jobs:
           KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS || vars.KEYSTORE_ALIAS }}
         run: |
           BUILD_TOOLS_DIR=$(ls -d "${ANDROID_HOME}/build-tools/"* 2>/dev/null | tail -n 1)
+          APKSIGNER="${BUILD_TOOLS_DIR}/apksigner"
 
-          echo "==> Signing Release APK..."
-          "${BUILD_TOOLS_DIR}/apksigner" sign \
+          echo "==> Signing Release APK with apksigner..."
+          "$APKSIGNER" sign \
             --ks "$RUNNER_TEMP/release.keystore" \
             --ks-key-alias "$KEYSTORE_ALIAS" \
             --ks-pass "pass:$KEYSTORE_PASSWORD" \
-            --out "target/android-artifacts/release/apk/foxandhounds.apk" \
-            "target/android-artifacts/release/apk/foxandhounds.apk"
+            --out target/android-artifacts/release/apk/foxandhounds.apk \
+            target/android-artifacts/release/apk/foxandhounds.apk
 
-          echo "==> Signing Release AAB..."
+          echo "==> Verifying APK signature..."
+          "$APKSIGNER" verify target/android-artifacts/release/apk/foxandhounds.apk
+
+          echo "==> Signing Release AAB with jarsigner..."
           jarsigner \
             -keystore "$RUNNER_TEMP/release.keystore" \
             -storepass "$KEYSTORE_PASSWORD" \
-            "target/android-artifacts/release/apk/foxandhounds.aab" \
+            target/android-artifacts/release/apk/foxandhounds.aab \
             "$KEYSTORE_ALIAS"
 
+          echo "==> Verifying AAB signature..."
+          jarsigner -verify target/android-artifacts/release/apk/foxandhounds.aab
+
+      - name: Upload Android Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: foxandhounds-android-release
+          path: |
+            target/android-artifacts/release/apk/foxandhounds.apk
+            target/android-artifacts/release/apk/foxandhounds.aab
+            target/android-artifacts/release/apk/mapping.txt
+            target/android-artifacts/release/apk/native-debug-symbols.zip
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             target/android-artifacts/release/apk/foxandhounds.apk
             target/android-artifacts/release/apk/foxandhounds.aab
-            target/android-artifacts/release/apk/native-debug-symbols.zip
             target/android-artifacts/release/apk/mapping.txt
+            target/android-artifacts/release/apk/native-debug-symbols.zip
           generate_release_notes: true
           draft: false
           prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,9 +4,28 @@
   <img src="assets/fox_and_hounds.png" alt="Fox and Hounds" width="600" />
 </p>
 
+<p align="center">
+  <a href="https://play.google.com/store/apps/details?id=org.dymka.foxandhounds"
+    ><img
+      src="docs/assets/en_badge_web_generic.png"
+      alt="Available on Google Play"
+      height="70"
+      align="middle"
+  /></a>
+  <a href="https://www.dymka.org/foxandhounds/"
+    ><img
+      src="docs/assets/button_run_in_browser.svg"
+      alt="Play in browser"
+      height="48"
+      align="middle"
+  /></a>
+</p>
+
 A turn-based asymmetric pursuit-evasion game played on arbitrary graph topologies.
 
-One clever **Fox** ($\text{F}$) matches wits against a pack of **$N$ Hounds** ($\text{H}_1, \text{H}_2, \dots, \text{H}_N$). The Fox aims to slip past the pack and infiltrate the **Chicken Coop**, while the Hounds must coordinate as a cohesive unit to encircle and immobilize the Fox.
+One clever **Fox** ($\text{F}$) matches wits against a pack of **$N$ Hounds** ($\text{H}_1,
+\text{H}_2, \dots, \text{H}_N$). The Fox aims to slip past the pack and infiltrate the **Chicken
+Coop**, while the Hounds must coordinate as a cohesive unit to encircle and immobilize the Fox.
 
 ## 📖 Game Rules & Mechanics
 
@@ -20,10 +39,12 @@ One clever **Fox** ($\text{F}$) matches wits against a pack of **$N$ Hounds** ($
 - **Fox Moves First**: The Fox takes turn 1, followed by the Hounds.
 - **Single Piece Movement**:
   - On the **Fox's turn**: The Fox moves to an adjacent, unoccupied vertex.
-  - On the **Hounds' turn**: The Hounds' player selects and moves **exactly one Hound** to an adjacent, unoccupied vertex.
+  - On the **Hounds' turn**: The Hounds' player selects and moves **exactly one Hound**
+    to an adjacent, unoccupied vertex.
 
 ### 3. Movement Rules
-- **Bidirectional Traversal**: Pieces can move along any connected edge (forward, backward, or sideways).
+- **Bidirectional Traversal**: Pieces can move along any connected edge (forward, backward,
+  or sideways).
 - **Step Size**: Exactly one edge traversal per turn.
 - **Occupancy & No Collisions**:
   - No two pieces may occupy the same vertex simultaneously.
@@ -31,23 +52,27 @@ One clever **Fox** ($\text{F}$) matches wits against a pack of **$N$ Hounds** ($
 - **No Captures**:
   - Pieces cannot be captured or eliminated. The game is purely positional and tactical.
 - **Chicken Coop Sanctuary**:
-  - **Hounds (Dogs) cannot occupy or enter the Chicken Coop (`M0`)**. The Chicken Coop is strictly an infiltration target for the Fox.
+  - **Hounds (Dogs) cannot occupy or enter the Chicken Coop (`M0`)**. The Chicken Coop
+    is strictly an infiltration target for the Fox.
 
 ### 4. Victory Conditions
 | Faction | Objective / Victory Condition |
 | :--- | :--- |
-| 🦊 **Fox** | Reaches the **Chicken Coop** vertex (located at the opposite end of the graph, behind the Hounds). |
-| 🐶 **Hounds** | **Completely traps** the Fox such that the Fox has **zero legal moves** on its turn. |
+| 🦊 **Fox** | Reaches the **Chicken Coop** (located at opposite end, behind the Hounds). |
+| 🐶 **Hounds** | **Completely traps** the Fox such that the Fox has **zero legal moves**. |
 
 ## 🗺️ Featured Level: "The River Crossing" (3x9 Bottleneck)
 
-A tactical campaign map featuring open flanking grounds, a river bottleneck bridge on Row 6, and the Chicken Coop behind the Hounds' defensive line.
+A tactical campaign map featuring open flanking grounds, a river bottleneck bridge on Row 6, and the
+Chicken Coop behind the Hounds' defensive line.
 
 ### Graph Architecture
 - **Row 0** (Goal): `M0` — The Chicken Coop target vertex (1 vertex).
 - **Row 1** (Hounds Start): `L1`, `M1`, `R1` — Starting posts of the 3 Hounds (3 vertices).
-- **Rows 2–5** (North Fields): 3 vertices per row (`L`eft, `M`iddle, `R`ight) with centrally symmetric diamond-grid connectivity.
-- **Row 6** (The Bottleneck): `M6` — A single chokepoint bridge over the river connecting North and South fields (1 vertex).
+- **Rows 2–5** (North Fields): 3 vertices per row (`L`eft, `M`iddle, `R`ight) with centrally
+  symmetric diamond-grid connectivity.
+- **Row 6** (The Bottleneck): `M6` — A single chokepoint bridge over the river connecting
+  North and South fields (1 vertex).
 - **Rows 7–8** (South Fields): 3 vertices per row (`L`eft, `M`iddle, `R`ight).
 - **Row 9** (Fox Start): `M9` — The Fox Den start vertex (1 vertex).
 
@@ -59,12 +84,15 @@ A tactical campaign map featuring open flanking grounds, a river bottleneck brid
 
 ### Level Specifications
 
-- [Graphviz DOT Specification](docs/the_river_crossing.dot) — Graphviz DOT topology definition used for level visualization.
-- [Level Data Specification](docs/the_river_crossing.json) — Programmatic JSON format for level geometry and initial game state.
+- [Graphviz DOT Specification](docs/the_river_crossing.dot) — Graphviz DOT topology definition
+  used for level visualization.
+- [Level Data Specification](docs/the_river_crossing.json) — Programmatic JSON format for
+  level geometry and initial game state.
 
 ## 🛠️ Build & Run Instructions
 
-The game is built with [Rust](https://www.rust-lang.org/) and [Macroquad](https://macroquad.rs/), supporting Native Desktop (macOS, Linux, Windows), Web (WebAssembly), and Android.
+The game is built with [Rust](https://www.rust-lang.org/) and [Macroquad](https://macroquad.rs/),
+supporting Native Desktop (macOS, Linux, Windows), Web (WebAssembly), and Android.
 
 A [`Justfile`](Justfile) is provided for common development tasks.
 
@@ -148,11 +176,17 @@ cargo fmt
 ## 🎯 Key Strategic Concepts
 
 ### For the Fox 🦊
-1. **Bottleneck Timing**: The bridge at Row 6 (`M6`) is both a barrier and a launchpad. The Fox should feint on Row 7/8 to lure hounds out of formation before dashing through `M6`.
-2. **Tempo & Flanking**: Draw two hounds toward one flank, then pivot through the symmetric diagonal connections to exploit the vacant opposite lane.
-3. **Penetration Victory**: Once past the defensive line into Row 1, the Hound pack cannot recover if the Chicken Coop (`M0`) is within one move.
+1. **Bottleneck Timing**: The bridge at Row 6 (`M6`) is both a barrier and a launchpad.
+   The Fox should feint on Row 7/8 to lure hounds out of formation before dashing through `M6`.
+2. **Tempo & Flanking**: Draw two hounds toward one flank, then pivot through the symmetric
+   diagonal connections to exploit the vacant opposite lane.
+3. **Penetration Victory**: Once past the defensive line into Row 1, the Hound pack cannot
+   recover if the Chicken Coop (`M0`) is within one move.
 
 ### For the Hounds 🐶
-1. **Cohesive Wall Formation**: Hounds should advance in rank or hold key cross-lanes (`L`, `M`, `R`) to prevent the Fox from slipping between gaps.
-2. **Bridge Lockout**: Controlling `M6` or establishing a blockade on Row 5 (`L5`, `M5`, `R5`) prevents the Fox from crossing the river.
-3. **Corner Containment**: Drive the Fox toward boundary nodes (`L` or `R`) and collapse adjacent degrees of freedom to achieve checkmate (0 legal moves).
+1. **Cohesive Wall Formation**: Hounds should advance in rank or hold key cross-lanes
+   (`L`, `M`, `R`) to prevent the Fox from slipping between gaps.
+2. **Bridge Lockout**: Controlling `M6` or establishing a blockade on Row 5 (`L5`, `M5`, `R5`)
+   prevents the Fox from crossing the river.
+3. **Corner Containment**: Drive the Fox toward boundary nodes (`L` or `R`) and collapse
+   adjacent degrees of freedom to achieve checkmate (0 legal moves).
