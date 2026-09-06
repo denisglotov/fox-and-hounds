@@ -79,15 +79,13 @@ Chicken Coop behind the Hounds' defensive line.
 ### Board Graph Visualization
 
 <p align="center">
-  <img src="docs/board_graph.svg" alt="The River Crossing Board Graph" width="380" />
+  <img src="docs/board_graph_classic.svg" alt="The River Crossing Board Graph" width="380" />
 </p>
 
 ### Level Specifications
 
-- [Graphviz DOT Specification](docs/the_river_crossing.dot) — Graphviz DOT topology definition
+- [Graphviz DOT Specification](docs/board_graph_classic.dot) — Graphviz DOT topology definition
   used for level visualization.
-- [Level Data Specification](docs/the_river_crossing.json) — Programmatic JSON format for
-  level geometry and initial game state.
 
 ## 🛠️ Build & Run Instructions
 
