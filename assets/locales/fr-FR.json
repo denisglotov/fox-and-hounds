@@ -4,6 +4,11 @@
   "title_screen": {
     "title": "LE RENARD ET LES CHIENS",
     "subtitle": "Stratégie tactique sur graphes",
+    "board_variant": "VARIANTE DE PLATEAU",
+    "variant_classic": "Classique",
+    "variant_classic_sub": "Sans retraite",
+    "variant_river_crossing": "La traversée du fleuve",
+    "variant_river_crossing_sub": "Mouvement libre",
     "choose_faction": "CHOISISSEZ VOTRE CAMP",
     "fox_title": "🦊 Le Renard",
     "fox_subtitle": "Infiltrer le poulailler",
@@ -26,7 +31,7 @@
     "defeat": "DÉFAITE !",
     "fox_won_msg": "🦊 Le Renard a atteint le poulailler !",
     "hounds_won_msg": "🐶 Les Chiens ont encerclé et piégé le Renard !",
-    "stats_template": "Terminé en {turns} tours • IA : {difficulty}",
+    "stats_template": "Terminé en {turns} tours • IA : {difficulty} • {variant}",
     "play_again": "REJOUER",
     "main_menu": "MENU PRINCIPAL"
   }

@@ -4,6 +4,11 @@
   "title_screen": {
     "title": "여우와 사냥개",
     "subtitle": "전술 그래프 전략 게임",
+    "board_variant": "게임 선택",
+    "variant_classic": "Classic",
+    "variant_classic_sub": "No retreat",
+    "variant_river_crossing": "The river crossing",
+    "variant_river_crossing_sub": "Free movement",
     "choose_faction": "진영 선택",
     "fox_title": "🦊 여우",
     "fox_subtitle": "닭장에 침투",
@@ -26,7 +31,7 @@
     "defeat": "패배...",
     "fox_won_msg": "🦊 여우가 닭장에 도달했습니다!",
     "hounds_won_msg": "🐶 사냥개가 여우를 포위하여 가두었습니다!",
-    "stats_template": "{turns}턴 만에 종료 • AI 난이도: {difficulty}",
+    "stats_template": "{turns}턴 만에 종료 • AI 난이도: {difficulty} • {variant}",
     "play_again": "다시 플레이",
     "main_menu": "메인 메뉴"
   }

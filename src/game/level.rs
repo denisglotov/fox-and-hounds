@@ -1,29 +1,107 @@
 use super::graph::{Graph, Node, NodeType};
 use macroquad::prelude::Vec2;
 
-pub const BOARD_IMAGE_WIDTH: f32 = 768.0;
-pub const BOARD_IMAGE_HEIGHT: f32 = 1376.0;
-pub const BOARD_LEFT_WIDTH: f32 = 384.0;
-pub const BOARD_RIGHT_WIDTH: f32 = 256.0;
-pub const BOARD_TOTAL_WIDTH: f32 = BOARD_LEFT_WIDTH + BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH;
-pub const BOARD_COMPOSITION_CENTER_X: f32 =
-    (BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH - BOARD_LEFT_WIDTH) / 2.0;
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BoardDimensions {
+    pub image_width: f32,
+    pub image_height: f32,
+    pub left_width: f32,
+    pub right_width: f32,
+}
 
-pub struct LevelConfig {
+impl BoardDimensions {
+    pub const fn total_width(&self) -> f32 {
+        self.left_width + self.image_width + self.right_width
+    }
+
+    pub const fn composition_center_x(&self) -> f32 {
+        (self.image_width + self.right_width - self.left_width) / 2.0
+    }
+}
+
+pub const RIVER_CROSSING_DIMENSIONS: BoardDimensions = BoardDimensions {
+    image_width: 768.0,
+    image_height: 1376.0,
+    left_width: 384.0,
+    right_width: 256.0,
+};
+
+pub const BOARD_IMAGE_WIDTH: f32 = RIVER_CROSSING_DIMENSIONS.image_width;
+pub const BOARD_IMAGE_HEIGHT: f32 = RIVER_CROSSING_DIMENSIONS.image_height;
+pub const BOARD_LEFT_WIDTH: f32 = RIVER_CROSSING_DIMENSIONS.left_width;
+pub const BOARD_RIGHT_WIDTH: f32 = RIVER_CROSSING_DIMENSIONS.right_width;
+pub const BOARD_TOTAL_WIDTH: f32 = RIVER_CROSSING_DIMENSIONS.total_width();
+pub const BOARD_COMPOSITION_CENTER_X: f32 = RIVER_CROSSING_DIMENSIONS.composition_center_x();
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum BoardVariant {
+    #[default]
+    Classic,
+    RiverCrossing,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct VariantConfig {
+    pub id: BoardVariant,
     pub name: &'static str,
     pub description: &'static str,
+    pub allow_hound_retreat: bool,
+    pub dimensions: BoardDimensions,
+    pub board_image_bytes: &'static [u8],
     pub fox_start_node: &'static str,
     pub hounds_start_nodes: &'static [&'static str],
     pub target_coop_node: &'static str,
+    pub build_graph: fn() -> Graph,
 }
 
-pub const RIVER_CROSSING_CONFIG: LevelConfig = LevelConfig {
-    name: "The River Crossing",
-    description: "3x9 board with a river bottleneck on Row 6 and diamond connectivity",
+pub type LevelConfig = VariantConfig;
+
+pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
+    id: BoardVariant::Classic,
+    name: "Classic",
+    description: "Traditional rules where hounds advance or hold the line without retreating",
+    allow_hound_retreat: false,
+    dimensions: RIVER_CROSSING_DIMENSIONS,
+    board_image_bytes: include_bytes!("../../assets/board_image.png"),
     fox_start_node: "M9",
     hounds_start_nodes: &["L1", "M1", "R1"],
     target_coop_node: "M0",
+    build_graph: build_river_crossing_graph,
 };
+
+pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
+    id: BoardVariant::RiverCrossing,
+    name: "The river crossing",
+    description: "3x9 board with a river bottleneck on Row 6 and free hound movement",
+    allow_hound_retreat: true,
+    dimensions: RIVER_CROSSING_DIMENSIONS,
+    board_image_bytes: include_bytes!("../../assets/board_image.png"),
+    fox_start_node: "M9",
+    hounds_start_nodes: &["L1", "M1", "R1"],
+    target_coop_node: "M0",
+    build_graph: build_river_crossing_graph,
+};
+
+impl BoardVariant {
+    pub const fn config(self) -> &'static VariantConfig {
+        match self {
+            BoardVariant::Classic => &CLASSIC_CONFIG,
+            BoardVariant::RiverCrossing => &RIVER_CROSSING_CONFIG,
+        }
+    }
+
+    pub const fn all() -> &'static [BoardVariant] {
+        &[BoardVariant::Classic, BoardVariant::RiverCrossing]
+    }
+
+    pub fn localized_name(self, locales: &crate::game::i18n::LocaleStrings) -> &str {
+        locales.variant_name(self)
+    }
+
+    pub fn localized_sub(self, locales: &crate::game::i18n::LocaleStrings) -> &str {
+        locales.variant_sub(self)
+    }
+}
 
 pub fn build_river_crossing_graph() -> Graph {
     let col_x = [230.0, 384.0, 538.0];

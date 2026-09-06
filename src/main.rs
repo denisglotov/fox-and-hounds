@@ -1,5 +1,5 @@
 use fox_and_hounds::audio::SoundManager;
-use fox_and_hounds::game::level::{BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
+use fox_and_hounds::game::level::BoardDimensions;
 use fox_and_hounds::game::state::{GamePhase, GameResult, GameState};
 use fox_and_hounds::ui::board_view::{BoardView, BoardViewParams};
 use fox_and_hounds::ui::camera::ViewportCamera;
@@ -20,14 +20,19 @@ fn window_conf() -> Conf {
     }
 }
 
-fn compute_board_layout(screen_w: f32, screen_h: f32, _scale: f32) -> (Rect, f32, Vec2) {
+fn compute_board_layout(
+    screen_w: f32,
+    screen_h: f32,
+    _scale: f32,
+    dims: &BoardDimensions,
+) -> (Rect, f32, Vec2) {
     let viewport_rect = Rect::new(0.0, 0.0, screen_w, screen_h.max(1.0));
 
-    let board_scale = (viewport_rect.h / BOARD_IMAGE_HEIGHT).max(0.1);
+    let board_scale = (viewport_rect.h / dims.image_height).max(0.1);
 
     let board_size = Vec2::new(
-        BOARD_IMAGE_WIDTH * board_scale,
-        BOARD_IMAGE_HEIGHT * board_scale,
+        dims.image_width * board_scale,
+        dims.image_height * board_scale,
     );
 
     (viewport_rect, board_scale, board_size)
@@ -104,14 +109,22 @@ async fn main() {
                     sound_manager.play(snd);
                 }
                 if state.phase == GamePhase::Playing {
-                    let (viewport_rect, board_scale, board_size) =
-                        compute_board_layout(screen_w, screen_h, scale);
+                    let (viewport_rect, board_scale, board_size) = compute_board_layout(
+                        screen_w,
+                        screen_h,
+                        scale,
+                        &state.variant.config().dimensions,
+                    );
                     camera.start_coop_fox_intro(viewport_rect, board_size, board_scale, scale, 2.0);
                 }
             }
             GamePhase::Playing | GamePhase::GameOver => {
-                let (viewport_rect, board_scale, board_size) =
-                    compute_board_layout(screen_w, screen_h, scale);
+                let (viewport_rect, board_scale, board_size) = compute_board_layout(
+                    screen_w,
+                    screen_h,
+                    scale,
+                    &state.variant.config().dimensions,
+                );
 
                 // Viewport Camera & Render Target setup for smooth subpixel scrolling & zooming
                 let camera_ctx =

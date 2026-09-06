@@ -4,6 +4,11 @@
   "title_screen": {
     "title": "狐狸与猎犬",
     "subtitle": "战术图论策略博弈",
+    "board_variant": "对战图",
+    "variant_classic": "Classic",
+    "variant_classic_sub": "No retreat",
+    "variant_river_crossing": "The river crossing",
+    "variant_river_crossing_sub": "Free movement",
     "choose_faction": "选择阵营",
     "fox_title": "🦊 狐狸",
     "fox_subtitle": "潜入鸡舍",
@@ -26,7 +31,7 @@
     "defeat": "失败...",
     "fox_won_msg": "🦊 狐狸成功到达了鸡舍！",
     "hounds_won_msg": "🐶 猎犬成功包围并困住了狐狸！",
-    "stats_template": "在 {turns} 回合内完成 • AI难度: {difficulty}",
+    "stats_template": "在 {turns} 回合内完成 • AI难度: {difficulty} • {variant}",
     "play_again": "再玩一次",
     "main_menu": "返回主菜单"
   }

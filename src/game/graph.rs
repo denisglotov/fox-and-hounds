@@ -161,17 +161,28 @@ impl Graph {
         fox_pos: usize,
         coop_pos: usize,
         hounds_pos: &'a [usize],
+        allow_retreat: bool,
     ) -> impl Iterator<Item = usize> + 'a {
+        let current_row = self.node(hound_pos).map(|n| n.row);
         self.neighbors(hound_pos)
             .iter()
             .copied()
             .filter(move |&target| {
-                target != fox_pos
-                    && target != coop_pos
-                    && !hounds_pos.contains(&target)
-                    && self
-                        .node(target)
-                        .is_none_or(|n| n.node_type != NodeType::TargetCoop)
+                if target == fox_pos || target == coop_pos || hounds_pos.contains(&target) {
+                    return false;
+                }
+                let target_node = self.node(target);
+                if target_node.is_none_or(|n| n.node_type == NodeType::TargetCoop) {
+                    return false;
+                }
+                if !allow_retreat {
+                    if let (Some(cur), Some(tgt)) = (current_row, target_node.map(|n| n.row)) {
+                        if tgt < cur {
+                            return false;
+                        }
+                    }
+                }
+                true
             })
     }
 }

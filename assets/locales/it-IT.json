@@ -4,6 +4,11 @@
   "title_screen": {
     "title": "LA VOLPE E I SEGUGI",
     "subtitle": "Strategia tattica su grafi",
+    "board_variant": "VARIANTE DEL TABELLONE",
+    "variant_classic": "Classico",
+    "variant_classic_sub": "Senza ritirata",
+    "variant_river_crossing": "Il guado del fiume",
+    "variant_river_crossing_sub": "Movimento libero",
     "choose_faction": "SCEGLI LA TUA FAZIONE",
     "fox_title": "🦊 La Volpe",
     "fox_subtitle": "Infiltrati nel pollaio",
@@ -26,7 +31,7 @@
     "defeat": "SCONFITTA!",
     "fox_won_msg": "🦊 La Volpe ha raggiunto il pollaio!",
     "hounds_won_msg": "🐶 I Segugi hanno accerchiato e intrappolato la Volpe!",
-    "stats_template": "Completato in {turns} turni • IA: {difficulty}",
+    "stats_template": "Completato in {turns} turni • IA: {difficulty} • {variant}",
     "play_again": "GIOCA ANCORA",
     "main_menu": "MENU PRINCIPALE"
   }

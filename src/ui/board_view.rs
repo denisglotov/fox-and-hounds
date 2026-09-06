@@ -1,5 +1,6 @@
 use crate::audio::{SoundManager, SoundTrigger};
 use crate::game::graph::NodeType;
+use crate::game::level::BoardVariant;
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
 use crate::ui::river::RiverSimulation;
 use crate::ui::train::TrainSimulation;
@@ -24,6 +25,7 @@ fn load_texture(bytes: &[u8]) -> Option<Texture2D> {
 
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
+    pub current_variant: Option<BoardVariant>,
     pub fox_texture: Option<Texture2D>,
     pub hound_textures: [Option<Texture2D>; 3],
     pub hound_sit_textures: [Option<Texture2D>; 3],
@@ -57,7 +59,8 @@ pub struct BoardViewParams<'a> {
 
 impl BoardView {
     pub async fn new(font: Option<Font>) -> Self {
-        let board_texture = load_texture(include_bytes!("../../assets/board_image.png"));
+        let current_variant = Some(BoardVariant::Classic);
+        let board_texture = load_texture(BoardVariant::Classic.config().board_image_bytes);
         let fox_texture = load_texture(include_bytes!("../../assets/fox_figure.png"));
         let hound_textures = [
             load_texture(include_bytes!("../../assets/hound1_figure.png")),
@@ -73,6 +76,7 @@ impl BoardView {
 
         Self {
             board_texture,
+            current_variant,
             fox_texture,
             hound_textures,
             hound_sit_textures,
@@ -119,17 +123,25 @@ impl BoardView {
         let dt = params.dt;
         let t = get_time() as f32;
 
+        // Switch board texture if variant changed
+        if self.current_variant != Some(state.variant) {
+            self.current_variant = Some(state.variant);
+            self.board_texture = load_texture(state.variant.config().board_image_bytes);
+        }
+
+        let dims = state.variant.config().dimensions;
+
         // 1. Draw Background Board Image (exact natural 1:1 proportions, no distortion)
         if let Some(tex) = &self.board_texture {
             draw_texture_ex(
                 tex,
-                origin.x - BOARD_LEFT_WIDTH * scale,
+                origin.x - dims.left_width * scale,
                 origin.y,
                 WHITE,
                 DrawTextureParams {
                     dest_size: Some(Vec2::new(
-                        BOARD_TOTAL_WIDTH * scale,
-                        BOARD_IMAGE_HEIGHT * scale,
+                        dims.total_width() * scale,
+                        dims.image_height * scale,
                     )),
                     ..Default::default()
                 },
@@ -137,10 +149,10 @@ impl BoardView {
         } else {
             // Fallback dark board container
             draw_rectangle(
-                origin.x - BOARD_LEFT_WIDTH * scale,
+                origin.x - dims.left_width * scale,
                 origin.y,
-                BOARD_TOTAL_WIDTH * scale,
-                BOARD_IMAGE_HEIGHT * scale,
+                dims.total_width() * scale,
+                dims.image_height * scale,
                 Color::from_rgba(18, 28, 42, 255),
             );
         }
