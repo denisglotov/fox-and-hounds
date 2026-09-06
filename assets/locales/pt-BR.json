@@ -1,0 +1,33 @@
+{
+  "locale": "pt-BR",
+  "language_name": "Portugues",
+  "title_screen": {
+    "title": "A RAPOSA E OS SABUJOS",
+    "subtitle": "Estratégia tática em grafos",
+    "choose_faction": "ESCOLHA SEU LADO",
+    "fox_title": "🦊 A Raposa",
+    "fox_subtitle": "Infiltrar no galinheiro",
+    "hounds_title": "🐶 Os Sabujos",
+    "hounds_subtitle": "Encurralar a raposa",
+    "ai_difficulty": "DIFICULDADE DA IA",
+    "difficulty_easy": "Fácil",
+    "difficulty_medium": "Médio",
+    "difficulty_hard": "Difícil",
+    "start_match": "INICIAR PARTIDA"
+  },
+  "hud": {
+    "turn_template": "Turno {count}",
+    "fox_turn": "Turno da Raposa",
+    "hounds_turn": "Turno dos Sabujos",
+    "thinking": "Pensando..."
+  },
+  "game_over": {
+    "victory": "VITORIA!",
+    "defeat": "DERROTA!",
+    "fox_won_msg": "🦊 A Raposa alcançou o galinheiro!",
+    "hounds_won_msg": "🐶 Os Sabujos cercaram e encurralaram a Raposa!",
+    "stats_template": "Concluído em {turns} turnos • IA: {difficulty}",
+    "play_again": "JOGAR NOVAMENTE",
+    "main_menu": "MENU PRINCIPAL"
+  }
+}

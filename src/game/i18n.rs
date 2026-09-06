@@ -88,6 +88,8 @@ fn load_all_locales() -> Vec<LocaleStrings> {
         include_str!("../../assets/locales/ja-JP.json"),
         include_str!("../../assets/locales/zh-CN.json"),
         include_str!("../../assets/locales/ko-KR.json"),
+        include_str!("../../assets/locales/it-IT.json"),
+        include_str!("../../assets/locales/pt-BR.json"),
     ];
 
     LOCALES_JSON
@@ -119,6 +121,7 @@ pub fn resolve_locale(tag: &str) -> &'static LocaleStrings {
         "jp" => "ja",
         "cn" => "zh",
         "kr" => "ko",
+        "br" => "pt",
         other => other,
     };
 
@@ -154,6 +157,8 @@ pub fn detect_locale_tag() -> String {
         5 => "ja-JP".to_string(),
         6 => "zh-CN".to_string(),
         7 => "ko-KR".to_string(),
+        8 => "it-IT".to_string(),
+        9 => "pt-BR".to_string(),
         _ => "en-US".to_string(),
     }
 }
@@ -377,7 +382,7 @@ mod tests {
     #[test]
     fn test_all_locales_load_and_contain_required_strings() {
         let locales = get_locales_list();
-        assert_eq!(locales.len(), 8);
+        assert_eq!(locales.len(), 10);
 
         for loc in locales {
             assert!(!loc.locale.is_empty());
@@ -483,8 +488,17 @@ mod tests {
         assert_eq!(resolve_locale("en_GB").locale, "en-US");
         assert_eq!(resolve_locale("en").locale, "en-US");
 
+        assert_eq!(resolve_locale("it-IT").locale, "it-IT");
+        assert_eq!(resolve_locale("it_CH").locale, "it-IT");
+        assert_eq!(resolve_locale("it").locale, "it-IT");
+
+        assert_eq!(resolve_locale("pt-BR").locale, "pt-BR");
+        assert_eq!(resolve_locale("pt_PT").locale, "pt-BR");
+        assert_eq!(resolve_locale("pt").locale, "pt-BR");
+        assert_eq!(resolve_locale("br").locale, "pt-BR");
+
         // Unknown fallback to en-US
-        assert_eq!(resolve_locale("it-IT").locale, "en-US");
+        assert_eq!(resolve_locale("ar-SA").locale, "en-US");
         assert_eq!(resolve_locale("unknown").locale, "en-US");
     }
 
@@ -622,7 +636,6 @@ mod tests {
     fn test_font_contains_all_locale_glyphs() {
         let font_bytes = include_bytes!("../../assets/NotoSansEmoji.ttf");
         let font_chars = extract_ttf_cmap_codepoints(font_bytes);
-
         for loc in get_locales_list() {
             let mut all_strings = vec![
                 &loc.title_screen.title,
