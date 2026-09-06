@@ -1,0 +1,33 @@
+{
+  "locale": "it-IT",
+  "language_name": "Italiano",
+  "title_screen": {
+    "title": "LA VOLPE E I SEGUGI",
+    "subtitle": "Strategia tattica su grafi",
+    "choose_faction": "SCEGLI LA TUA FAZIONE",
+    "fox_title": "🦊 La Volpe",
+    "fox_subtitle": "Infiltrati nel pollaio",
+    "hounds_title": "🐶 I Segugi",
+    "hounds_subtitle": "Intrappola la volpe",
+    "ai_difficulty": "LIVELLO IA",
+    "difficulty_easy": "Facile",
+    "difficulty_medium": "Medio",
+    "difficulty_hard": "Difficile",
+    "start_match": "INIZIA PARTITA"
+  },
+  "hud": {
+    "turn_template": "Turno {count}",
+    "fox_turn": "Turno della Volpe",
+    "hounds_turn": "Turno dei Segugi",
+    "thinking": "Pensando..."
+  },
+  "game_over": {
+    "victory": "VITTORIA!",
+    "defeat": "SCONFITTA!",
+    "fox_won_msg": "🦊 La Volpe ha raggiunto il pollaio!",
+    "hounds_won_msg": "🐶 I Segugi hanno accerchiato e intrappolato la Volpe!",
+    "stats_template": "Completato in {turns} turni • IA: {difficulty}",
+    "play_again": "GIOCA ANCORA",
+    "main_menu": "MENU PRINCIPALE"
+  }
+}
