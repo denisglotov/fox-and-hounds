@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="176" height="48" viewBox="0 0 176 48">
+  <defs>
+    <style>
+      .bg-web { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1px; }
+      .icon-web { fill: none; stroke: #b45309; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .sub-web {
+        fill: #64748b;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 8.5px;
+        font-weight: 600;
+        letter-spacing: 0.6px;
+      }
+      .title-web {
+        fill: #0f172a;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14.5px;
+        font-weight: 700;
+      }
+      @media (prefers-color-scheme: dark) {
+        .bg-web { fill: #0f172a; stroke: #334155; }
+        .icon-web { stroke: #f59e0b; }
+        .sub-web { fill: #94a3b8; }
+        .title-web { fill: #ffffff; }
+      }
+    </style>
+  </defs>
+  <rect class="bg-web" x="0.5" y="0.5" width="175" height="47" rx="8" />
+  <g transform="translate(16, 13) scale(0.9167)">
+    <circle class="icon-web" cx="12" cy="12" r="10" />
+    <line class="icon-web" x1="2" y1="12" x2="22" y2="12" />
+    <path class="icon-web" d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+  </g>
+  <text class="sub-web" x="48" y="19">PLAY IN BROWSER</text>
+  <text class="title-web" x="48" y="34">Web Version ↗</text>
+</svg>

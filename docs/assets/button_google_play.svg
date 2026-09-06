@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="176" height="48" viewBox="0 0 176 48">
+  <defs>
+    <style>
+      .bg-play { fill: #0f172a; stroke: #1e293b; stroke-width: 1px; }
+      .sub-play {
+        fill: #94a3b8;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 8.5px;
+        font-weight: 600;
+        letter-spacing: 0.6px;
+      }
+      .title-play {
+        fill: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14.5px;
+        font-weight: 700;
+      }
+      @media (prefers-color-scheme: dark) {
+        .bg-play { stroke: #334155; }
+      }
+    </style>
+  </defs>
+  <rect class="bg-play" x="0.5" y="0.5" width="175" height="47" rx="8" />
+  <g transform="translate(16, 13) scale(0.9167)">
+    <path fill="#4285F4" d="M3.6 1.9C3.2 2.3 3 2.9 3 3.7v16.6c0 .8.2 1.4.6 1.8l.1.1 9.3-9.3v-.2L3.7 1.8l-.1.1z" />
+    <path fill="#FBBC04" d="M16.1 15.9l-3.1-3.1v-.3l3.1-3.1.1.1 3.7 2.1c1.1.6 1.1 1.6 0 2.2l-3.8 2.1z" />
+    <path fill="#EA4335" d="M16.2 15.8L13 12.6 3.6 22c.4.4 1 .4 1.7 0l10.9-6.2" />
+    <path fill="#34A853" d="M16.2 9.2L5.3 3c-.7-.4-1.3-.4-1.7 0L13 12.4l3.2-3.2z" />
+  </g>
+  <text class="sub-play" x="48" y="19">AVAILABLE ON</text>
+  <text class="title-play" x="48" y="34">Google Play</text>
+</svg>
