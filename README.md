@@ -5,23 +5,20 @@
 </p>
 
 <p align="center">
-  <a href="https://play.google.com/store/apps/details?id=org.dymka.foxandhounds">
-    <img
-      src="docs/assets/button_google_play.svg"
+  <a href="https://play.google.com/store/apps/details?id=org.dymka.foxandhounds"
+    ><img
+      src="docs/assets/en_badge_web_generic.png"
       alt="Available on Google Play"
-      height="48"
+      height="70"
       align="middle"
-    />
-  </a>
-  &nbsp;
-  <a href="https://www.dymka.org/foxandhounds/">
-    <img
+  /></a>
+  <a href="https://www.dymka.org/foxandhounds/"
+    ><img
       src="docs/assets/button_run_in_browser.svg"
       alt="Play in browser"
       height="48"
       align="middle"
-    />
-  </a>
+  /></a>
 </p>
 
 A turn-based asymmetric pursuit-evasion game played on arbitrary graph topologies.
