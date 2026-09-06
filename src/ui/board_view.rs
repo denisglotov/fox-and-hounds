@@ -6,7 +6,7 @@ use crate::ui::train::TrainSimulation;
 use macroquad::prelude::*;
 
 pub use crate::game::level::{
-    BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH, BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH,
+    BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH, BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH, BOARD_TOTAL_WIDTH,
 };
 
 pub const MIN_IDLE_SIT_SECONDS: f32 = 10.0;
@@ -24,8 +24,6 @@ fn load_texture(bytes: &[u8]) -> Option<Texture2D> {
 
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
-    pub board_left_texture: Option<Texture2D>,
-    pub board_right_texture: Option<Texture2D>,
     pub fox_texture: Option<Texture2D>,
     pub hound_textures: [Option<Texture2D>; 3],
     pub hound_sit_textures: [Option<Texture2D>; 3],
@@ -60,8 +58,6 @@ pub struct BoardViewParams<'a> {
 impl BoardView {
     pub async fn new(font: Option<Font>) -> Self {
         let board_texture = load_texture(include_bytes!("../../assets/board_image.png"));
-        let board_left_texture = load_texture(include_bytes!("../../assets/board_left.png"));
-        let board_right_texture = load_texture(include_bytes!("../../assets/board_right.png"));
         let fox_texture = load_texture(include_bytes!("../../assets/fox_figure.png"));
         let hound_textures = [
             load_texture(include_bytes!("../../assets/hound1_figure.png")),
@@ -77,8 +73,6 @@ impl BoardView {
 
         Self {
             board_texture,
-            board_left_texture,
-            board_right_texture,
             fox_texture,
             hound_textures,
             hound_sit_textures,
@@ -125,8 +119,8 @@ impl BoardView {
         let dt = params.dt;
         let t = get_time() as f32;
 
-        // 1. Draw Background Board Image and Extensions (exact natural 1:1 proportions, no distortion)
-        if let Some(tex) = &self.board_left_texture {
+        // 1. Draw Background Board Image (exact natural 1:1 proportions, no distortion)
+        if let Some(tex) = &self.board_texture {
             draw_texture_ex(
                 tex,
                 origin.x - BOARD_LEFT_WIDTH * scale,
@@ -134,39 +128,7 @@ impl BoardView {
                 WHITE,
                 DrawTextureParams {
                     dest_size: Some(Vec2::new(
-                        BOARD_LEFT_WIDTH * scale,
-                        BOARD_IMAGE_HEIGHT * scale,
-                    )),
-                    ..Default::default()
-                },
-            );
-        }
-
-        if let Some(tex) = &self.board_right_texture {
-            draw_texture_ex(
-                tex,
-                origin.x + BOARD_IMAGE_WIDTH * scale,
-                origin.y,
-                WHITE,
-                DrawTextureParams {
-                    dest_size: Some(Vec2::new(
-                        BOARD_RIGHT_WIDTH * scale,
-                        BOARD_IMAGE_HEIGHT * scale,
-                    )),
-                    ..Default::default()
-                },
-            );
-        }
-
-        if let Some(tex) = &self.board_texture {
-            draw_texture_ex(
-                tex,
-                origin.x,
-                origin.y,
-                WHITE,
-                DrawTextureParams {
-                    dest_size: Some(Vec2::new(
-                        BOARD_IMAGE_WIDTH * scale,
+                        BOARD_TOTAL_WIDTH * scale,
                         BOARD_IMAGE_HEIGHT * scale,
                     )),
                     ..Default::default()
@@ -175,9 +137,9 @@ impl BoardView {
         } else {
             // Fallback dark board container
             draw_rectangle(
-                origin.x,
+                origin.x - BOARD_LEFT_WIDTH * scale,
                 origin.y,
-                BOARD_IMAGE_WIDTH * scale,
+                BOARD_TOTAL_WIDTH * scale,
                 BOARD_IMAGE_HEIGHT * scale,
                 Color::from_rgba(18, 28, 42, 255),
             );

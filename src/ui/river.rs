@@ -29,16 +29,16 @@ impl Default for RiverPath {
 
 impl RiverPath {
     pub fn new() -> Self {
-        // Control points: (x, y, half_width) defining the continuous river channel across all background panels
+        // Control points: (x, y, half_width) defining the continuous river channel across the board artwork
         let control_points = [
-            // Left extension (board_left.png: x = -384.0 .. 0.0)
+            // Left margin (x = -384.0 .. 0.0)
             (Vec2::new(-384.0, 721.0), 22.0),
             (Vec2::new(-320.0, 745.0), 20.0),
             (Vec2::new(-256.0, 770.0), 22.0),
             (Vec2::new(-192.0, 790.0), 22.0),
             (Vec2::new(-128.0, 818.0), 20.0),
             (Vec2::new(-64.0, 838.0), 20.0),
-            // Central board (board_image.png: x = 0.0 .. 768.0)
+            // Central board (x = 0.0 .. 768.0)
             (Vec2::new(0.0, 856.0), 24.0),
             (Vec2::new(45.0, 848.0), 22.0), // Under railroad bridge
             (Vec2::new(100.0, 832.0), 20.0),
@@ -52,7 +52,7 @@ impl RiverPath {
             (Vec2::new(660.0, 686.0), 20.0),
             (Vec2::new(720.0, 670.0), 22.0),
             (Vec2::new(768.0, 655.0), 22.0),
-            // Right extension (board_right.png: x = 768.0 .. 1024.0)
+            // Right margin (x = 768.0 .. 1024.0)
             (Vec2::new(816.0, 661.0), 24.0),
             (Vec2::new(864.0, 668.0), 26.0),
             (Vec2::new(912.0, 682.0), 24.0),
