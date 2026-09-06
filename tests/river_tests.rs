@@ -129,3 +129,20 @@ fn test_bridge_occlusion_detection() {
         "Open water downstream should have zero occlusion"
     );
 }
+
+#[test]
+fn test_river_sample_at_bounds_clamping() {
+    let path = RiverPath::new();
+
+    // Negative distance should clamp to 0.0
+    let (neg_pos, neg_tangent, _, _) = path.sample_at(-50.0, 0.0);
+    let (zero_pos, zero_tangent, _, _) = path.sample_at(0.0, 0.0);
+    assert_eq!(neg_pos, zero_pos);
+    assert_eq!(neg_tangent, zero_tangent);
+
+    // Distance exceeding total_length should clamp to total_length
+    let (overshoot_pos, overshoot_tangent, _, _) = path.sample_at(path.total_length + 200.0, 0.0);
+    let (end_pos, end_tangent, _, _) = path.sample_at(path.total_length, 0.0);
+    assert_eq!(overshoot_pos, end_pos);
+    assert_eq!(overshoot_tangent, end_tangent);
+}

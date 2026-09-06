@@ -26,40 +26,27 @@ impl BoardSnapshot {
         }
     }
 
-    pub fn fox_legal_moves(&self, graph: &Graph) -> Vec<usize> {
-        graph
-            .neighbors(self.fox_pos)
-            .iter()
-            .copied()
-            .filter(|&target| !self.hounds_pos.contains(&target))
-            .collect()
+    pub fn fox_legal_moves<'a>(&'a self, graph: &'a Graph) -> impl Iterator<Item = usize> + 'a {
+        graph.fox_legal_moves(self.fox_pos, &self.hounds_pos)
     }
 
-    pub fn hound_legal_moves(&self, graph: &Graph, hound_idx: usize) -> Vec<usize> {
+    pub fn hound_legal_moves<'a>(
+        &'a self,
+        graph: &'a Graph,
+        hound_idx: usize,
+    ) -> impl Iterator<Item = usize> + 'a {
         let pos = self.hounds_pos[hound_idx];
-        graph
-            .neighbors(pos)
-            .iter()
-            .copied()
-            .filter(|&target| {
-                target != self.fox_pos
-                    && target != self.coop_pos
-                    && !self.hounds_pos.contains(&target)
-                    && graph
-                        .node(target)
-                        .is_none_or(|n| n.node_type != NodeType::TargetCoop)
-            })
-            .collect()
+        graph.hound_legal_moves(pos, self.fox_pos, self.coop_pos, &self.hounds_pos)
     }
 
-    pub fn all_hound_moves(&self, graph: &Graph) -> Vec<(usize, usize)> {
-        (0..3)
-            .flat_map(|idx| {
-                self.hound_legal_moves(graph, idx)
-                    .into_iter()
-                    .map(move |target| (idx, target))
-            })
-            .collect()
+    pub fn all_hound_moves<'a>(
+        &'a self,
+        graph: &'a Graph,
+    ) -> impl Iterator<Item = (usize, usize)> + 'a {
+        (0..self.hounds_pos.len()).flat_map(move |idx| {
+            self.hound_legal_moves(graph, idx)
+                .map(move |target| (idx, target))
+        })
     }
 
     pub fn apply_fox_move(&self, to: usize) -> Self {
@@ -116,7 +103,7 @@ fn find_best_fox_move(
     max_depth: usize,
     difficulty: Difficulty,
 ) -> Option<PieceMove> {
-    let moves = board.fox_legal_moves(graph);
+    let moves: Vec<usize> = board.fox_legal_moves(graph).collect();
     if moves.is_empty() {
         return None;
     }
@@ -178,7 +165,7 @@ fn find_best_hound_move(
     max_depth: usize,
     difficulty: Difficulty,
 ) -> Option<PieceMove> {
-    let moves = board.all_hound_moves(graph);
+    let moves: Vec<(usize, usize)> = board.all_hound_moves(graph).collect();
     if moves.is_empty() {
         return None;
     }
@@ -238,8 +225,8 @@ pub fn minimax(
     }
 
     if is_fox_turn {
-        let fox_moves = board.fox_legal_moves(graph);
-        if fox_moves.is_empty() {
+        let mut fox_moves = board.fox_legal_moves(graph).peekable();
+        if fox_moves.peek().is_none() {
             return -WIN_SCORE - (depth as i32 * 100);
         }
 
@@ -259,8 +246,8 @@ pub fn minimax(
         }
         max_eval
     } else {
-        let hound_moves = board.all_hound_moves(graph);
-        if hound_moves.is_empty() {
+        let mut hound_moves = board.all_hound_moves(graph).peekable();
+        if hound_moves.peek().is_none() {
             // Hounds have no moves, treat as neutral/evaluate
             return evaluate_board(board, graph, coop_pos);
         }
@@ -312,9 +299,7 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph, coop_pos: usize) -> 
     };
 
     // 2. Fox distance to coop & row progress
-    let dist_to_coop = graph
-        .shortest_distance(board.fox_pos, coop_pos, &[])
-        .unwrap_or(10);
+    let dist_to_coop = graph.distance(board.fox_pos, coop_pos).unwrap_or(10);
     let dist_to_coop_score = (10 - dist_to_coop as i32) * 150;
     let row_progress = (max_row as i32 - fox_node.row as i32) * 150;
 
@@ -327,11 +312,7 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph, coop_pos: usize) -> 
     let total_hound_dist: i32 = board
         .hounds_pos
         .iter()
-        .map(|&h_pos| {
-            graph
-                .shortest_distance(h_pos, board.fox_pos, &[])
-                .unwrap_or(10) as i32
-        })
+        .map(|&h_pos| graph.distance(h_pos, board.fox_pos).unwrap_or(10) as i32)
         .sum();
     let pursuit_score = total_hound_dist * 80;
 
@@ -341,7 +322,7 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph, coop_pos: usize) -> 
     let hound_advance_score = (avg_hound_row * -140.0) as i32;
 
     // 6. Fox degrees of freedom / mobility & cornering
-    let fox_degrees = board.fox_legal_moves(graph).len();
+    let fox_degrees = board.fox_legal_moves(graph).count();
     let mobility_score = match fox_degrees {
         0 => -WIN_SCORE,
         1 => -2_000, // Fox is on the verge of capture

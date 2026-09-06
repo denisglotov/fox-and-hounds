@@ -1,8 +1,27 @@
-use super::graph::{Graph, NodeType};
+use super::graph::Graph;
 use super::i18n::{detect_locale_tag, resolve_locale, LocaleStrings};
 use super::level::{build_river_crossing_graph, RIVER_CROSSING_CONFIG};
 use crate::audio::SoundTrigger;
 use macroquad::prelude::Vec2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MoveError {
+    NotYourTurn,
+    IllegalMove,
+    InvalidHound,
+}
+
+impl std::fmt::Display for MoveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MoveError::NotYourTurn => write!(f, "Not your turn"),
+            MoveError::IllegalMove => write!(f, "Illegal move"),
+            MoveError::InvalidHound => write!(f, "Invalid hound index"),
+        }
+    }
+}
+
+impl std::error::Error for MoveError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Faction {
@@ -84,6 +103,7 @@ pub struct GameState {
     pub ai_think_delay: f32,
     pub active_anim: Option<MoveAnimation>,
     pub locales: &'static LocaleStrings,
+    pub cached_game_over_stats: Option<String>,
 }
 
 impl Default for GameState {
@@ -97,23 +117,12 @@ impl GameState {
         let detected = detect_locale_tag();
         let locales = resolve_locale(&detected);
         let graph = build_river_crossing_graph();
-        let fox_pos = graph
-            .find_id_by_name(RIVER_CROSSING_CONFIG.fox_start_node)
-            .unwrap_or_else(|| graph.nodes.len().saturating_sub(1));
-        let hounds_pos = RIVER_CROSSING_CONFIG
-            .hounds_start_nodes
-            .iter()
-            .filter_map(|name| graph.find_id_by_name(name))
-            .collect();
-        let coop_pos = graph
-            .find_id_by_name(RIVER_CROSSING_CONFIG.target_coop_node)
-            .unwrap_or(0);
 
-        Self {
+        let mut state = Self {
             graph,
-            fox_pos,
-            hounds_pos,
-            coop_pos,
+            fox_pos: 0,
+            hounds_pos: Vec::new(),
+            coop_pos: 0,
             current_turn: Faction::Fox,
             player_faction: Faction::Fox,
             difficulty: Difficulty::Medium,
@@ -125,11 +134,20 @@ impl GameState {
             ai_think_delay: 0.0,
             active_anim: None,
             locales,
-        }
+            cached_game_over_stats: None,
+        };
+        state.reset_board();
+        state
     }
 
     pub fn set_locale(&mut self, tag: &str) {
         self.locales = resolve_locale(tag);
+        if self.result != GameResult::Ongoing {
+            self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
+                self.turn_count,
+                self.difficulty.localized_name(self.locales),
+            ));
+        }
     }
 
     pub fn start_game(&mut self, player_faction: Faction, difficulty: Difficulty) {
@@ -164,6 +182,7 @@ impl GameState {
             0.0
         };
         self.active_anim = None;
+        self.cached_game_over_stats = None;
     }
 
     pub fn is_ai_turn(&self) -> bool {
@@ -174,10 +193,7 @@ impl GameState {
 
     pub fn fox_legal_moves(&self) -> Vec<usize> {
         self.graph
-            .neighbors(self.fox_pos)
-            .iter()
-            .copied()
-            .filter(|&target| !self.hounds_pos.contains(&target))
+            .fox_legal_moves(self.fox_pos, &self.hounds_pos)
             .collect()
     }
 
@@ -186,18 +202,7 @@ impl GameState {
             .get(hound_idx)
             .map_or_else(Vec::new, |&pos| {
                 self.graph
-                    .neighbors(pos)
-                    .iter()
-                    .copied()
-                    .filter(|&target| {
-                        target != self.fox_pos
-                            && target != self.coop_pos
-                            && !self.hounds_pos.contains(&target)
-                            && self
-                                .graph
-                                .node(target)
-                                .is_none_or(|n| n.node_type != NodeType::TargetCoop)
-                    })
+                    .hound_legal_moves(pos, self.fox_pos, self.coop_pos, &self.hounds_pos)
                     .collect()
             })
     }
@@ -206,21 +211,21 @@ impl GameState {
         self.hounds_pos
             .iter()
             .enumerate()
-            .flat_map(|(idx, _)| {
-                self.hound_legal_moves(idx)
-                    .into_iter()
+            .flat_map(|(idx, &pos)| {
+                self.graph
+                    .hound_legal_moves(pos, self.fox_pos, self.coop_pos, &self.hounds_pos)
                     .map(move |target| (idx, target))
             })
             .collect()
     }
 
-    pub fn apply_fox_move(&mut self, to: usize) -> Result<(), &'static str> {
+    pub fn apply_fox_move(&mut self, to: usize) -> Result<(), MoveError> {
         if self.current_turn != Faction::Fox {
-            return Err("Not Fox's turn");
+            return Err(MoveError::NotYourTurn);
         }
         let legal = self.fox_legal_moves();
         if !legal.contains(&to) {
-            return Err("Illegal move for Fox");
+            return Err(MoveError::IllegalMove);
         }
 
         let from_pos = self.fox_pos;
@@ -253,16 +258,16 @@ impl GameState {
         Ok(())
     }
 
-    pub fn apply_hound_move(&mut self, hound_idx: usize, to: usize) -> Result<(), &'static str> {
+    pub fn apply_hound_move(&mut self, hound_idx: usize, to: usize) -> Result<(), MoveError> {
         if self.current_turn != Faction::Hounds {
-            return Err("Not Hounds' turn");
+            return Err(MoveError::NotYourTurn);
         }
         if hound_idx >= self.hounds_pos.len() {
-            return Err("Invalid hound index");
+            return Err(MoveError::InvalidHound);
         }
         let legal = self.hound_legal_moves(hound_idx);
         if !legal.contains(&to) {
-            return Err("Illegal move for Hound");
+            return Err(MoveError::IllegalMove);
         }
 
         let from_pos = self.hounds_pos[hound_idx];
@@ -304,16 +309,25 @@ impl GameState {
         if self.fox_pos == self.coop_pos {
             self.result = GameResult::FoxWon;
             self.phase = GamePhase::GameOver;
+            self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
+                self.turn_count,
+                self.difficulty.localized_name(self.locales),
+            ));
             return;
         }
 
         if self.current_turn == Faction::Fox && self.fox_legal_moves().is_empty() {
             self.result = GameResult::HoundsWon;
             self.phase = GamePhase::GameOver;
+            self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
+                self.turn_count,
+                self.difficulty.localized_name(self.locales),
+            ));
             return;
         }
 
         self.result = GameResult::Ongoing;
+        self.cached_game_over_stats = None;
     }
 
     pub fn update(&mut self, dt: f32) -> Option<SoundTrigger> {

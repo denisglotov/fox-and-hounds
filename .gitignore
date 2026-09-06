@@ -3,6 +3,7 @@
 **/*.rs.bk
 _cargo_apk_main*
 /scratch/
+TODO.md
 
 # WebAssembly build outputs
 *.wasm
