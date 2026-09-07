@@ -2,7 +2,7 @@ use fox_and_hounds::audio::SoundManager;
 use fox_and_hounds::game::level::BoardDimensions;
 use fox_and_hounds::game::state::{GamePhase, GameResult, GameState};
 use fox_and_hounds::ui::board_view::{BoardView, BoardViewParams};
-use fox_and_hounds::ui::camera::ViewportCamera;
+use fox_and_hounds::ui::camera::{CameraUpdateParams, ViewportCamera};
 use fox_and_hounds::ui::fx::FxManager;
 use fox_and_hounds::ui::screens::Screens;
 use macroquad::prelude::*;
@@ -115,7 +115,7 @@ async fn main() {
                         scale,
                         &state.variant.config().dimensions,
                     );
-                    camera.start_coop_fox_intro(viewport_rect, board_size, board_scale, scale, 2.0);
+                    camera.start_intro(state.variant, viewport_rect, board_size, board_scale, 2.0);
                 }
             }
             GamePhase::Playing | GamePhase::GameOver => {
@@ -127,8 +127,14 @@ async fn main() {
                 );
 
                 // Viewport Camera & Render Target setup for smooth subpixel scrolling & zooming
-                let camera_ctx =
-                    camera.update_and_begin(viewport_rect, board_size, board_scale, scale, dt);
+                let camera_ctx = camera.update_and_begin(&CameraUpdateParams {
+                    viewport_rect,
+                    base_board_size: board_size,
+                    base_board_scale: board_scale,
+                    scale,
+                    dt,
+                    dims: &state.variant.config().dimensions,
+                });
 
                 let mouse_pos = Vec2::from(mouse_position());
                 let viewport_mouse = mouse_pos - Vec2::new(viewport_rect.x, viewport_rect.y);
@@ -162,11 +168,11 @@ async fn main() {
                 if let Some(snd) = hud_sound {
                     sound_manager.play(snd);
                     if state.turn_count == 1 && state.phase == GamePhase::Playing {
-                        camera.start_coop_fox_intro(
+                        camera.start_intro(
+                            state.variant,
                             viewport_rect,
                             board_size,
                             board_scale,
-                            scale,
                             2.0,
                         );
                     }
@@ -188,11 +194,11 @@ async fn main() {
                     if let Some(snd) = modal_sound {
                         sound_manager.play(snd);
                         if state.phase == GamePhase::Playing {
-                            camera.start_coop_fox_intro(
+                            camera.start_intro(
+                                state.variant,
                                 viewport_rect,
                                 board_size,
                                 board_scale,
-                                scale,
                                 2.0,
                             );
                         }
