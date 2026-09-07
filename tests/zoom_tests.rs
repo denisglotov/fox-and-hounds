@@ -71,6 +71,7 @@ fn test_coop_fox_intro_initialization() {
 fn test_1920x1080_landscape_framing_and_gap_symmetry() {
     use fox_and_hounds::game::level::{
         BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH, BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH,
+        RIVER_CROSSING_DIMENSIONS,
     };
     use fox_and_hounds::ui::camera::horizontal_pan_bounds;
 
@@ -125,7 +126,8 @@ fn test_1920x1080_landscape_framing_and_gap_symmetry() {
 
     // 3. Horizontal pan bounds when zoomed in (2.0x) must allow full left-to-right coverage
     let zoom_2x_scale = board_scale * 2.0;
-    let (min_x, max_x) = horizontal_pan_bounds(viewport.w, zoom_2x_scale);
+    let (min_x, max_x) =
+        horizontal_pan_bounds(viewport.w, zoom_2x_scale, &RIVER_CROSSING_DIMENSIONS);
 
     // At min_x (panned all the way to right), right edge of artwork must align with viewport right
     let rightmost_pan_right_edge = min_x + (BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH) * zoom_2x_scale;
@@ -193,4 +195,115 @@ fn test_multiple_landscape_resolutions_gap_symmetry() {
             viewport.h
         );
     }
+}
+
+#[test]
+fn test_classic_board_pan_bounds_cannot_scroll_past_left_border() {
+    use fox_and_hounds::game::level::CLASSIC_DIMENSIONS;
+    use fox_and_hounds::ui::camera::horizontal_pan_bounds;
+
+    // 1. Zoomed-in scenario in landscape (1920x1080 at 2.0x zoom)
+    let viewport = Rect::new(0.0, 0.0, 1920.0, 1080.0);
+    let board_scale = viewport.h / CLASSIC_DIMENSIONS.image_height; // 1080 / 1024 = 1.0546875
+    let zoom_2x_scale = board_scale * 2.0; // 2.109375
+    let total_w = CLASSIC_DIMENSIONS.total_width() * zoom_2x_scale; // 2160.0 > 1920.0
+
+    let (min_x, max_x) = horizontal_pan_bounds(viewport.w, zoom_2x_scale, &CLASSIC_DIMENSIONS);
+
+    // Left border of image is drawn at `pan_offset.x - left_width * scale` = `pan_offset.x`.
+    // At maximum pan to the left (panning camera rightwards), pan_offset.x is bounded by max_x.
+    // max_x must be 0.0 so the left border of the image CANNOT move inside the viewport (leaving dark margin on left).
+    assert_eq!(
+        max_x, 0.0,
+        "Classic board max_x must be 0.0 to prevent scrolling left past the image border"
+    );
+
+    // At minimum pan (panning all the way to right), right edge must align with viewport width
+    let right_edge = min_x + total_w;
+    assert!(
+        (right_edge - viewport.w).abs() < 0.01,
+        "Classic board right edge ({}) must reach viewport width ({}) at min_x",
+        right_edge,
+        viewport.w
+    );
+
+    // 2. Mobile portrait scenario (e.g. 1080x2400) where board is wider than screen even at 1.0x
+    let portrait_vp = Rect::new(0.0, 0.0, 1080.0, 2400.0);
+    let portrait_board_scale = portrait_vp.h / CLASSIC_DIMENSIONS.image_height; // 2400 / 1024 = 2.34375
+    let portrait_total_w = CLASSIC_DIMENSIONS.total_width() * portrait_board_scale; // 2400 > 1080
+
+    let (p_min_x, p_max_x) =
+        horizontal_pan_bounds(portrait_vp.w, portrait_board_scale, &CLASSIC_DIMENSIONS);
+    assert_eq!(
+        p_max_x, 0.0,
+        "Classic board max_x on mobile portrait must be 0.0 to prevent scrolling left past the image border"
+    );
+    assert!(
+        (p_min_x + portrait_total_w - portrait_vp.w).abs() < 0.01,
+        "Classic board right edge must reach viewport width on mobile portrait at min_x"
+    );
+}
+
+#[test]
+fn test_classic_board_landscape_centering_symmetry() {
+    use fox_and_hounds::game::level::CLASSIC_DIMENSIONS;
+    use fox_and_hounds::ui::camera::horizontal_pan_bounds;
+
+    let viewport = Rect::new(0.0, 0.0, 1920.0, 1080.0);
+    let board_scale = viewport.h / CLASSIC_DIMENSIONS.image_height; // 1080 / 1024
+    let (min_x, max_x) = horizontal_pan_bounds(viewport.w, board_scale, &CLASSIC_DIMENSIONS);
+
+    // When board fits in viewport horizontally, min_x must equal max_x (locked centered)
+    assert_eq!(
+        min_x, max_x,
+        "Classic board should be locked centered when it fits horizontally"
+    );
+
+    let left_gap = min_x;
+    let right_gap = viewport.w - (min_x + CLASSIC_DIMENSIONS.total_width() * board_scale);
+    assert!(
+        (left_gap - right_gap).abs() < 0.01,
+        "Classic board left gap ({}) must equal right gap ({}) on 1920x1080",
+        left_gap,
+        right_gap
+    );
+}
+
+#[test]
+fn test_classic_board_intro_initialization() {
+    use fox_and_hounds::game::level::{BoardVariant, CLASSIC_DIMENSIONS};
+
+    let mut camera = ViewportCamera::new();
+    let viewport = Rect::new(0.0, 0.0, 1920.0, 1080.0);
+    let board_scale = viewport.h / CLASSIC_DIMENSIONS.image_height;
+    let board_size = Vec2::new(
+        CLASSIC_DIMENSIONS.image_width * board_scale,
+        CLASSIC_DIMENSIONS.image_height * board_scale,
+    );
+
+    camera.start_intro(
+        BoardVariant::Classic,
+        viewport,
+        board_size,
+        board_scale,
+        2.0,
+    );
+
+    assert_eq!(camera.zoom, MIN_ZOOM);
+    assert_eq!(camera.target_zoom, MIN_ZOOM);
+    assert!(camera.anim.is_none());
+    assert!(camera.initialized);
+
+    let left_gap = camera.pan_offset.x;
+    let right_gap = viewport.w - (camera.pan_offset.x + board_size.x);
+    assert!(
+        (left_gap - right_gap).abs() < 0.01,
+        "Classic board intro must center board horizontally (left gap: {}, right gap: {})",
+        left_gap,
+        right_gap
+    );
+    assert_eq!(
+        camera.pan_offset.y, 0.0,
+        "Classic board intro must align flush vertically on 1080p"
+    );
 }

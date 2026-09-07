@@ -1,7 +1,8 @@
 use crate::audio::{SoundManager, SoundTrigger};
 use crate::game::graph::NodeType;
+use crate::game::level::BoardVariant;
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
-use crate::ui::river::RiverSimulation;
+use crate::ui::river::{RiverPath, RiverSimulation};
 use crate::ui::train::TrainSimulation;
 use macroquad::prelude::*;
 
@@ -24,6 +25,7 @@ fn load_texture(bytes: &[u8]) -> Option<Texture2D> {
 
 pub struct BoardView {
     pub board_texture: Option<Texture2D>,
+    pub current_variant: Option<BoardVariant>,
     pub fox_texture: Option<Texture2D>,
     pub hound_textures: [Option<Texture2D>; 3],
     pub hound_sit_textures: [Option<Texture2D>; 3],
@@ -57,7 +59,8 @@ pub struct BoardViewParams<'a> {
 
 impl BoardView {
     pub async fn new(font: Option<Font>) -> Self {
-        let board_texture = load_texture(include_bytes!("../../assets/board_image.png"));
+        let current_variant = Some(BoardVariant::Classic);
+        let board_texture = load_texture(BoardVariant::Classic.config().board_image_bytes);
         let fox_texture = load_texture(include_bytes!("../../assets/fox_figure.png"));
         let hound_textures = [
             load_texture(include_bytes!("../../assets/hound1_figure.png")),
@@ -73,6 +76,7 @@ impl BoardView {
 
         Self {
             board_texture,
+            current_variant,
             fox_texture,
             hound_textures,
             hound_sit_textures,
@@ -81,7 +85,7 @@ impl BoardView {
             fox_angle: 0.0,
             hover_node_id: None,
             font,
-            river: RiverSimulation::new(),
+            river: RiverSimulation::for_variant(BoardVariant::Classic),
             train: TrainSimulation::new(),
             last_waf_sound_time: 0.0,
             hound_idle_times: [0.0; 3],
@@ -119,17 +123,26 @@ impl BoardView {
         let dt = params.dt;
         let t = get_time() as f32;
 
+        // Switch board texture and river path if variant changed
+        if self.current_variant != Some(state.variant) {
+            self.current_variant = Some(state.variant);
+            self.board_texture = load_texture(state.variant.config().board_image_bytes);
+            self.river.set_path(RiverPath::for_variant(state.variant));
+        }
+
+        let dims = state.variant.config().dimensions;
+
         // 1. Draw Background Board Image (exact natural 1:1 proportions, no distortion)
         if let Some(tex) = &self.board_texture {
             draw_texture_ex(
                 tex,
-                origin.x - BOARD_LEFT_WIDTH * scale,
+                origin.x - dims.left_width * scale,
                 origin.y,
                 WHITE,
                 DrawTextureParams {
                     dest_size: Some(Vec2::new(
-                        BOARD_TOTAL_WIDTH * scale,
-                        BOARD_IMAGE_HEIGHT * scale,
+                        dims.total_width() * scale,
+                        dims.image_height * scale,
                     )),
                     ..Default::default()
                 },
@@ -137,10 +150,10 @@ impl BoardView {
         } else {
             // Fallback dark board container
             draw_rectangle(
-                origin.x - BOARD_LEFT_WIDTH * scale,
+                origin.x - dims.left_width * scale,
                 origin.y,
-                BOARD_TOTAL_WIDTH * scale,
-                BOARD_IMAGE_HEIGHT * scale,
+                dims.total_width() * scale,
+                dims.image_height * scale,
                 Color::from_rgba(18, 28, 42, 255),
             );
         }
@@ -149,11 +162,13 @@ impl BoardView {
         self.river.update(dt);
         self.river.draw(origin, scale);
 
-        // 3. Update & Draw Train on the railway tracks
-        if let Some(snd) = self.train.update(dt) {
-            sound_manager.play(snd);
+        // 3. Update & Draw Train on the railway tracks (only for River Crossing)
+        if state.variant == BoardVariant::RiverCrossing {
+            if let Some(snd) = self.train.update(dt) {
+                sound_manager.play(snd);
+            }
+            self.train.draw(origin, scale, self.train_texture.as_ref());
         }
-        self.train.draw(origin, scale, self.train_texture.as_ref());
 
         // 4. Find hovered node & Determine Legal Targets for Player
         let board_mouse = (viewport_mouse_pos - origin) / scale;
@@ -291,8 +306,8 @@ impl BoardView {
                 );
             }
 
-            // 2. Base Node Circle Plate (skip for the chicken coop)
-            if node.id != state.coop_pos {
+            // 2. Base Node Circle Plate (skip for the chicken coop in River Crossing)
+            if state.variant != BoardVariant::RiverCrossing || node.id != state.coop_pos {
                 let base_radius = if is_hovered {
                     20.0 * scale
                 } else {
@@ -387,8 +402,11 @@ impl BoardView {
                 .as_ref()
                 .is_some_and(|anim| anim.faction == Faction::Hounds && anim.hound_idx == Some(idx));
 
-            // The white dog (idx 0) reacts to the train when it rolls on the tracks
-            let is_waffing = idx == 0 && self.train.is_active() && !is_moving;
+            // The white dog (idx 0) reacts to the train when it rolls on the tracks (River Crossing only)
+            let is_waffing = idx == 0
+                && state.variant == BoardVariant::RiverCrossing
+                && self.train.is_active()
+                && !is_moving;
 
             if is_waffing {
                 if self.last_waf_sound_time == 0.0 {

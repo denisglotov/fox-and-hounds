@@ -1,4 +1,5 @@
 use crate::audio::SoundTrigger;
+use crate::game::level::BoardVariant;
 use crate::game::state::{Difficulty, Faction, GamePhase, GameResult, GameState};
 use crate::ui::{draw_text_styled, measure_text_styled};
 use macroquad::prelude::*;
@@ -36,6 +37,7 @@ pub struct TitleScreenLayout {
     pub left_column: Rect,
     pub right_column: Rect,
     pub hero_bounds: Option<Rect>,
+    pub variant_btn_bounds: [Rect; 2],
     pub fox_btn_bounds: Rect,
     pub hounds_btn_bounds: Rect,
     pub difficulty_btn_bounds: [Rect; 3],
@@ -69,7 +71,7 @@ impl TitleScreenLayout {
         let card_w = max_card_w
             .max((screen_w - 16.0 * scale).min(320.0 * scale))
             .min(screen_w - 16.0 * scale);
-        let max_card_h = (screen_h - 24.0 * scale).min(420.0 * scale);
+        let max_card_h = (screen_h - 24.0 * scale).min(460.0 * scale);
         let card_h = max_card_h
             .max((screen_h - 16.0 * scale).min(240.0 * scale))
             .min(screen_h - 16.0 * scale);
@@ -109,18 +111,29 @@ impl TitleScreenLayout {
             None
         };
 
-        let f_btn_h = (46.0 * scale).min(right_column.h * 0.20);
-        let d_btn_h = (34.0 * scale).min(right_column.h * 0.16);
-        let s_btn_h = (44.0 * scale).min(right_column.h * 0.20);
-        let label_h = (12.0 * scale).min(right_column.h * 0.07);
+        let v_btn_h = (38.0 * scale).min(right_column.h * 0.16);
+        let f_btn_h = (38.0 * scale).min(right_column.h * 0.16);
+        let d_btn_h = (30.0 * scale).min(right_column.h * 0.13);
+        let s_btn_h = (38.0 * scale).min(right_column.h * 0.16);
+        let label_h = (11.0 * scale).min(right_column.h * 0.05);
 
-        let total_fixed = label_h * 2.0 + f_btn_h + d_btn_h + s_btn_h;
+        let total_fixed = label_h * 3.0 + v_btn_h + f_btn_h + d_btn_h + s_btn_h;
         let remaining_h = (right_column.h - total_fixed).max(0.0);
-        let spacing = (remaining_h / 4.0).min(14.0 * scale);
-        let total_content_h = total_fixed + spacing * 4.0;
+        let spacing = (remaining_h / 5.0).min(9.0 * scale);
+        let total_content_h = total_fixed + spacing * 5.0;
         let mut curr_y = right_column.y + (right_column.h - total_content_h) / 2.0;
 
-        curr_y += label_h + spacing * 0.5;
+        curr_y += label_h + spacing * 0.4;
+
+        let v_gap = (8.0 * scale).min(col_w * 0.04);
+        let v_w = (col_w - v_gap) / 2.0;
+        let variant_btn_bounds = [
+            Rect::new(right_column.x, curr_y, v_w, v_btn_h),
+            Rect::new(right_column.x + v_w + v_gap, curr_y, v_w, v_btn_h),
+        ];
+        curr_y += v_btn_h + spacing;
+
+        curr_y += label_h + spacing * 0.4;
 
         let f_gap = (8.0 * scale).min(col_w * 0.04);
         let f_w = (col_w - f_gap) / 2.0;
@@ -128,7 +141,7 @@ impl TitleScreenLayout {
         let hounds_btn_bounds = Rect::new(right_column.x + f_w + f_gap, curr_y, f_w, f_btn_h);
         curr_y += f_btn_h + spacing;
 
-        curr_y += label_h + spacing * 0.5;
+        curr_y += label_h + spacing * 0.4;
 
         let d_gap = (6.0 * scale).min(col_w * 0.03);
         let d_w = (col_w - d_gap * 2.0) / 3.0;
@@ -137,7 +150,7 @@ impl TitleScreenLayout {
             Rect::new(right_column.x + d_w + d_gap, curr_y, d_w, d_btn_h),
             Rect::new(right_column.x + (d_w + d_gap) * 2.0, curr_y, d_w, d_btn_h),
         ];
-        curr_y += d_btn_h + spacing * 1.1;
+        curr_y += d_btn_h + spacing * 1.0;
 
         let start_btn_bounds = Rect::new(right_column.x, curr_y, col_w, s_btn_h);
 
@@ -147,6 +160,7 @@ impl TitleScreenLayout {
             left_column,
             right_column,
             hero_bounds,
+            variant_btn_bounds,
             fox_btn_bounds,
             hounds_btn_bounds,
             difficulty_btn_bounds,
@@ -162,85 +176,117 @@ impl TitleScreenLayout {
         hero_aspect: f32,
     ) -> Self {
         let card_w = (screen_w - 32.0 * scale)
-            .min(460.0 * scale)
+            .min(520.0 * scale)
             .max(280.0 * scale)
             .min(screen_w - 16.0 * scale);
         let avail_h = screen_h - 24.0 * scale;
 
-        let banner_pad = (16.0 * scale).min(card_w * 0.05);
-        let banner_w = card_w - banner_pad * 2.0;
+        let banner_pad = (18.0 * scale).min(card_w * 0.04);
+        let max_banner_w = card_w - banner_pad * 2.0;
 
-        let f_btn_h = (50.0 * scale).min(avail_h * 0.12);
-        let d_btn_h = (38.0 * scale).min(avail_h * 0.09);
-        let s_btn_h = (48.0 * scale).min(avail_h * 0.11);
+        let top_pad = 22.0 * scale;
+        let title_h = 32.0 * scale;
+        let title_sub_gap = 6.0 * scale;
+        let sub_h = 16.0 * scale;
+        let banner_top_gap = 18.0 * scale;
+        let banner_bottom_gap = 14.0 * scale;
 
-        let non_banner_h = 20.0 * scale
-            + 28.0 * scale // title
-            + 18.0 * scale // subtitle
-            + 16.0 * scale // faction label
+        let v_lbl_h = 16.0 * scale;
+        let v_btn_h = (44.0 * scale).min(avail_h * 0.08);
+        let v_gap = 14.0 * scale;
+
+        let f_lbl_h = 16.0 * scale;
+        let f_btn_h = (44.0 * scale).min(avail_h * 0.08);
+        let f_gap = 14.0 * scale;
+
+        let d_lbl_h = 16.0 * scale;
+        let d_btn_h = (36.0 * scale).min(avail_h * 0.065);
+        let d_gap = 16.0 * scale;
+
+        let s_btn_h = (46.0 * scale).min(avail_h * 0.08);
+        let bottom_pad = 20.0 * scale;
+
+        let non_banner_h = top_pad
+            + title_h
+            + title_sub_gap
+            + sub_h
+            + banner_top_gap
+            + banner_bottom_gap
+            + v_lbl_h
+            + v_btn_h
+            + v_gap
+            + f_lbl_h
             + f_btn_h
-            + 18.0 * scale // diff label
+            + f_gap
+            + d_lbl_h
             + d_btn_h
-            + 20.0 * scale
+            + d_gap
             + s_btn_h
-            + 20.0 * scale;
+            + bottom_pad;
 
         let aspect = if hero_aspect > 0.0 {
             hero_aspect
         } else {
             16.0 / 9.0
         };
-        let ideal_banner_h = banner_w / aspect;
-        let max_banner_h = (avail_h - non_banner_h - 16.0 * scale).max(0.0);
-        let banner_h = ideal_banner_h.min(max_banner_h).min(180.0 * scale);
+        let ideal_banner_h = max_banner_w / aspect;
+        let max_banner_h = (avail_h - non_banner_h).max(0.0);
+        let banner_h = ideal_banner_h.min(max_banner_h);
+        let banner_w = banner_h * aspect;
         let show_banner = has_hero_texture && banner_h >= 40.0 * scale;
 
-        let content_h = non_banner_h
-            + if show_banner {
-                banner_h + 16.0 * scale
-            } else {
-                16.0 * scale
-            };
+        let content_h = non_banner_h + if show_banner { banner_h } else { 0.0 };
         let card_h = content_h.min(avail_h);
         let card_x = (screen_w - card_w) / 2.0;
         let card_y = ((screen_h - card_h) / 2.0).max(12.0 * scale);
         let card_bounds = Rect::new(card_x, card_y, card_w, card_h);
 
-        let mut curr_y = card_y + 20.0 * scale + 28.0 * scale + 18.0 * scale;
+        let mut curr_y = card_y + top_pad + title_h + title_sub_gap + sub_h + banner_top_gap;
 
         let hero_bounds = if show_banner {
-            let h_rect = Rect::new(card_x + banner_pad, curr_y, banner_w, banner_h);
-            curr_y += banner_h + 16.0 * scale;
+            let banner_x = card_x + (card_w - banner_w) / 2.0;
+            let h_rect = Rect::new(banner_x, curr_y, banner_w, banner_h);
+            curr_y += banner_h + banner_bottom_gap;
             Some(h_rect)
         } else {
-            curr_y += 16.0 * scale;
+            curr_y += banner_bottom_gap;
             None
         };
 
-        curr_y += 16.0 * scale; // faction label
+        curr_y += v_lbl_h;
 
-        let f_gap = 10.0 * scale;
-        let f_w = (card_w - 36.0 * scale - f_gap) / 2.0;
+        let v_gap_w = 10.0 * scale;
+        let v_w = (card_w - 36.0 * scale - v_gap_w) / 2.0;
+        let variant_btn_bounds = [
+            Rect::new(card_x + 18.0 * scale, curr_y, v_w, v_btn_h),
+            Rect::new(card_x + 18.0 * scale + v_w + v_gap_w, curr_y, v_w, v_btn_h),
+        ];
+        curr_y += v_btn_h + v_gap;
+
+        curr_y += f_lbl_h;
+
+        let f_gap_w = 10.0 * scale;
+        let f_w = (card_w - 36.0 * scale - f_gap_w) / 2.0;
         let fox_btn_bounds = Rect::new(card_x + 18.0 * scale, curr_y, f_w, f_btn_h);
         let hounds_btn_bounds =
-            Rect::new(card_x + 18.0 * scale + f_w + f_gap, curr_y, f_w, f_btn_h);
-        curr_y += f_btn_h + 18.0 * scale;
+            Rect::new(card_x + 18.0 * scale + f_w + f_gap_w, curr_y, f_w, f_btn_h);
+        curr_y += f_btn_h + f_gap;
 
-        curr_y += 18.0 * scale; // diff label
+        curr_y += d_lbl_h;
 
-        let d_gap = 10.0 * scale;
-        let d_w = (card_w - 36.0 * scale - d_gap * 2.0) / 3.0;
+        let d_gap_w = 10.0 * scale;
+        let d_w = (card_w - 36.0 * scale - d_gap_w * 2.0) / 3.0;
         let difficulty_btn_bounds = [
             Rect::new(card_x + 18.0 * scale, curr_y, d_w, d_btn_h),
-            Rect::new(card_x + 18.0 * scale + d_w + d_gap, curr_y, d_w, d_btn_h),
+            Rect::new(card_x + 18.0 * scale + d_w + d_gap_w, curr_y, d_w, d_btn_h),
             Rect::new(
-                card_x + 18.0 * scale + (d_w + d_gap) * 2.0,
+                card_x + 18.0 * scale + (d_w + d_gap_w) * 2.0,
                 curr_y,
                 d_w,
                 d_btn_h,
             ),
         ];
-        curr_y += d_btn_h + 20.0 * scale;
+        curr_y += d_btn_h + d_gap;
 
         let start_w = card_w - 36.0 * scale;
         let start_btn_bounds = Rect::new(card_x + 18.0 * scale, curr_y, start_w, s_btn_h);
@@ -251,6 +297,7 @@ impl TitleScreenLayout {
             left_column: card_bounds,
             right_column: card_bounds,
             hero_bounds,
+            variant_btn_bounds,
             fox_btn_bounds,
             hounds_btn_bounds,
             difficulty_btn_bounds,
@@ -394,13 +441,30 @@ impl Screens {
             // 2. Hero Artwork Banner in Left Column
             if let (Some(tex), Some(hb)) = (hero_texture, layout.hero_bounds) {
                 draw_rectangle(hb.x, hb.y, hb.w, hb.h, Color::from_rgba(10, 16, 26, 255));
+
+                let tex_w = tex.width();
+                let tex_h = tex.height();
+                let tex_aspect = if tex_h > 0.0 {
+                    tex_w / tex_h
+                } else {
+                    16.0 / 9.0
+                };
+
+                let (draw_w, draw_h) = if hb.w / hb.h > tex_aspect {
+                    (hb.h * tex_aspect, hb.h)
+                } else {
+                    (hb.w, hb.w / tex_aspect)
+                };
+                let draw_x = hb.x + (hb.w - draw_w) / 2.0;
+                let draw_y = hb.y + (hb.h - draw_h) / 2.0;
+
                 draw_texture_ex(
                     tex,
-                    hb.x,
-                    hb.y,
+                    draw_x,
+                    draw_y,
                     WHITE,
                     DrawTextureParams {
-                        dest_size: Some(Vec2::new(hb.w, hb.h)),
+                        dest_size: Some(Vec2::new(draw_w, draw_h)),
                         ..Default::default()
                     },
                 );
@@ -425,9 +489,39 @@ impl Screens {
                 Color::from_rgba(255, 255, 255, 25),
             );
 
-            // 3. Right Column: Faction Selection
-            let role_label = &state.locales.title_screen.choose_faction;
+            // 3. Right Column: Board Variant Selection
+            let variant_label = &state.locales.title_screen.board_variant;
             let label_size = (12.0 * scale) as u16;
+            let variant_dims = measure_text_styled(variant_label, label_size, font);
+            draw_text_styled(
+                variant_label,
+                right.x + (right.w - variant_dims.width) / 2.0,
+                layout.variant_btn_bounds[0].y - 6.0 * scale,
+                label_size,
+                Color::from_rgba(144, 164, 174, 255),
+                font,
+            );
+
+            let variants = [BoardVariant::Classic, BoardVariant::RiverCrossing];
+            for (idx, &v) in variants.iter().enumerate() {
+                let is_sel = state.variant == v;
+                let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
+                    bounds: layout.variant_btn_bounds[idx],
+                    title: v.localized_name(state.locales),
+                    subtitle: v.localized_sub(state.locales),
+                    is_selected: is_sel,
+                    accent_color: Color::from_rgba(69, 90, 100, 255),
+                    scale,
+                    font,
+                });
+                if clicked {
+                    state.switch_variant(v);
+                    sound_trigger = Some(SoundTrigger::ButtonClick);
+                }
+            }
+
+            // 4. Right Column: Faction Selection
+            let role_label = &state.locales.title_screen.choose_faction;
             let label_dims = measure_text_styled(role_label, label_size, font);
             draw_text_styled(
                 role_label,
@@ -515,45 +609,62 @@ impl Screens {
             let card_x = layout.card_bounds.x;
             let card_y = layout.card_bounds.y;
             let card_w = layout.card_bounds.w;
-            let mut curr_y = card_y + 20.0 * scale;
+            let center_x = card_x + card_w / 2.0;
 
             // 1. Game Title & Subtitle
             let title_text = &state.locales.title_screen.title;
             let title_font_size = (30.0 * scale) as u16;
             let title_dims = measure_text_styled(title_text, title_font_size, font);
+            let title_y = card_y + 22.0 * scale + title_dims.height / 1.2;
             draw_text_styled(
                 title_text,
                 center_x - title_dims.width / 2.0,
-                curr_y + title_dims.height / 1.2,
+                title_y,
                 title_font_size,
                 Color::from_rgba(255, 224, 130, 255),
                 font,
             );
-            curr_y += 30.0 * scale;
 
             let subtitle_text = &state.locales.title_screen.subtitle;
             let sub_font_size = (13.0 * scale) as u16;
             let sub_dims = measure_text_styled(subtitle_text, sub_font_size, font);
+            let sub_y = card_y + (22.0 + 32.0 + 6.0) * scale + sub_dims.height / 1.2;
             draw_text_styled(
                 subtitle_text,
                 center_x - sub_dims.width / 2.0,
-                curr_y + sub_dims.height / 1.2,
+                sub_y,
                 sub_font_size,
                 Color::from_rgba(176, 190, 197, 255),
                 font,
             );
-            curr_y += 18.0 * scale;
 
             // 2. Character Artwork Hero Banner
             if let (Some(tex), Some(hb)) = (hero_texture, layout.hero_bounds) {
                 draw_rectangle(hb.x, hb.y, hb.w, hb.h, Color::from_rgba(10, 16, 26, 255));
+
+                let tex_w = tex.width();
+                let tex_h = tex.height();
+                let tex_aspect = if tex_h > 0.0 {
+                    tex_w / tex_h
+                } else {
+                    16.0 / 9.0
+                };
+
+                let (draw_w, draw_h) = if hb.w / hb.h > tex_aspect {
+                    (hb.h * tex_aspect, hb.h)
+                } else {
+                    (hb.w, hb.w / tex_aspect)
+                };
+                let draw_x = hb.x + (hb.w - draw_w) / 2.0;
+                let draw_y = hb.y + (hb.h - draw_h) / 2.0;
+
                 draw_texture_ex(
                     tex,
-                    hb.x,
-                    hb.y,
+                    draw_x,
+                    draw_y,
                     WHITE,
                     DrawTextureParams {
-                        dest_size: Some(Vec2::new(hb.w, hb.h)),
+                        dest_size: Some(Vec2::new(draw_w, draw_h)),
                         ..Default::default()
                     },
                 );
@@ -565,27 +676,56 @@ impl Screens {
                     1.5 * scale,
                     Color::from_rgba(255, 255, 255, 60),
                 );
-                curr_y += hb.h + 16.0 * scale;
             } else {
+                let div_y = layout.variant_btn_bounds[0].y - 20.0 * scale;
                 draw_line(
                     card_x + 30.0 * scale,
-                    curr_y,
+                    div_y,
                     card_x + card_w - 30.0 * scale,
-                    curr_y,
+                    div_y,
                     1.0 * scale,
                     Color::from_rgba(255, 255, 255, 25),
                 );
-                curr_y += 16.0 * scale;
             }
 
-            // 3. Select Faction Header
-            let role_label = &state.locales.title_screen.choose_faction;
+            // 3. Select Board Variant Header
+            let variant_label = &state.locales.title_screen.board_variant;
             let label_size = (12.0 * scale) as u16;
+            let variant_dims = measure_text_styled(variant_label, label_size, font);
+            draw_text_styled(
+                variant_label,
+                center_x - variant_dims.width / 2.0,
+                layout.variant_btn_bounds[0].y - 6.0 * scale,
+                label_size,
+                Color::from_rgba(144, 164, 174, 255),
+                font,
+            );
+
+            let variants = [BoardVariant::Classic, BoardVariant::RiverCrossing];
+            for (idx, &v) in variants.iter().enumerate() {
+                let is_sel = state.variant == v;
+                let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
+                    bounds: layout.variant_btn_bounds[idx],
+                    title: v.localized_name(state.locales),
+                    subtitle: v.localized_sub(state.locales),
+                    is_selected: is_sel,
+                    accent_color: Color::from_rgba(69, 90, 100, 255),
+                    scale,
+                    font,
+                });
+                if clicked {
+                    state.switch_variant(v);
+                    sound_trigger = Some(SoundTrigger::ButtonClick);
+                }
+            }
+
+            // 4. Select Faction Header
+            let role_label = &state.locales.title_screen.choose_faction;
             let label_dims = measure_text_styled(role_label, label_size, font);
             draw_text_styled(
                 role_label,
                 center_x - label_dims.width / 2.0,
-                curr_y + label_dims.height / 1.2,
+                layout.fox_btn_bounds.y - 6.0 * scale,
                 label_size,
                 Color::from_rgba(144, 164, 174, 255),
                 font,
@@ -876,6 +1016,7 @@ impl Screens {
             fallback_stats = state.locales.game_over.format_stats(
                 state.turn_count,
                 state.difficulty.localized_name(state.locales),
+                state.variant.localized_name(state.locales),
             );
             &fallback_stats
         };

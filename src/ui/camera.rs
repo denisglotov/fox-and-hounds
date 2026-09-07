@@ -1,7 +1,4 @@
-use crate::game::level::{
-    BOARD_COMPOSITION_CENTER_X, BOARD_IMAGE_WIDTH, BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH,
-    BOARD_TOTAL_WIDTH,
-};
+use crate::game::level::{BoardDimensions, BoardVariant};
 use macroquad::input::TouchPhase;
 use macroquad::prelude::*;
 
@@ -11,18 +8,22 @@ pub const DOUBLE_TAP_ZOOM: f32 = 2.0;
 pub const DOUBLE_TAP_TIME_WINDOW: f64 = 0.30;
 pub const DOUBLE_TAP_MAX_DISTANCE: f32 = 24.0;
 
-/// Returns the (min_x, max_x) allowed pan_offset.x for the given viewport width and scale.
+/// Returns the (min_x, max_x) allowed pan_offset.x for the given viewport width, scale, and board dimensions.
 /// When the composite artwork (left extension + board + right extension) fits inside the viewport,
 /// returns `(centered_x, centered_x)` so the composition is centered with equal left and right margins.
 /// When the artwork is wider than the viewport, returns `(min_x, max_x)` allowing full panning without exposing dark margins.
-pub fn horizontal_pan_bounds(viewport_w: f32, effective_scale: f32) -> (f32, f32) {
-    let total_artwork_w = BOARD_TOTAL_WIDTH * effective_scale;
+pub fn horizontal_pan_bounds(
+    viewport_w: f32,
+    effective_scale: f32,
+    dims: &BoardDimensions,
+) -> (f32, f32) {
+    let total_artwork_w = dims.total_width() * effective_scale;
     if total_artwork_w <= viewport_w {
-        let centered_x = viewport_w / 2.0 - BOARD_COMPOSITION_CENTER_X * effective_scale;
+        let centered_x = viewport_w / 2.0 - dims.composition_center_x() * effective_scale;
         (centered_x, centered_x)
     } else {
-        let min_x = viewport_w - (BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH) * effective_scale;
-        let max_x = BOARD_LEFT_WIDTH * effective_scale;
+        let min_x = viewport_w - (dims.image_width + dims.right_width) * effective_scale;
+        let max_x = dims.left_width * effective_scale;
         (min_x, max_x)
     }
 }
@@ -57,6 +58,16 @@ pub struct CameraContext {
     pub pan_offset: Vec2,
     pub effective_scale: f32,
     pub was_dragging: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CameraUpdateParams<'a> {
+    pub viewport_rect: Rect,
+    pub base_board_size: Vec2,
+    pub base_board_scale: f32,
+    pub scale: f32,
+    pub dt: f32,
+    pub dims: &'a BoardDimensions,
 }
 
 pub struct ViewportCamera {
@@ -112,20 +123,43 @@ impl ViewportCamera {
         self.anim = None;
     }
 
-    /// Starts a cinematic slow zooming animation into the Coop-to-Fox playing field at match start.
-    pub fn start_coop_fox_intro(
+    /// Starts the match start camera framing or intro animation for the given board variant.
+    pub fn start_intro(
+        &mut self,
+        variant: BoardVariant,
+        viewport_rect: Rect,
+        base_board_size: Vec2,
+        base_board_scale: f32,
+        duration: f32,
+    ) {
+        match variant {
+            BoardVariant::RiverCrossing => {
+                self.start_river_crossing_intro(
+                    viewport_rect,
+                    base_board_size,
+                    base_board_scale,
+                    duration,
+                );
+            }
+            BoardVariant::Classic => {
+                self.start_classic_intro(viewport_rect, base_board_size, base_board_scale);
+            }
+        }
+    }
+
+    fn start_river_crossing_intro(
         &mut self,
         viewport_rect: Rect,
         base_board_size: Vec2,
         base_board_scale: f32,
-        _scale: f32,
         duration: f32,
     ) {
+        let dims = &crate::game::level::RIVER_CROSSING_DIMENSIONS;
         // 1. Initial wide overview framing at MIN_ZOOM (1.0x)
         let start_zoom = MIN_ZOOM;
         let start_scale = base_board_scale * start_zoom;
-        let (start_min_x, start_max_x) = horizontal_pan_bounds(viewport_rect.w, start_scale);
-        let start_pan_x = (viewport_rect.w / 2.0 - BOARD_COMPOSITION_CENTER_X * start_scale)
+        let (start_min_x, start_max_x) = horizontal_pan_bounds(viewport_rect.w, start_scale, dims);
+        let start_pan_x = (viewport_rect.w / 2.0 - dims.composition_center_x() * start_scale)
             .clamp(start_min_x, start_max_x);
         let start_board_h = base_board_size.y * start_zoom;
         let (start_min_y, start_max_y) = vertical_pan_bounds(viewport_rect.h, start_board_h);
@@ -137,19 +171,20 @@ impl ViewportCamera {
         // The playable vertical span is ~1080px out of total BOARD_IMAGE_HEIGHT (1376px).
         const COOP_FOX_PLAYABLE_HEIGHT: f32 = 1080.0;
         const COOP_FOX_CENTER_Y: f32 = 600.0;
-        const COOP_FOX_CENTER_X: f32 = BOARD_IMAGE_WIDTH / 2.0; // 384.0
+        let coop_fox_center_x: f32 = dims.image_width / 2.0; // 384.0
 
         let target_zoom =
             (viewport_rect.h / (COOP_FOX_PLAYABLE_HEIGHT * base_board_scale)).clamp(MIN_ZOOM, 1.85);
 
         let target_scale = base_board_scale * target_zoom;
-        let (target_min_x, target_max_x) = horizontal_pan_bounds(viewport_rect.w, target_scale);
-        let target_total_w = BOARD_TOTAL_WIDTH * target_scale;
+        let (target_min_x, target_max_x) =
+            horizontal_pan_bounds(viewport_rect.w, target_scale, dims);
+        let target_total_w = dims.total_width() * target_scale;
 
         let target_pan_x = if target_total_w <= viewport_rect.w {
-            viewport_rect.w / 2.0 - BOARD_COMPOSITION_CENTER_X * target_scale
+            viewport_rect.w / 2.0 - dims.composition_center_x() * target_scale
         } else {
-            (viewport_rect.w / 2.0 - COOP_FOX_CENTER_X * target_scale)
+            (viewport_rect.w / 2.0 - coop_fox_center_x * target_scale)
                 .clamp(target_min_x, target_max_x)
         };
 
@@ -181,6 +216,53 @@ impl ViewportCamera {
         });
     }
 
+    fn start_classic_intro(
+        &mut self,
+        viewport_rect: Rect,
+        base_board_size: Vec2,
+        base_board_scale: f32,
+    ) {
+        let dims = &crate::game::level::CLASSIC_DIMENSIONS;
+        let zoom = MIN_ZOOM;
+        let effective_scale = base_board_scale * zoom;
+        let (min_x, max_x) = horizontal_pan_bounds(viewport_rect.w, effective_scale, dims);
+        let total_artwork_w = dims.total_width() * effective_scale;
+
+        let pan_x = if total_artwork_w <= viewport_rect.w {
+            viewport_rect.w / 2.0 - dims.composition_center_x() * effective_scale
+        } else {
+            (viewport_rect.w / 2.0 - (dims.image_width / 2.0) * effective_scale).clamp(min_x, max_x)
+        };
+
+        let cur_board_h = base_board_size.y * zoom;
+        let (min_y, max_y) = vertical_pan_bounds(viewport_rect.h, cur_board_h);
+        let pan_y = if cur_board_h <= viewport_rect.h {
+            (viewport_rect.h - cur_board_h) / 2.0
+        } else {
+            ((viewport_rect.h - cur_board_h) / 2.0).clamp(min_y, max_y)
+        };
+
+        self.zoom = zoom;
+        self.target_zoom = zoom;
+        self.pan_offset = Vec2::new(pan_x, pan_y);
+        self.drag_start = None;
+        self.is_dragging = false;
+        self.initialized = true;
+        self.anim = None;
+    }
+
+    /// Starts a cinematic slow zooming animation into the Coop-to-Fox playing field at match start.
+    pub fn start_coop_fox_intro(
+        &mut self,
+        viewport_rect: Rect,
+        base_board_size: Vec2,
+        base_board_scale: f32,
+        _scale: f32,
+        duration: f32,
+    ) {
+        self.start_river_crossing_intro(viewport_rect, base_board_size, base_board_scale, duration);
+    }
+
     /// Centers camera on player's pieces at match start (bottom for Fox, top for Hounds).
     pub fn center_on_faction(
         &mut self,
@@ -206,14 +288,13 @@ impl ViewportCamera {
 
     /// Handles pinch-to-zoom, double-tap zoom, mouse drag/pan, and wheel zoom/scroll.
     /// Returns CameraContext containing render target and camera properties.
-    pub fn update_and_begin(
-        &mut self,
-        viewport_rect: Rect,
-        base_board_size: Vec2,
-        base_board_scale: f32,
-        scale: f32,
-        dt: f32,
-    ) -> CameraContext {
+    pub fn update_and_begin(&mut self, params: &CameraUpdateParams) -> CameraContext {
+        let viewport_rect = params.viewport_rect;
+        let base_board_size = params.base_board_size;
+        let base_board_scale = params.base_board_scale;
+        let scale = params.scale;
+        let dt = params.dt;
+        let dims = params.dims;
         let mouse_pos = Vec2::from(mouse_position());
         let mouse_down = is_mouse_button_down(MouseButton::Left);
         let mouse_pressed = is_mouse_button_pressed(MouseButton::Left);
@@ -372,15 +453,15 @@ impl ViewportCamera {
         // 6. Dynamic Boundary Clamping based on effective board and extension sizes
         let effective_scale = base_board_scale * self.zoom;
         let cur_board_h = base_board_size.y * self.zoom;
-        let (min_x, max_x) = horizontal_pan_bounds(viewport_rect.w, effective_scale);
+        let (min_x, max_x) = horizontal_pan_bounds(viewport_rect.w, effective_scale, dims);
         let (min_y, max_y) = vertical_pan_bounds(viewport_rect.h, cur_board_h);
 
         if !self.initialized {
-            let total_artwork_w = BOARD_TOTAL_WIDTH * effective_scale;
+            let total_artwork_w = dims.total_width() * effective_scale;
             self.pan_offset.x = if total_artwork_w <= viewport_rect.w {
-                viewport_rect.w / 2.0 - BOARD_COMPOSITION_CENTER_X * effective_scale
+                viewport_rect.w / 2.0 - dims.composition_center_x() * effective_scale
             } else {
-                (viewport_rect.w / 2.0 - (BOARD_IMAGE_WIDTH / 2.0) * effective_scale)
+                (viewport_rect.w / 2.0 - (dims.image_width / 2.0) * effective_scale)
                     .clamp(min_x, max_x)
             };
             self.pan_offset.y = if cur_board_h <= viewport_rect.h {

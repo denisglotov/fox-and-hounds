@@ -1,6 +1,6 @@
 use super::graph::Graph;
 use super::i18n::{detect_locale_tag, resolve_locale, LocaleStrings};
-use super::level::{build_river_crossing_graph, RIVER_CROSSING_CONFIG};
+use super::level::BoardVariant;
 use crate::audio::SoundTrigger;
 use macroquad::prelude::Vec2;
 
@@ -89,6 +89,7 @@ pub struct MoveAnimation {
 #[derive(Debug, Clone)]
 pub struct GameState {
     pub graph: Graph,
+    pub variant: BoardVariant,
     pub fox_pos: usize,
     pub hounds_pos: Vec<usize>,
     pub coop_pos: usize,
@@ -116,10 +117,12 @@ impl GameState {
     pub fn new() -> Self {
         let detected = detect_locale_tag();
         let locales = resolve_locale(&detected);
-        let graph = build_river_crossing_graph();
+        let variant = BoardVariant::Classic;
+        let graph = (variant.config().build_graph)();
 
         let mut state = Self {
             graph,
+            variant,
             fox_pos: 0,
             hounds_pos: Vec::new(),
             coop_pos: 0,
@@ -146,7 +149,16 @@ impl GameState {
             self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
                 self.turn_count,
                 self.difficulty.localized_name(self.locales),
+                self.variant.localized_name(self.locales),
             ));
+        }
+    }
+
+    pub fn switch_variant(&mut self, variant: BoardVariant) {
+        if self.variant != variant {
+            self.variant = variant;
+            self.graph = (variant.config().build_graph)();
+            self.reset_board();
         }
     }
 
@@ -158,18 +170,19 @@ impl GameState {
     }
 
     pub fn reset_board(&mut self) {
+        let config = self.variant.config();
         self.fox_pos = self
             .graph
-            .find_id_by_name(RIVER_CROSSING_CONFIG.fox_start_node)
+            .find_id_by_name(config.fox_start_node)
             .unwrap_or_else(|| self.graph.nodes.len().saturating_sub(1));
-        self.hounds_pos = RIVER_CROSSING_CONFIG
+        self.hounds_pos = config
             .hounds_start_nodes
             .iter()
             .filter_map(|name| self.graph.find_id_by_name(name))
             .collect();
         self.coop_pos = self
             .graph
-            .find_id_by_name(RIVER_CROSSING_CONFIG.target_coop_node)
+            .find_id_by_name(config.target_coop_node)
             .unwrap_or(0);
         self.current_turn = Faction::Fox;
         self.result = GameResult::Ongoing;
@@ -198,22 +211,36 @@ impl GameState {
     }
 
     pub fn hound_legal_moves(&self, hound_idx: usize) -> Vec<usize> {
+        let allow_retreat = self.variant.config().allow_hound_retreat;
         self.hounds_pos
             .get(hound_idx)
             .map_or_else(Vec::new, |&pos| {
                 self.graph
-                    .hound_legal_moves(pos, self.fox_pos, self.coop_pos, &self.hounds_pos)
+                    .hound_legal_moves(
+                        pos,
+                        self.fox_pos,
+                        self.coop_pos,
+                        &self.hounds_pos,
+                        allow_retreat,
+                    )
                     .collect()
             })
     }
 
     pub fn all_hound_legal_moves(&self) -> Vec<(usize, usize)> {
+        let allow_retreat = self.variant.config().allow_hound_retreat;
         self.hounds_pos
             .iter()
             .enumerate()
             .flat_map(|(idx, &pos)| {
                 self.graph
-                    .hound_legal_moves(pos, self.fox_pos, self.coop_pos, &self.hounds_pos)
+                    .hound_legal_moves(
+                        pos,
+                        self.fox_pos,
+                        self.coop_pos,
+                        &self.hounds_pos,
+                        allow_retreat,
+                    )
                     .map(move |target| (idx, target))
             })
             .collect()
@@ -312,6 +339,7 @@ impl GameState {
             self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
                 self.turn_count,
                 self.difficulty.localized_name(self.locales),
+                self.variant.localized_name(self.locales),
             ));
             return;
         }
@@ -322,6 +350,18 @@ impl GameState {
             self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
                 self.turn_count,
                 self.difficulty.localized_name(self.locales),
+                self.variant.localized_name(self.locales),
+            ));
+            return;
+        }
+
+        if self.current_turn == Faction::Hounds && self.all_hound_legal_moves().is_empty() {
+            self.result = GameResult::FoxWon;
+            self.phase = GamePhase::GameOver;
+            self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
+                self.turn_count,
+                self.difficulty.localized_name(self.locales),
+                self.variant.localized_name(self.locales),
             ));
             return;
         }

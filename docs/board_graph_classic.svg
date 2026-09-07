@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="528pt" height="268pt" viewBox="0.00 0.00 528.00 268.00">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 263.6)">
+<title>FoxAndHoundsClassic</title>
+<polygon fill="white" stroke="none" points="-4,4 -4,-263.6 524,-263.6 524,4 -4,4"/>
+<!-- M0 -->
+<g id="node1" class="node">
+<title>M0</title>
+<ellipse fill="#bbdefb" stroke="#1976d2" stroke-width="2" cx="28.8" cy="-129.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="28.8" y="-125.6" font-family="Helvetica,sans-Serif" font-size="14.00">🐶 M0</text>
+</g>
+<!-- T1 -->
+<g id="node2" class="node">
+<title>T1</title>
+<ellipse fill="#bbdefb" stroke="#1976d2" stroke-width="2" cx="144.4" cy="-230.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="144.4" y="-226.6" font-family="Helvetica,sans-Serif" font-size="14.00">🐶 T1</text>
+</g>
+<!-- M0&#45;&#45;T1 -->
+<g id="edge1" class="edge">
+<title>M0--T1</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M51.43,-149.04C71.65,-167.01 101.66,-193.69 121.85,-211.64"/>
+</g>
+<!-- M1 -->
+<g id="node3" class="node">
+<title>M1</title>
+<ellipse fill="#f5f5f5" stroke="#757575" cx="144.4" cy="-129.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="144.4" y="-125.6" font-family="Helvetica,sans-Serif" font-size="14.00">M1</text>
+</g>
+<!-- M0&#45;&#45;M1 -->
+<g id="edge2" class="edge">
+<title>M0--M1</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M58.47,-129.8C75.82,-129.8 97.86,-129.8 115.14,-129.8"/>
+</g>
+<!-- B1 -->
+<g id="node4" class="node">
+<title>B1</title>
+<ellipse fill="#bbdefb" stroke="#1976d2" stroke-width="2" cx="144.4" cy="-28.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="144.4" y="-24.6" font-family="Helvetica,sans-Serif" font-size="14.00">🐶 B1</text>
+</g>
+<!-- M0&#45;&#45;B1 -->
+<g id="edge3" class="edge">
+<title>M0--B1</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M51.43,-110.56C71.65,-92.59 101.66,-65.91 121.85,-47.96"/>
+</g>
+<!-- T1&#45;&#45;M1 -->
+<g id="edge4" class="edge">
+<title>T1--M1</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M144.4,-201.07C144.4,-187.04 144.4,-173.02 144.4,-159"/>
+</g>
+<!-- T2 -->
+<g id="node5" class="node">
+<title>T2</title>
+<ellipse fill="#f5f5f5" stroke="#757575" cx="260" cy="-230.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="260" y="-226.6" font-family="Helvetica,sans-Serif" font-size="14.00">T2</text>
+</g>
+<!-- T1&#45;&#45;T2 -->
+<g id="edge10" class="edge">
+<title>T1--T2</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M174.07,-230.8C191.42,-230.8 213.46,-230.8 230.74,-230.8"/>
+</g>
+<!-- M2 -->
+<g id="node6" class="node">
+<title>M2</title>
+<ellipse fill="#f5f5f5" stroke="#757575" cx="260" cy="-129.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="260" y="-125.6" font-family="Helvetica,sans-Serif" font-size="14.00">M2</text>
+</g>
+<!-- T1&#45;&#45;M2 -->
+<g id="edge16" class="edge">
+<title>T1--M2</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M167.03,-211.56C187.38,-193.48 217.64,-166.57 237.83,-148.62"/>
+</g>
+<!-- M1&#45;&#45;B1 -->
+<g id="edge5" class="edge">
+<title>M1--B1</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M144.4,-100.51C144.4,-86.47 144.4,-72.43 144.4,-58.39"/>
+</g>
+<!-- M1&#45;&#45;M2 -->
+<g id="edge12" class="edge">
+<title>M1--M2</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M173.48,-129.8C190.96,-129.8 213.36,-129.8 230.85,-129.8"/>
+</g>
+<!-- B1&#45;&#45;M2 -->
+<g id="edge18" class="edge">
+<title>B1--M2</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M167.03,-48.04C187.38,-66.12 217.64,-93.03 237.83,-110.98"/>
+</g>
+<!-- B2 -->
+<g id="node7" class="node">
+<title>B2</title>
+<ellipse fill="#f5f5f5" stroke="#757575" cx="260" cy="-28.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="260" y="-24.6" font-family="Helvetica,sans-Serif" font-size="14.00">B2</text>
+</g>
+<!-- B1&#45;&#45;B2 -->
+<g id="edge14" class="edge">
+<title>B1--B2</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M174.07,-28.8C191.42,-28.8 213.46,-28.8 230.74,-28.8"/>
+</g>
+<!-- T2&#45;&#45;M2 -->
+<g id="edge6" class="edge">
+<title>T2--M2</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M260,-201.63C260,-187.42 260,-173.21 260,-159"/>
+</g>
+<!-- T3 -->
+<g id="node8" class="node">
+<title>T3</title>
+<ellipse fill="#f5f5f5" stroke="#757575" cx="375.6" cy="-230.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="375.6" y="-226.6" font-family="Helvetica,sans-Serif" font-size="14.00">T3</text>
+</g>
+<!-- T2&#45;&#45;T3 -->
+<g id="edge11" class="edge">
+<title>T2--T3</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M289.08,-230.8C306.56,-230.8 328.96,-230.8 346.45,-230.8"/>
+</g>
+<!-- M2&#45;&#45;B2 -->
+<g id="edge7" class="edge">
+<title>M2--B2</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M260,-100.63C260,-86.42 260,-72.21 260,-58"/>
+</g>
+<!-- M2&#45;&#45;T3 -->
+<g id="edge19" class="edge">
+<title>M2--T3</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M282.1,-148.56C302.51,-166.7 333.25,-194.03 353.61,-212.14"/>
+</g>
+<!-- M3 -->
+<g id="node9" class="node">
+<title>M3</title>
+<ellipse fill="#f5f5f5" stroke="#757575" cx="375.6" cy="-129.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="375.6" y="-125.6" font-family="Helvetica,sans-Serif" font-size="14.00">M3</text>
+</g>
+<!-- M2&#45;&#45;M3 -->
+<g id="edge13" class="edge">
+<title>M2--M3</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M289.08,-129.8C306.56,-129.8 328.96,-129.8 346.45,-129.8"/>
+</g>
+<!-- B3 -->
+<g id="node10" class="node">
+<title>B3</title>
+<ellipse fill="#f5f5f5" stroke="#757575" cx="375.6" cy="-28.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="375.6" y="-24.6" font-family="Helvetica,sans-Serif" font-size="14.00">B3</text>
+</g>
+<!-- M2&#45;&#45;B3 -->
+<g id="edge17" class="edge">
+<title>M2--B3</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M282.1,-111.04C302.51,-92.9 333.25,-65.57 353.61,-47.46"/>
+</g>
+<!-- B2&#45;&#45;B3 -->
+<g id="edge15" class="edge">
+<title>B2--B3</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M289.08,-28.8C306.56,-28.8 328.96,-28.8 346.45,-28.8"/>
+</g>
+<!-- T3&#45;&#45;M3 -->
+<g id="edge8" class="edge">
+<title>T3--M3</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M375.6,-201.63C375.6,-187.42 375.6,-173.21 375.6,-159"/>
+</g>
+<!-- M4 -->
+<g id="node11" class="node">
+<title>M4</title>
+<ellipse fill="#ffcc80" stroke="#e65100" stroke-width="2.5" cx="491.2" cy="-129.8" rx="28.8" ry="28.8"/>
+<text xml:space="preserve" text-anchor="middle" x="491.2" y="-125.6" font-family="Helvetica,sans-Serif" font-size="14.00">🦊 M4</text>
+</g>
+<!-- T3&#45;&#45;M4 -->
+<g id="edge20" class="edge">
+<title>T3--M4</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M397.7,-212.04C417.85,-194.13 448.07,-167.25 468.44,-149.15"/>
+</g>
+<!-- M3&#45;&#45;B3 -->
+<g id="edge9" class="edge">
+<title>M3--B3</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M375.6,-100.63C375.6,-86.42 375.6,-72.21 375.6,-58"/>
+</g>
+<!-- M3&#45;&#45;M4 -->
+<g id="edge21" class="edge">
+<title>M3--M4</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M404.68,-129.8C421.9,-129.8 443.89,-129.8 461.26,-129.8"/>
+</g>
+<!-- B3&#45;&#45;M4 -->
+<g id="edge22" class="edge">
+<title>B3--M4</title>
+<path fill="none" stroke="#424242" stroke-width="1.5" d="M397.7,-47.56C417.85,-65.47 448.07,-92.35 468.44,-110.45"/>
+</g>
+</g>
+</svg>

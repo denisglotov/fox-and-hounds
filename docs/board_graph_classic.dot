@@ -1,0 +1,36 @@
+graph FoxAndHoundsClassic {
+    layout=dot;
+    rankdir=LR;
+    nodesep=0.6;
+    ranksep=0.8;
+
+    node [shape=circle, style=filled, fillcolor="#f5f5f5", color="#757575", fontname="Helvetica", width=0.8, fixedsize=true];
+    edge [color="#424242", penwidth=1.5];
+
+    // Explicit Column Rank Alignment (Left to Right)
+    { rank=same; M0 [label="🐶 M0", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0]; }
+    { rank=same; T1 [label="🐶 T1", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0]; M1; B1 [label="🐶 B1", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0]; }
+    { rank=same; T2; M2; B2; }
+    { rank=same; T3; M3; B3; }
+    { rank=same; M4 [label="🦊 M4", fillcolor="#ffcc80", color="#e65100", penwidth=2.5]; }
+
+    // Column 0 (Left Apex) <-> Column 1
+    M0 -- {T1; M1; B1};
+
+    // Vertical Column Edges
+    T1 -- M1 -- B1;
+    T2 -- M2 -- B2;
+    T3 -- M3 -- B3;
+
+    // Horizontal Track Edges
+    T1 -- T2 -- T3;
+    M1 -- M2 -- M3;
+    B1 -- B2 -- B3;
+
+    // Diagonal Edges (Centrally Symmetric Diamond Grid through Center M2)
+    T1 -- M2 -- B3;
+    B1 -- M2 -- T3;
+
+    // Column 3 <-> Column 4 (Right Apex)
+    {T3; M3; B3} -- M4;
+}

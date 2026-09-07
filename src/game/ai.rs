@@ -10,6 +10,7 @@ pub struct BoardSnapshot {
     pub hounds_pos: [usize; 3],
     pub coop_pos: usize,
     pub current_turn: Faction,
+    pub allow_hound_retreat: bool,
 }
 
 impl BoardSnapshot {
@@ -23,6 +24,7 @@ impl BoardSnapshot {
             hounds_pos: hounds,
             coop_pos: state.coop_pos,
             current_turn: state.current_turn,
+            allow_hound_retreat: state.variant.config().allow_hound_retreat,
         }
     }
 
@@ -36,7 +38,13 @@ impl BoardSnapshot {
         hound_idx: usize,
     ) -> impl Iterator<Item = usize> + 'a {
         let pos = self.hounds_pos[hound_idx];
-        graph.hound_legal_moves(pos, self.fox_pos, self.coop_pos, &self.hounds_pos)
+        graph.hound_legal_moves(
+            pos,
+            self.fox_pos,
+            self.coop_pos,
+            &self.hounds_pos,
+            self.allow_hound_retreat,
+        )
     }
 
     pub fn all_hound_moves<'a>(
@@ -55,6 +63,7 @@ impl BoardSnapshot {
             hounds_pos: self.hounds_pos,
             coop_pos: self.coop_pos,
             current_turn: Faction::Hounds,
+            allow_hound_retreat: self.allow_hound_retreat,
         }
     }
 
@@ -66,6 +75,7 @@ impl BoardSnapshot {
             hounds_pos: new_hounds,
             coop_pos: self.coop_pos,
             current_turn: Faction::Fox,
+            allow_hound_retreat: self.allow_hound_retreat,
         }
     }
 }
@@ -248,8 +258,8 @@ pub fn minimax(
     } else {
         let mut hound_moves = board.all_hound_moves(graph).peekable();
         if hound_moves.peek().is_none() {
-            // Hounds have no moves, treat as neutral/evaluate
-            return evaluate_board(board, graph, coop_pos);
+            // Hounds have no moves on their turn: Fox wins immediately
+            return WIN_SCORE + (depth as i32 * 100);
         }
 
         if depth == 0 {

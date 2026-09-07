@@ -4,6 +4,11 @@
   "title_screen": {
     "title": "FOX & HOUNDS",
     "subtitle": "Tactical Graph Strategy",
+    "board_variant": "BOARD VARIANT",
+    "variant_classic": "Classic",
+    "variant_classic_sub": "No retreat",
+    "variant_river_crossing": "The river crossing",
+    "variant_river_crossing_sub": "Free movement",
     "choose_faction": "CHOOSE YOUR FACTION",
     "fox_title": "🦊 The Fox",
     "fox_subtitle": "Infiltrate Coop",
@@ -26,7 +31,7 @@
     "defeat": "DEFEAT!",
     "fox_won_msg": "🦊 The Fox reached the Chicken Coop!",
     "hounds_won_msg": "🐶 The Hounds encircled and trapped the Fox!",
-    "stats_template": "Completed in {turns} turns • {difficulty} AI",
+    "stats_template": "Completed in {turns} turns • {difficulty} AI • {variant}",
     "play_again": "PLAY AGAIN",
     "main_menu": "MAIN MENU"
   }

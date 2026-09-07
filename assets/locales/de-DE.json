@@ -4,6 +4,11 @@
   "title_screen": {
     "title": "FUCHS UND HUNDE",
     "subtitle": "Taktische Graphen-Strategie",
+    "board_variant": "BRETT-VARIANTE",
+    "variant_classic": "Klassisch",
+    "variant_classic_sub": "Kein Rückzug",
+    "variant_river_crossing": "Die Flussüberquerung",
+    "variant_river_crossing_sub": "Freie Bewegung",
     "choose_faction": "FRAKTION WÄHLEN",
     "fox_title": "🦊 Der Fuchs",
     "fox_subtitle": "In den Stall schleichen",
@@ -26,7 +31,7 @@
     "defeat": "NIEDERLAGE!",
     "fox_won_msg": "🦊 Der Fuchs hat den Hühnerstall erreicht!",
     "hounds_won_msg": "🐶 Die Hunde haben den Fuchs eingekesselt!",
-    "stats_template": "In {turns} Zügen beendet • KI: {difficulty}",
+    "stats_template": "In {turns} Zügen beendet • KI: {difficulty} • {variant}",
     "play_again": "NOCHMAL SPIELEN",
     "main_menu": "HAUPTMENÜ"
   }

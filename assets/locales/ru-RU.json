@@ -4,6 +4,11 @@
   "title_screen": {
     "title": "ЛИСА И ГОНЧИЕ",
     "subtitle": "Тактическая графовая стратегия",
+    "board_variant": "ВАРИАНТ ИГРЫ",
+    "variant_classic": "Классика",
+    "variant_classic_sub": "Без отступления",
+    "variant_river_crossing": "Переправа через реку",
+    "variant_river_crossing_sub": "Свободно",
     "choose_faction": "ВЫБЕРИТЕ СТОРОНУ",
     "fox_title": "🦊 Лис",
     "fox_subtitle": "Пробраться в курятник",
@@ -26,7 +31,7 @@
     "defeat": "ПОРАЖЕНИЕ!",
     "fox_won_msg": "🦊 Лис пробрался в курятник!",
     "hounds_won_msg": "🐶 Гончие окружили и заблокировали лиса!",
-    "stats_template": "Завершено за {turns} ходов • ИИ: {difficulty}",
+    "stats_template": "Завершено за {turns} ходов • ИИ: {difficulty} • {variant}",
     "play_again": "СЫГРАТЬ СНОВА",
     "main_menu": "ГЛАВНОЕ МЕНЮ"
   }

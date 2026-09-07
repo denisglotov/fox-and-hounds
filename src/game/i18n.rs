@@ -6,6 +6,11 @@ use std::sync::OnceLock;
 pub struct TitleScreenStrings {
     pub title: String,
     pub subtitle: String,
+    pub board_variant: String,
+    pub variant_classic: String,
+    pub variant_classic_sub: String,
+    pub variant_river_crossing: String,
+    pub variant_river_crossing_sub: String,
     pub choose_faction: String,
     pub fox_title: String,
     pub fox_subtitle: String,
@@ -24,6 +29,20 @@ impl TitleScreenStrings {
             Difficulty::Easy => &self.difficulty_easy,
             Difficulty::Medium => &self.difficulty_medium,
             Difficulty::Hard => &self.difficulty_hard,
+        }
+    }
+
+    pub fn variant_name(&self, variant: crate::game::level::BoardVariant) -> &str {
+        match variant {
+            crate::game::level::BoardVariant::Classic => &self.variant_classic,
+            crate::game::level::BoardVariant::RiverCrossing => &self.variant_river_crossing,
+        }
+    }
+
+    pub fn variant_sub(&self, variant: crate::game::level::BoardVariant) -> &str {
+        match variant {
+            crate::game::level::BoardVariant::Classic => &self.variant_classic_sub,
+            crate::game::level::BoardVariant::RiverCrossing => &self.variant_river_crossing_sub,
         }
     }
 }
@@ -54,10 +73,11 @@ pub struct GameOverStrings {
 }
 
 impl GameOverStrings {
-    pub fn format_stats(&self, turns: usize, difficulty: &str) -> String {
+    pub fn format_stats(&self, turns: usize, difficulty: &str, variant: &str) -> String {
         self.stats_template
             .replace("{turns}", &turns.to_string())
             .replace("{difficulty}", difficulty)
+            .replace("{variant}", variant)
     }
 }
 
@@ -73,6 +93,14 @@ pub struct LocaleStrings {
 impl LocaleStrings {
     pub fn difficulty_name(&self, difficulty: Difficulty) -> &str {
         self.title_screen.difficulty_name(difficulty)
+    }
+
+    pub fn variant_name(&self, variant: crate::game::level::BoardVariant) -> &str {
+        self.title_screen.variant_name(variant)
+    }
+
+    pub fn variant_sub(&self, variant: crate::game::level::BoardVariant) -> &str {
+        self.title_screen.variant_sub(variant)
     }
 }
 
@@ -391,6 +419,11 @@ mod tests {
             // Title screen
             assert!(!loc.title_screen.title.is_empty());
             assert!(!loc.title_screen.subtitle.is_empty());
+            assert!(!loc.title_screen.board_variant.is_empty());
+            assert!(!loc.title_screen.variant_classic.is_empty());
+            assert!(!loc.title_screen.variant_classic_sub.is_empty());
+            assert!(!loc.title_screen.variant_river_crossing.is_empty());
+            assert!(!loc.title_screen.variant_river_crossing_sub.is_empty());
             assert!(!loc.title_screen.choose_faction.is_empty());
             assert!(!loc.title_screen.fox_title.is_empty());
             assert!(!loc.title_screen.fox_subtitle.is_empty());
@@ -425,9 +458,11 @@ mod tests {
                 loc.locale
             );
 
-            let stats_text = loc.game_over.format_stats(12, "Medium");
+            let stats_text = loc.game_over.format_stats(12, "Medium", "Classic");
             assert!(
-                stats_text.contains("12") && stats_text.contains("Medium"),
+                stats_text.contains("12")
+                    && stats_text.contains("Medium")
+                    && stats_text.contains("Classic"),
                 "Stats string missing placeholders in {}",
                 loc.locale
             );
@@ -640,6 +675,11 @@ mod tests {
             let mut all_strings = vec![
                 &loc.title_screen.title,
                 &loc.title_screen.subtitle,
+                &loc.title_screen.board_variant,
+                &loc.title_screen.variant_classic,
+                &loc.title_screen.variant_classic_sub,
+                &loc.title_screen.variant_river_crossing,
+                &loc.title_screen.variant_river_crossing_sub,
                 &loc.title_screen.choose_faction,
                 &loc.title_screen.fox_title,
                 &loc.title_screen.fox_subtitle,

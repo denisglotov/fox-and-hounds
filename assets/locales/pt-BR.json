@@ -4,6 +4,11 @@
   "title_screen": {
     "title": "A RAPOSA E OS SABUJOS",
     "subtitle": "Estratégia tática em grafos",
+    "board_variant": "VARIANTE DO TABULEIRO",
+    "variant_classic": "Clássico",
+    "variant_classic_sub": "Sem recuo",
+    "variant_river_crossing": "A travessia do rio",
+    "variant_river_crossing_sub": "Movimento livre",
     "choose_faction": "ESCOLHA SEU LADO",
     "fox_title": "🦊 A Raposa",
     "fox_subtitle": "Infiltrar no galinheiro",
@@ -26,7 +31,7 @@
     "defeat": "DERROTA!",
     "fox_won_msg": "🦊 A Raposa alcançou o galinheiro!",
     "hounds_won_msg": "🐶 Os Sabujos cercaram e encurralaram a Raposa!",
-    "stats_template": "Concluído em {turns} turnos • IA: {difficulty}",
+    "stats_template": "Concluído em {turns} turnos • IA: {difficulty} • {variant}",
     "play_again": "JOGAR NOVAMENTE",
     "main_menu": "MENU PRINCIPAL"
   }

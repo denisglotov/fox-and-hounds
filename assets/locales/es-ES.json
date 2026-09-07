@@ -4,6 +4,11 @@
   "title_screen": {
     "title": "EL ZORRO Y LOS SABUESOS",
     "subtitle": "Estrategia táctica en grafos",
+    "board_variant": "VARIANTE DEL TABLERO",
+    "variant_classic": "Clásico",
+    "variant_classic_sub": "Sin retirada",
+    "variant_river_crossing": "El cruce del río",
+    "variant_river_crossing_sub": "Movimiento libre",
     "choose_faction": "ELIGE TU BANDO",
     "fox_title": "🦊 El Zorro",
     "fox_subtitle": "Entrar al gallinero",
@@ -26,7 +31,7 @@
     "defeat": "¡DERROTA!",
     "fox_won_msg": "¡🦊 El Zorro llegó al gallinero!",
     "hounds_won_msg": "¡🐶 Los Sabuesos acorralaron y atraparon al Zorro!",
-    "stats_template": "Completado en {turns} turnos • IA: {difficulty}",
+    "stats_template": "Completado en {turns} turnos • IA: {difficulty} • {variant}",
     "play_again": "JUGAR DE NUEVO",
     "main_menu": "MENÚ PRINCIPAL"
   }
