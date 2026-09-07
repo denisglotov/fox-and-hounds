@@ -18,6 +18,7 @@ pub struct RiverSample {
 /// Parameterized river spline curve with arc-length mapping.
 #[derive(Debug, Clone)]
 pub struct RiverPath {
+    pub variant: BoardVariant,
     pub samples: Vec<RiverSample>,
     pub total_length: f32,
 }
@@ -42,24 +43,57 @@ impl RiverPath {
 
     pub fn classic() -> Self {
         let control_points = [
-            (Vec2::new(180.0, 0.0), 16.0),
-            (Vec2::new(210.0, 80.0), 16.0),
-            (Vec2::new(245.0, 170.0), 16.0),
-            (Vec2::new(280.0, 260.0), 16.0),
-            (Vec2::new(315.0, 350.0), 16.0),
-            (Vec2::new(400.0, 400.0), 14.0),
-            (Vec2::new(460.0, 425.0), 14.0),
-            (Vec2::new(515.0, 445.0), 14.0),
-            (Vec2::new(565.0, 470.0), 14.0),
-            (Vec2::new(580.0, 510.0), 14.0),
-            (Vec2::new(615.0, 580.0), 14.0),
-            (Vec2::new(650.0, 660.0), 16.0),
-            (Vec2::new(690.0, 750.0), 18.0),
-            (Vec2::new(735.0, 850.0), 20.0),
-            (Vec2::new(760.0, 940.0), 22.0),
-            (Vec2::new(780.0, 1024.0), 24.0),
+            // Top entrance from northwestern forest
+            (Vec2::new(185.0, 0.0), 16.0),
+            (Vec2::new(210.0, 60.0), 16.0),
+            (Vec2::new(228.0, 120.0), 16.0),
+            (Vec2::new(246.0, 180.0), 16.0),
+            (Vec2::new(260.0, 240.0), 16.0),
+            (Vec2::new(278.0, 300.0), 16.0),
+            (Vec2::new(295.0, 355.0), 15.0),
+            // Bridge 1: M0-T1
+            (Vec2::new(314.0, 411.0), 15.0),
+            (Vec2::new(345.0, 418.0), 18.0),
+            // Bridge 2: T1-M1
+            (Vec2::new(375.5, 419.5), 16.0),
+            (Vec2::new(410.0, 420.0), 18.0),
+            // Bridge 3: T1-M2
+            (Vec2::new(443.0, 419.5), 16.0),
+            (Vec2::new(478.0, 416.0), 16.0),
+            // Bridge 4: T2-M2
+            (Vec2::new(510.5, 414.0), 14.0),
+            (Vec2::new(540.0, 422.0), 14.0),
+            // Bridge 5: M2-T3
+            (Vec2::new(566.0, 442.0), 14.0),
+            (Vec2::new(576.0, 475.0), 15.0),
+            // Bridge 6: M2-M3
+            (Vec2::new(577.5, 510.0), 15.0),
+            // Channel between M2-M3 and M3-B3
+            (Vec2::new(586.0, 535.0), 15.0),
+            (Vec2::new(602.0, 555.0), 15.0),
+            (Vec2::new(622.0, 572.0), 14.0),
+            // Bridge 7: M3-B3
+            (Vec2::new(645.5, 586.0), 14.0),
+            // Channel between Bridge 7 and Bridge 8
+            (Vec2::new(676.0, 592.0), 14.0),
+            // Bridge 8: B3-M4
+            (Vec2::new(710.0, 602.0), 14.0),
+            // Channel after Bridge 8
+            (Vec2::new(722.0, 638.0), 13.0),
+            (Vec2::new(725.0, 670.0), 13.0),
+            (Vec2::new(718.0, 710.0), 13.0),
+            (Vec2::new(708.0, 742.0), 14.0),
+            // Whitewater frame notch
+            (Vec2::new(701.0, 768.0), 14.0),
+            // Southeastern forest outflow
+            (Vec2::new(710.0, 815.0), 16.0),
+            (Vec2::new(728.0, 860.0), 17.0),
+            (Vec2::new(748.0, 905.0), 18.0),
+            (Vec2::new(760.0, 950.0), 20.0),
+            (Vec2::new(772.0, 990.0), 22.0),
+            (Vec2::new(782.0, 1024.0), 24.0),
         ];
-        Self::from_control_points(&control_points)
+        Self::from_control_points(BoardVariant::Classic, &control_points)
     }
 
     pub fn river_crossing() -> Self {
@@ -94,10 +128,10 @@ impl RiverPath {
             (Vec2::new(1008.0, 662.0), 22.0),
             (Vec2::new(1024.0, 658.0), 20.0),
         ];
-        Self::from_control_points(&control_points)
+        Self::from_control_points(BoardVariant::RiverCrossing, &control_points)
     }
 
-    pub fn from_control_points(control_points: &[(Vec2, f32)]) -> Self {
+    pub fn from_control_points(variant: BoardVariant, control_points: &[(Vec2, f32)]) -> Self {
         let n = control_points.len();
         let mut raw_points = Vec::with_capacity(SPLINE_SAMPLES);
 
@@ -161,6 +195,7 @@ impl RiverPath {
 
         let total_length = cum_dist;
         Self {
+            variant,
             samples,
             total_length,
         }
@@ -206,9 +241,16 @@ impl RiverPath {
         (channel_pos, tangent, normal, half_width)
     }
 
-    /// Check if a position is occluded beneath either the railway bridge or the M6 bottleneck bridge.
+    /// Check if a position is occluded beneath a bridge deck.
     /// Returns an occlusion factor in [0.0, 1.0], where 1.0 is fully under the bridge deck.
     pub fn bridge_occlusion(&self, pos: Vec2) -> f32 {
+        match self.variant {
+            BoardVariant::Classic => classic_bridge_occlusion(pos),
+            BoardVariant::RiverCrossing => self.river_crossing_bridge_occlusion(pos),
+        }
+    }
+
+    fn river_crossing_bridge_occlusion(&self, pos: Vec2) -> f32 {
         // Railroad bridge region (train track centered at x = 40.0, deck span x in [0.0, 85.0], y in [790.0, 905.0])
         let in_rail_bridge = pos.x >= 0.0 && pos.x <= 85.0 && pos.y >= 790.0 && pos.y <= 905.0;
         if in_rail_bridge {
@@ -226,6 +268,108 @@ impl RiverPath {
 
         0.0
     }
+}
+
+/// Oriented bounding box representation for bridge deck occlusion.
+#[derive(Debug, Clone, Copy)]
+struct BridgeBox {
+    center: Vec2,
+    dir: Vec2,
+    half_len: f32,
+    half_width: f32,
+    fade: f32,
+}
+
+impl BridgeBox {
+    fn occlusion(&self, pos: Vec2) -> f32 {
+        let delta = pos - self.center;
+        let u = (delta.dot(self.dir)).abs();
+        let perp = Vec2::new(-self.dir.y, self.dir.x);
+        let v = (delta.dot(perp)).abs();
+
+        if u <= self.half_len && v <= self.half_width {
+            let u_dist = self.half_len - u;
+            let v_dist = self.half_width - v;
+            (u_dist.min(v_dist) / self.fade).clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
+    }
+}
+
+/// The 8 bridges crossing the river in the Classic theme.
+const CLASSIC_BRIDGES: [BridgeBox; 8] = [
+    // Bridge 1: M0 - T1 (diagonal)
+    BridgeBox {
+        center: Vec2::new(314.0, 411.0),
+        dir: Vec2::new(0.590, -0.807),
+        half_len: 36.0,
+        half_width: 24.0,
+        fade: 6.0,
+    },
+    // Bridge 2: T1 - M1 (vertical)
+    BridgeBox {
+        center: Vec2::new(375.5, 419.5),
+        dir: Vec2::new(-0.006, 1.000),
+        half_len: 36.0,
+        half_width: 24.0,
+        fade: 6.0,
+    },
+    // Bridge 3: T1 - M2 (diagonal)
+    BridgeBox {
+        center: Vec2::new(443.0, 419.5),
+        dir: Vec2::new(0.595, 0.804),
+        half_len: 36.0,
+        half_width: 24.0,
+        fade: 6.0,
+    },
+    // Bridge 4: T2 - M2 (vertical)
+    BridgeBox {
+        center: Vec2::new(510.5, 414.0),
+        dir: Vec2::new(-0.006, 1.000),
+        half_len: 36.0,
+        half_width: 20.0,
+        fade: 6.0,
+    },
+    // Bridge 5: M2 - T3 (diagonal)
+    BridgeBox {
+        center: Vec2::new(566.0, 442.0),
+        dir: Vec2::new(0.605, -0.796),
+        half_len: 36.0,
+        half_width: 22.0,
+        fade: 6.0,
+    },
+    // Bridge 6: M2 - M3 (horizontal)
+    BridgeBox {
+        center: Vec2::new(577.5, 510.0),
+        dir: Vec2::new(1.000, 0.000),
+        half_len: 44.0,
+        half_width: 24.0,
+        fade: 6.0,
+    },
+    // Bridge 7: M3 - B3 (vertical)
+    BridgeBox {
+        center: Vec2::new(645.5, 600.0),
+        dir: Vec2::new(0.006, 1.000),
+        half_len: 36.0,
+        half_width: 20.0,
+        fade: 6.0,
+    },
+    // Bridge 8: B3 - M4 (diagonal)
+    BridgeBox {
+        center: Vec2::new(712.0, 602.0),
+        dir: Vec2::new(0.591, -0.806),
+        half_len: 38.0,
+        half_width: 22.0,
+        fade: 6.0,
+    },
+];
+
+fn classic_bridge_occlusion(pos: Vec2) -> f32 {
+    CLASSIC_BRIDGES
+        .iter()
+        .map(|bridge| bridge.occlusion(pos))
+        .fold(0.0, f32::max)
 }
 
 fn catmull_rom(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: f32) -> Vec2 {
