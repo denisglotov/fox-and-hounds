@@ -57,3 +57,8 @@ serve: install-wasm
 
 # Run complete CI test suite (formatting, clippy, tests)
 ci: fmt-check clippy test
+
+# Re-subset font from system Arial Unicode MS for all current locale strings
+subset-font:
+    python3 scripts/subset-font.py
+
