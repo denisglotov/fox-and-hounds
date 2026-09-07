@@ -1,3 +1,4 @@
+use crate::game::level::BoardVariant;
 use macroquad::prelude::*;
 
 const SPLINE_SAMPLES: usize = 480;
@@ -29,6 +30,39 @@ impl Default for RiverPath {
 
 impl RiverPath {
     pub fn new() -> Self {
+        Self::river_crossing()
+    }
+
+    pub fn for_variant(variant: BoardVariant) -> Self {
+        match variant {
+            BoardVariant::Classic => Self::classic(),
+            BoardVariant::RiverCrossing => Self::river_crossing(),
+        }
+    }
+
+    pub fn classic() -> Self {
+        let control_points = [
+            (Vec2::new(180.0, 0.0), 16.0),
+            (Vec2::new(210.0, 80.0), 16.0),
+            (Vec2::new(245.0, 170.0), 16.0),
+            (Vec2::new(280.0, 260.0), 16.0),
+            (Vec2::new(315.0, 350.0), 16.0),
+            (Vec2::new(400.0, 400.0), 14.0),
+            (Vec2::new(460.0, 425.0), 14.0),
+            (Vec2::new(515.0, 445.0), 14.0),
+            (Vec2::new(565.0, 470.0), 14.0),
+            (Vec2::new(580.0, 510.0), 14.0),
+            (Vec2::new(615.0, 580.0), 14.0),
+            (Vec2::new(650.0, 660.0), 16.0),
+            (Vec2::new(690.0, 750.0), 18.0),
+            (Vec2::new(735.0, 850.0), 20.0),
+            (Vec2::new(760.0, 940.0), 22.0),
+            (Vec2::new(780.0, 1024.0), 24.0),
+        ];
+        Self::from_control_points(&control_points)
+    }
+
+    pub fn river_crossing() -> Self {
         // Control points: (x, y, half_width) defining the continuous river channel across the board artwork
         let control_points = [
             // Left margin (x = -384.0 .. 0.0)
@@ -60,7 +94,10 @@ impl RiverPath {
             (Vec2::new(1008.0, 662.0), 22.0),
             (Vec2::new(1024.0, 658.0), 20.0),
         ];
+        Self::from_control_points(&control_points)
+    }
 
+    pub fn from_control_points(control_points: &[(Vec2, f32)]) -> Self {
         let n = control_points.len();
         let mut raw_points = Vec::with_capacity(SPLINE_SAMPLES);
 
@@ -219,6 +256,17 @@ impl RiverSimulation {
             path: RiverPath::new(),
             elapsed_time: 0.0,
         }
+    }
+
+    pub fn for_variant(variant: BoardVariant) -> Self {
+        Self {
+            path: RiverPath::for_variant(variant),
+            elapsed_time: 0.0,
+        }
+    }
+
+    pub fn set_path(&mut self, path: RiverPath) {
+        self.path = path;
     }
 
     pub fn update(&mut self, dt: f32) {

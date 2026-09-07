@@ -1,14 +1,15 @@
 use fox_and_hounds::game::ai::{find_best_move, BoardSnapshot};
 use fox_and_hounds::game::graph::NodeType;
 use fox_and_hounds::game::level::{
-    build_river_crossing_graph, BoardVariant, CLASSIC_CONFIG, RIVER_CROSSING_CONFIG,
+    build_classic_graph, build_river_crossing_graph, BoardVariant, CLASSIC_CONFIG,
+    RIVER_CROSSING_CONFIG,
 };
 use fox_and_hounds::game::state::{
     Difficulty, Faction, GamePhase, GameResult, GameState, MoveError,
 };
 
 #[test]
-fn test_graph_structure() {
+fn test_river_crossing_graph_structure() {
     let graph = build_river_crossing_graph();
     assert_eq!(graph.node_count(), 24);
 
@@ -38,41 +39,96 @@ fn test_graph_structure() {
 }
 
 #[test]
+fn test_classic_graph_structure() {
+    let graph = build_classic_graph();
+    assert_eq!(graph.node_count(), 11);
+
+    // M0 should be TargetCoop (Left Apex)
+    let m0_idx = graph.find_id_by_name("M0").expect("M0 should exist");
+    let m0_node = graph.node(m0_idx).unwrap();
+    assert_eq!(m0_node.node_type, NodeType::TargetCoop);
+    assert_eq!(m0_node.row, 0);
+
+    // M4 should be FoxStart (Right Apex)
+    let m4_idx = graph.find_id_by_name("M4").expect("M4 should exist");
+    let m4_node = graph.node(m4_idx).unwrap();
+    assert_eq!(m4_node.node_type, NodeType::FoxStart);
+    assert_eq!(m4_node.row, 4);
+
+    // M0 neighbors: T1, M1, B1 (degree 3)
+    assert_eq!(graph.neighbors(m0_idx).len(), 3);
+    // M4 neighbors: T3, M3, B3 (degree 3)
+    assert_eq!(graph.neighbors(m4_idx).len(), 3);
+
+    // M2 center hub neighbors: T2, B2, M1, M3, T1, B3, B1, T3 (degree 8)
+    let m2_idx = graph.find_id_by_name("M2").expect("M2 should exist");
+    assert_eq!(graph.neighbors(m2_idx).len(), 8);
+
+    // Total directed edge entries / 2 = 22 undirected edges
+    let total_edges: usize = (0..graph.node_count())
+        .map(|id| graph.neighbors(id).len())
+        .sum::<usize>()
+        / 2;
+    assert_eq!(total_edges, 22);
+
+    // Shortest distance from M4 to M0 with no obstacles should be 4
+    let dist = graph
+        .shortest_distance(m4_idx, m0_idx, &[])
+        .expect("Path should exist");
+    assert_eq!(dist, 4);
+}
+
+#[test]
 fn test_initial_state_and_legal_moves() {
+    // 1. Classic variant (default)
     let mut state = GameState::new();
     state.start_game(Faction::Fox, Difficulty::Medium);
 
+    assert_eq!(state.variant, BoardVariant::Classic);
     assert_eq!(state.current_turn, Faction::Fox);
     assert_eq!(state.result, GameResult::Ongoing);
     assert_eq!(state.phase, GamePhase::Playing);
 
-    // Fox starts at M9 (Row 9)
-    // Neighbors of M9 are L8, M8, R8
+    // Fox starts at M4 (Row 4). Neighbors are T3, M3, B3
     let legal_fox_moves = state.fox_legal_moves();
     assert_eq!(legal_fox_moves.len(), 3);
 
-    // Make a legal move to M8
-    let m8_idx = state.graph.find_id_by_name("M8").unwrap();
-    assert!(legal_fox_moves.contains(&m8_idx));
-    assert!(state.apply_fox_move(m8_idx).is_ok());
+    // Make a legal move to M3
+    let m3_idx = state.graph.find_id_by_name("M3").unwrap();
+    assert!(legal_fox_moves.contains(&m3_idx));
+    assert!(state.apply_fox_move(m3_idx).is_ok());
 
-    assert_eq!(state.fox_pos, m8_idx);
+    assert_eq!(state.fox_pos, m3_idx);
     assert_eq!(state.current_turn, Faction::Hounds);
+
+    // 2. River Crossing variant
+    let mut river_state = GameState::new();
+    river_state.switch_variant(BoardVariant::RiverCrossing);
+    river_state.start_game(Faction::Fox, Difficulty::Medium);
+
+    assert_eq!(river_state.variant, BoardVariant::RiverCrossing);
+    let legal_river_moves = river_state.fox_legal_moves();
+    assert_eq!(legal_river_moves.len(), 3);
+    let m8_idx = river_state.graph.find_id_by_name("M8").unwrap();
+    assert!(legal_river_moves.contains(&m8_idx));
+    assert!(river_state.apply_fox_move(m8_idx).is_ok());
+    assert_eq!(river_state.fox_pos, m8_idx);
+    assert_eq!(river_state.current_turn, Faction::Hounds);
 }
 
 #[test]
 fn test_fox_victory_condition() {
+    // 1. Classic variant
     let mut state = GameState::new();
     state.start_game(Faction::Fox, Difficulty::Medium);
 
-    // Place Fox adjacent to M0 (e.g. at M1) and hounds elsewhere
     let m1_idx = state.graph.find_id_by_name("M1").unwrap();
     let m0_idx = state.graph.find_id_by_name("M0").unwrap();
     state.fox_pos = m1_idx;
     state.hounds_pos = vec![
-        state.graph.find_id_by_name("L4").unwrap(),
-        state.graph.find_id_by_name("M4").unwrap(),
-        state.graph.find_id_by_name("R4").unwrap(),
+        state.graph.find_id_by_name("T3").unwrap(),
+        state.graph.find_id_by_name("M3").unwrap(),
+        state.graph.find_id_by_name("B3").unwrap(),
     ];
     state.current_turn = Faction::Fox;
 
@@ -82,34 +138,76 @@ fn test_fox_victory_condition() {
     assert!(state.apply_fox_move(m0_idx).is_ok());
     assert_eq!(state.result, GameResult::FoxWon);
     assert_eq!(state.phase, GamePhase::GameOver);
+
+    // 2. River Crossing variant
+    let mut river_state = GameState::new();
+    river_state.switch_variant(BoardVariant::RiverCrossing);
+    river_state.start_game(Faction::Fox, Difficulty::Medium);
+
+    let r_m1_idx = river_state.graph.find_id_by_name("M1").unwrap();
+    let r_m0_idx = river_state.graph.find_id_by_name("M0").unwrap();
+    river_state.fox_pos = r_m1_idx;
+    river_state.hounds_pos = vec![
+        river_state.graph.find_id_by_name("L4").unwrap(),
+        river_state.graph.find_id_by_name("M4").unwrap(),
+        river_state.graph.find_id_by_name("R4").unwrap(),
+    ];
+    river_state.current_turn = Faction::Fox;
+
+    let r_legal = river_state.fox_legal_moves();
+    assert!(r_legal.contains(&r_m0_idx));
+    assert!(river_state.apply_fox_move(r_m0_idx).is_ok());
+    assert_eq!(river_state.result, GameResult::FoxWon);
+    assert_eq!(river_state.phase, GamePhase::GameOver);
 }
 
 #[test]
 fn test_hounds_trap_victory_condition() {
+    // 1. Classic variant: Fox at M4 trapped by hounds on T3, M3, B3
     let mut state = GameState::new();
     state.start_game(Faction::Hounds, Difficulty::Medium);
 
-    // Trap fox in corner (e.g. M9 surrounded by L8, M8, R8)
-    let m9_idx = state.graph.find_id_by_name("M9").unwrap();
-    state.fox_pos = m9_idx;
+    let m4_idx = state.graph.find_id_by_name("M4").unwrap();
+    state.fox_pos = m4_idx;
     state.hounds_pos = vec![
-        state.graph.find_id_by_name("L8").unwrap(),
-        state.graph.find_id_by_name("M8").unwrap(),
-        state.graph.find_id_by_name("R8").unwrap(),
+        state.graph.find_id_by_name("T3").unwrap(),
+        state.graph.find_id_by_name("M3").unwrap(),
+        state.graph.find_id_by_name("B3").unwrap(),
     ];
     state.current_turn = Faction::Fox;
 
-    // Fox has zero legal moves
     let legal = state.fox_legal_moves();
     assert!(legal.is_empty());
 
     state.evaluate_game_result();
     assert_eq!(state.result, GameResult::HoundsWon);
     assert_eq!(state.phase, GamePhase::GameOver);
+
+    // 2. River Crossing variant: Fox at M9 trapped by hounds on L8, M8, R8
+    let mut river_state = GameState::new();
+    river_state.switch_variant(BoardVariant::RiverCrossing);
+    river_state.start_game(Faction::Hounds, Difficulty::Medium);
+
+    let m9_idx = river_state.graph.find_id_by_name("M9").unwrap();
+    river_state.fox_pos = m9_idx;
+    river_state.hounds_pos = vec![
+        river_state.graph.find_id_by_name("L8").unwrap(),
+        river_state.graph.find_id_by_name("M8").unwrap(),
+        river_state.graph.find_id_by_name("R8").unwrap(),
+    ];
+    river_state.current_turn = Faction::Fox;
+
+    let r_legal = river_state.fox_legal_moves();
+    assert!(r_legal.is_empty());
+
+    river_state.evaluate_game_result();
+    assert_eq!(river_state.result, GameResult::HoundsWon);
+    assert_eq!(river_state.phase, GamePhase::GameOver);
 }
 
 #[test]
 fn test_ai_finds_immediate_winning_move() {
+    // 1. Classic
     let mut state = GameState::new();
     state.start_game(Faction::Hounds, Difficulty::Hard); // Player is Hounds, AI is Fox
 
@@ -117,9 +215,9 @@ fn test_ai_finds_immediate_winning_move() {
     let m0_idx = state.graph.find_id_by_name("M0").unwrap();
     state.fox_pos = m1_idx;
     state.hounds_pos = vec![
-        state.graph.find_id_by_name("L4").unwrap(),
-        state.graph.find_id_by_name("M4").unwrap(),
-        state.graph.find_id_by_name("R4").unwrap(),
+        state.graph.find_id_by_name("T3").unwrap(),
+        state.graph.find_id_by_name("M3").unwrap(),
+        state.graph.find_id_by_name("B3").unwrap(),
     ];
     state.current_turn = Faction::Fox;
 
@@ -128,11 +226,34 @@ fn test_ai_finds_immediate_winning_move() {
         best_move,
         Some(fox_and_hounds::game::state::PieceMove::FoxMove { to: m0_idx })
     );
+
+    // 2. River Crossing
+    let mut river_state = GameState::new();
+    river_state.switch_variant(BoardVariant::RiverCrossing);
+    river_state.start_game(Faction::Hounds, Difficulty::Hard);
+
+    let r_m1_idx = river_state.graph.find_id_by_name("M1").unwrap();
+    let r_m0_idx = river_state.graph.find_id_by_name("M0").unwrap();
+    river_state.fox_pos = r_m1_idx;
+    river_state.hounds_pos = vec![
+        river_state.graph.find_id_by_name("L4").unwrap(),
+        river_state.graph.find_id_by_name("M4").unwrap(),
+        river_state.graph.find_id_by_name("R4").unwrap(),
+    ];
+    river_state.current_turn = Faction::Fox;
+
+    let r_best = find_best_move(&river_state);
+    assert_eq!(
+        r_best,
+        Some(fox_and_hounds::game::state::PieceMove::FoxMove { to: r_m0_idx })
+    );
 }
 
 #[test]
 fn test_hounds_cannot_occupy_chicken_coop() {
+    // 1. River Crossing: hounds start at L1, M1, R1 and cannot move to M0
     let mut state = GameState::new();
+    state.switch_variant(BoardVariant::RiverCrossing);
     state.start_game(Faction::Hounds, Difficulty::Hard);
 
     let m0_idx = state.graph.find_id_by_name("M0").unwrap();
@@ -140,16 +261,13 @@ fn test_hounds_cannot_occupy_chicken_coop() {
     let m1_idx = state.graph.find_id_by_name("M1").unwrap();
     let r1_idx = state.graph.find_id_by_name("R1").unwrap();
 
-    // Hounds start at L1, M1, R1 - all adjacent to M0 (Chicken Coop)
     assert_eq!(state.hounds_pos, vec![l1_idx, m1_idx, r1_idx]);
     assert_eq!(state.coop_pos, m0_idx);
 
-    // Verify neighbors of L1, M1, R1 in the graph include M0
     assert!(state.graph.neighbors(l1_idx).contains(&m0_idx));
     assert!(state.graph.neighbors(m1_idx).contains(&m0_idx));
     assert!(state.graph.neighbors(r1_idx).contains(&m0_idx));
 
-    // But hound legal moves must NEVER include M0 (Chicken Coop)
     for hound_idx in 0..state.hounds_pos.len() {
         let legal = state.hound_legal_moves(hound_idx);
         assert!(
@@ -164,7 +282,6 @@ fn test_hounds_cannot_occupy_chicken_coop() {
         "No hound move should target Chicken Coop (M0)"
     );
 
-    // AI snapshot must also exclude M0
     let snapshot = BoardSnapshot::from_state(&state);
     for hound_idx in 0..3 {
         assert!(snapshot
@@ -175,7 +292,6 @@ fn test_hounds_cannot_occupy_chicken_coop() {
         .all_hound_moves(&state.graph)
         .all(|(_, target)| target != m0_idx));
 
-    // Manually setting turn to Hounds and attempting to move to M0 must be rejected
     state.current_turn = Faction::Hounds;
     assert_eq!(
         state.apply_hound_move(0, m0_idx),
@@ -190,34 +306,64 @@ fn test_hounds_cannot_occupy_chicken_coop() {
         Err(MoveError::IllegalMove)
     );
 
-    // Best move for Hounds should never be M0
     let best_move = find_best_move(&state);
     if let Some(fox_and_hounds::game::state::PieceMove::HoundMove { to, .. }) = best_move {
         assert_ne!(to, m0_idx, "AI should never pick Chicken Coop for Hound");
+    }
+
+    // 2. Classic: Hound 0 starts on M0 and moves away to M1. Afterward, no hound can enter M0.
+    let mut classic_state = GameState::new();
+    classic_state.start_game(Faction::Hounds, Difficulty::Hard);
+    let c_m0 = classic_state.graph.find_id_by_name("M0").unwrap();
+    let c_m1 = classic_state.graph.find_id_by_name("M1").unwrap();
+    classic_state.current_turn = Faction::Hounds;
+    assert!(classic_state.apply_hound_move(0, c_m1).is_ok());
+
+    for idx in 0..3 {
+        assert!(
+            !classic_state.hound_legal_moves(idx).contains(&c_m0),
+            "Hound {idx} must not re-enter M0 in Classic"
+        );
     }
 }
 
 #[test]
 fn test_hound_ai_advances_from_start() {
+    // 1. Classic variant
     let mut state = GameState::new();
     state.start_game(Faction::Fox, Difficulty::Medium); // Player is Fox, AI is Hounds
 
-    // Fox moves M9 -> M8
-    let m8_idx = state.graph.find_id_by_name("M8").unwrap();
-    assert!(state.apply_fox_move(m8_idx).is_ok());
+    let m3_idx = state.graph.find_id_by_name("M3").unwrap();
+    assert!(state.apply_fox_move(m3_idx).is_ok());
     assert_eq!(state.current_turn, Faction::Hounds);
 
-    // AI Hound chooses move
     let best_move = find_best_move(&state).expect("AI should find a move for Hounds");
+    if let fox_and_hounds::game::state::PieceMove::HoundMove { from, to, .. } = best_move {
+        let from_node = state.graph.node(from).unwrap();
+        let to_node = state.graph.node(to).unwrap();
+        assert!(to_node.row >= from_node.row);
+    } else {
+        panic!("Expected a HoundMove");
+    }
+
+    // 2. River Crossing variant
+    let mut river_state = GameState::new();
+    river_state.switch_variant(BoardVariant::RiverCrossing);
+    river_state.start_game(Faction::Fox, Difficulty::Medium);
+
+    let m8_idx = river_state.graph.find_id_by_name("M8").unwrap();
+    assert!(river_state.apply_fox_move(m8_idx).is_ok());
+    assert_eq!(river_state.current_turn, Faction::Hounds);
+
+    let r_best = find_best_move(&river_state).expect("AI should find a move for Hounds");
     if let fox_and_hounds::game::state::PieceMove::HoundMove {
         hound_idx,
         from,
         to,
-    } = best_move
+    } = r_best
     {
-        let from_node = state.graph.node(from).unwrap();
-        let to_node = state.graph.node(to).unwrap();
-        // The hound must advance from Row 1 to Row 2
+        let from_node = river_state.graph.node(from).unwrap();
+        let to_node = river_state.graph.node(to).unwrap();
         assert_eq!(from_node.row, 1);
         assert_eq!(to_node.row, 2, "Hound {hound_idx} should advance to Row 2");
     } else {
@@ -228,9 +374,9 @@ fn test_hound_ai_advances_from_start() {
 #[test]
 fn test_hound_ai_pursues_and_tightens_perimeter() {
     let mut state = GameState::new();
+    state.switch_variant(BoardVariant::RiverCrossing);
     state.start_game(Faction::Fox, Difficulty::Hard);
 
-    // Place Fox at M8, and Hounds across row 5
     let m8_idx = state.graph.find_id_by_name("M8").unwrap();
     let l5_idx = state.graph.find_id_by_name("L5").unwrap();
     let m5_idx = state.graph.find_id_by_name("M5").unwrap();
@@ -256,10 +402,9 @@ fn test_hound_ai_pursues_and_tightens_perimeter() {
 #[test]
 fn test_multi_turn_hounds_advance_and_surround() {
     let mut state = GameState::new();
+    state.switch_variant(BoardVariant::RiverCrossing);
     state.start_game(Faction::Fox, Difficulty::Medium);
 
-    // Start with Fox at M9. Over multiple turns, Fox moves between M9 and L8/R8
-    // while AI Hounds take turns.
     let initial_avg_row: f32 = state
         .hounds_pos
         .iter()
@@ -269,7 +414,6 @@ fn test_multi_turn_hounds_advance_and_surround() {
     assert_eq!(initial_avg_row, 1.0);
 
     for _ in 0..4 {
-        // Fox turn: pick legal move that stays in rows 8-9 if possible
         let fox_moves = state.fox_legal_moves();
         if fox_moves.is_empty() {
             break;
@@ -280,7 +424,6 @@ fn test_multi_turn_hounds_advance_and_surround() {
             .unwrap();
         assert!(state.apply_fox_move(chosen_fox_move).is_ok());
 
-        // Hound AI turn
         if let Some(fox_and_hounds::game::state::PieceMove::HoundMove { hound_idx, to, .. }) =
             find_best_move(&state)
         {
@@ -295,7 +438,6 @@ fn test_multi_turn_hounds_advance_and_surround() {
         .sum::<f32>()
         / 3.0;
 
-    // Hounds should have progressed significantly from Row 1 down toward Fox
     assert!(
         end_avg_row > 2.0,
         "Hounds should advance down the board over turns (got avg row {end_avg_row})"
@@ -341,17 +483,17 @@ fn test_move_animation_state_tracking() {
 
     // Now test Hound move animation
     state.current_turn = Faction::Hounds;
-    let hound_legal = state.hound_legal_moves(1);
+    let hound_legal = state.hound_legal_moves(0);
     assert!(!hound_legal.is_empty());
     let hound_target = hound_legal[0];
 
-    assert!(state.apply_hound_move(1, hound_target).is_ok());
+    assert!(state.apply_hound_move(0, hound_target).is_ok());
     let hound_anim = state
         .active_anim
         .as_ref()
         .expect("Hound move should create active_anim");
     assert_eq!(hound_anim.faction, Faction::Hounds);
-    assert_eq!(hound_anim.hound_idx, Some(1));
+    assert_eq!(hound_anim.hound_idx, Some(0));
     assert_eq!(hound_anim.progress, 0.0);
     assert!(hound_anim.duration >= 0.25);
 }
@@ -382,67 +524,80 @@ fn test_move_errors_and_turn_validation() {
 
 #[test]
 fn test_piece_collision_rejection() {
+    // 1. Classic
     let mut state = GameState::new();
     state.start_game(Faction::Fox, Difficulty::Medium);
 
-    // Position Fox directly adjacent to Hound 0
-    let m6_idx = state.graph.find_id_by_name("M6").unwrap();
-    let m7_idx = state.graph.find_id_by_name("M7").unwrap();
-    state.fox_pos = m7_idx;
-    state.hounds_pos[0] = m6_idx; // M6 is adjacent to M7
+    let m2_idx = state.graph.find_id_by_name("M2").unwrap();
+    let m3_idx = state.graph.find_id_by_name("M3").unwrap();
+    state.fox_pos = m3_idx;
+    state.hounds_pos[0] = m2_idx; // M2 is adjacent to M3
 
-    // Fox cannot move onto the hound's node
     let fox_legal = state.fox_legal_moves();
-    assert!(!fox_legal.contains(&m6_idx));
-    assert_eq!(state.apply_fox_move(m6_idx), Err(MoveError::IllegalMove));
+    assert!(!fox_legal.contains(&m2_idx));
+    assert_eq!(state.apply_fox_move(m2_idx), Err(MoveError::IllegalMove));
 
-    // Hound cannot move onto the fox's node
     state.current_turn = Faction::Hounds;
     let hound_legal = state.hound_legal_moves(0);
-    assert!(!hound_legal.contains(&m7_idx));
+    assert!(!hound_legal.contains(&m3_idx));
     assert_eq!(
-        state.apply_hound_move(0, m7_idx),
+        state.apply_hound_move(0, m3_idx),
         Err(MoveError::IllegalMove)
     );
 
-    // Hound cannot move onto another hound's node
-    let r7_idx = state.graph.find_id_by_name("R7").unwrap();
-    state.hounds_pos[1] = r7_idx;
+    let t2_idx = state.graph.find_id_by_name("T2").unwrap();
+    state.hounds_pos[1] = t2_idx;
     let hound_legal = state.hound_legal_moves(0);
-    assert!(!hound_legal.contains(&r7_idx));
+    assert!(!hound_legal.contains(&t2_idx));
     assert_eq!(
-        state.apply_hound_move(0, r7_idx),
+        state.apply_hound_move(0, t2_idx),
         Err(MoveError::IllegalMove)
     );
 }
 
 #[test]
 fn test_ai_handles_trapped_fox_position() {
+    // 1. Classic
     let mut state = GameState::new();
     state.start_game(Faction::Fox, Difficulty::Hard);
 
-    // Trap fox at M9 by placing hounds on L8, M8, R8 (all neighbors of M9)
-    let m9_idx = state.graph.find_id_by_name("M9").unwrap();
-    let l8_idx = state.graph.find_id_by_name("L8").unwrap();
-    let m8_idx = state.graph.find_id_by_name("M8").unwrap();
-    let r8_idx = state.graph.find_id_by_name("R8").unwrap();
+    let m4_idx = state.graph.find_id_by_name("M4").unwrap();
+    let t3_idx = state.graph.find_id_by_name("T3").unwrap();
+    let m3_idx = state.graph.find_id_by_name("M3").unwrap();
+    let b3_idx = state.graph.find_id_by_name("B3").unwrap();
 
-    state.fox_pos = m9_idx;
-    state.hounds_pos = vec![l8_idx, m8_idx, r8_idx];
+    state.fox_pos = m4_idx;
+    state.hounds_pos = vec![t3_idx, m3_idx, b3_idx];
     state.current_turn = Faction::Fox;
 
-    // Fox has 0 legal moves
     assert_eq!(state.fox_legal_moves().len(), 0);
+    assert_eq!(find_best_move(&state), None);
 
-    // AI should evaluate this without crashing
-    let best_move = find_best_move(&state);
-    assert_eq!(best_move, None);
-
-    // Evaluating game result triggers game over
     state.evaluate_game_result();
     assert_eq!(state.result, GameResult::HoundsWon);
     assert_eq!(state.phase, GamePhase::GameOver);
     assert!(state.cached_game_over_stats.is_some());
+
+    // 2. River Crossing
+    let mut river_state = GameState::new();
+    river_state.switch_variant(BoardVariant::RiverCrossing);
+    river_state.start_game(Faction::Fox, Difficulty::Hard);
+
+    let r_m9_idx = river_state.graph.find_id_by_name("M9").unwrap();
+    let r_l8_idx = river_state.graph.find_id_by_name("L8").unwrap();
+    let r_m8_idx = river_state.graph.find_id_by_name("M8").unwrap();
+    let r_r8_idx = river_state.graph.find_id_by_name("R8").unwrap();
+
+    river_state.fox_pos = r_m9_idx;
+    river_state.hounds_pos = vec![r_l8_idx, r_m8_idx, r_r8_idx];
+    river_state.current_turn = Faction::Fox;
+
+    assert_eq!(river_state.fox_legal_moves().len(), 0);
+    assert_eq!(find_best_move(&river_state), None);
+
+    river_state.evaluate_game_result();
+    assert_eq!(river_state.result, GameResult::HoundsWon);
+    assert_eq!(river_state.phase, GamePhase::GameOver);
 }
 
 #[test]
@@ -452,9 +607,9 @@ fn test_variant_properties() {
         assert!(RIVER_CROSSING_CONFIG.allow_hound_retreat);
     }
 
-    assert_eq!(CLASSIC_CONFIG.fox_start_node, "M9");
+    assert_eq!(CLASSIC_CONFIG.fox_start_node, "M4");
     assert_eq!(CLASSIC_CONFIG.target_coop_node, "M0");
-    assert_eq!(CLASSIC_CONFIG.hounds_start_nodes, &["L1", "M1", "R1"]);
+    assert_eq!(CLASSIC_CONFIG.hounds_start_nodes, &["M0", "T1", "B1"]);
 
     assert_eq!(RIVER_CROSSING_CONFIG.fox_start_node, "M9");
     assert_eq!(RIVER_CROSSING_CONFIG.target_coop_node, "M0");
@@ -465,7 +620,7 @@ fn test_variant_properties() {
 
     let g_classic = (CLASSIC_CONFIG.build_graph)();
     let g_river = (RIVER_CROSSING_CONFIG.build_graph)();
-    assert_eq!(g_classic.node_count(), 24);
+    assert_eq!(g_classic.node_count(), 11);
     assert_eq!(g_river.node_count(), 24);
 
     let mut state = GameState::new();
@@ -482,53 +637,52 @@ fn test_variant_properties() {
 
 #[test]
 fn test_classic_no_retreat_vs_river_crossing_free_movement() {
-    // 1. Classic variant: retreat towards Coop (target.row < hound.row) is forbidden.
+    // 1. Classic variant: retreat towards column 0 (target.row < hound.row) is forbidden.
     let mut classic_state = GameState::new();
     classic_state.switch_variant(BoardVariant::Classic);
     classic_state.start_game(Faction::Hounds, Difficulty::Medium);
 
-    let m5_idx = classic_state.graph.find_id_by_name("M5").unwrap();
-    let l5_idx = classic_state.graph.find_id_by_name("L5").unwrap();
-    let r5_idx = classic_state.graph.find_id_by_name("R5").unwrap();
-    let m6_idx = classic_state.graph.find_id_by_name("M6").unwrap();
+    let t1_idx = classic_state.graph.find_id_by_name("T1").unwrap();
+    let b1_idx = classic_state.graph.find_id_by_name("B1").unwrap();
+    let m1_idx = classic_state.graph.find_id_by_name("M1").unwrap();
+    let t2_idx = classic_state.graph.find_id_by_name("T2").unwrap();
+    let m2_idx = classic_state.graph.find_id_by_name("M2").unwrap();
+    let b2_idx = classic_state.graph.find_id_by_name("B2").unwrap();
+    let m3_idx = classic_state.graph.find_id_by_name("M3").unwrap();
     let m4_idx = classic_state.graph.find_id_by_name("M4").unwrap();
-    let l4_idx = classic_state.graph.find_id_by_name("L4").unwrap();
-    let r4_idx = classic_state.graph.find_id_by_name("R4").unwrap();
-    let m0_idx = classic_state.graph.find_id_by_name("M0").unwrap();
 
-    // Place hound 0 at M5 (Row 5). Fox far away at M0.
-    classic_state.hounds_pos = vec![m5_idx, l4_idx, r4_idx];
-    classic_state.fox_pos = m0_idx;
+    // Place hound 0 at M2 (Row 2). Hound 1 at T1, Hound 2 at B1. Fox far away at M4.
+    classic_state.hounds_pos = vec![m2_idx, t1_idx, b1_idx];
+    classic_state.fox_pos = m4_idx;
     classic_state.current_turn = Faction::Hounds;
 
     let classic_legal = classic_state.hound_legal_moves(0);
 
-    // M4, L4, R4 are Row 4 (< Row 5). L4 and R4 are occupied anyway, but M4 is vacant.
-    // In Classic, M4 (retreat) is illegal.
+    // M1 is Row 1 (< Row 2). In Classic, M1 (retreat) is illegal.
     assert!(
-        !classic_legal.contains(&m4_idx),
-        "Hound must not retreat to Row 4 in Classic variant"
+        !classic_legal.contains(&m1_idx),
+        "Hound must not retreat to Row 1 in Classic variant"
     );
 
-    // Lateral moves (Row 5 == Row 5) to L5 and R5 are legal
+    // Lateral moves (Row 2 == Row 2) to T2 and B2 are legal
     assert!(
-        classic_legal.contains(&l5_idx),
-        "Hound should be able to move laterally to L5"
+        classic_legal.contains(&t2_idx),
+        "Hound should be able to move laterally to T2"
     );
     assert!(
-        classic_legal.contains(&r5_idx),
-        "Hound should be able to move laterally to R5"
-    );
-
-    // Forward move (Row 6 > Row 5) to M6 is legal
-    assert!(
-        classic_legal.contains(&m6_idx),
-        "Hound should be able to advance forward to M6"
+        classic_legal.contains(&b2_idx),
+        "Hound should be able to move laterally to B2"
     );
 
-    // Attempting to move hound 0 to M4 in Classic must be rejected
+    // Forward move (Row 3 > Row 2) to M3 is legal
+    assert!(
+        classic_legal.contains(&m3_idx),
+        "Hound should be able to advance forward to M3"
+    );
+
+    // Attempting to move hound 0 to M1 in Classic must be rejected
     assert_eq!(
-        classic_state.apply_hound_move(0, m4_idx),
+        classic_state.apply_hound_move(0, m1_idx),
         Err(MoveError::IllegalMove)
     );
 
@@ -537,17 +691,23 @@ fn test_classic_no_retreat_vs_river_crossing_free_movement() {
     river_state.switch_variant(BoardVariant::RiverCrossing);
     river_state.start_game(Faction::Hounds, Difficulty::Medium);
 
-    river_state.hounds_pos = vec![m5_idx, l4_idx, r4_idx];
-    river_state.fox_pos = m0_idx;
+    let r_m5_idx = river_state.graph.find_id_by_name("M5").unwrap();
+    let r_l4_idx = river_state.graph.find_id_by_name("L4").unwrap();
+    let r_r4_idx = river_state.graph.find_id_by_name("R4").unwrap();
+    let r_m4_idx = river_state.graph.find_id_by_name("M4").unwrap();
+    let r_m0_idx = river_state.graph.find_id_by_name("M0").unwrap();
+
+    river_state.hounds_pos = vec![r_m5_idx, r_l4_idx, r_r4_idx];
+    river_state.fox_pos = r_m0_idx;
     river_state.current_turn = Faction::Hounds;
 
     let river_legal = river_state.hound_legal_moves(0);
     assert!(
-        river_legal.contains(&m4_idx),
+        river_legal.contains(&r_m4_idx),
         "Hound should be allowed to retreat to M4 in River Crossing variant"
     );
-    assert!(river_state.apply_hound_move(0, m4_idx).is_ok());
-    assert_eq!(river_state.hounds_pos[0], m4_idx);
+    assert!(river_state.apply_hound_move(0, r_m4_idx).is_ok());
+    assert_eq!(river_state.hounds_pos[0], r_m4_idx);
 }
 
 #[test]
@@ -558,14 +718,14 @@ fn test_hound_stalemate_fox_victory() {
     state.switch_variant(BoardVariant::Classic);
     state.start_game(Faction::Hounds, Difficulty::Hard);
 
-    let l8_idx = state.graph.find_id_by_name("L8").unwrap();
-    let m8_idx = state.graph.find_id_by_name("M8").unwrap();
-    let r8_idx = state.graph.find_id_by_name("R8").unwrap();
-    let m9_idx = state.graph.find_id_by_name("M9").unwrap();
+    let t3_idx = state.graph.find_id_by_name("T3").unwrap();
+    let m3_idx = state.graph.find_id_by_name("M3").unwrap();
+    let b3_idx = state.graph.find_id_by_name("B3").unwrap();
+    let m4_idx = state.graph.find_id_by_name("M4").unwrap();
 
-    // Hounds at L8, M8, R8. Fox at M9.
-    state.hounds_pos = vec![l8_idx, m8_idx, r8_idx];
-    state.fox_pos = m9_idx;
+    // Hounds at T3, M3, B3. Fox at M4.
+    state.hounds_pos = vec![t3_idx, m3_idx, b3_idx];
+    state.fox_pos = m4_idx;
     state.current_turn = Faction::Hounds;
 
     // Verify all hounds have 0 legal moves
@@ -587,6 +747,12 @@ fn test_hound_stalemate_fox_victory() {
     let mut river_state = GameState::new();
     river_state.switch_variant(BoardVariant::RiverCrossing);
     river_state.start_game(Faction::Hounds, Difficulty::Hard);
+
+    let l8_idx = river_state.graph.find_id_by_name("L8").unwrap();
+    let m8_idx = river_state.graph.find_id_by_name("M8").unwrap();
+    let r8_idx = river_state.graph.find_id_by_name("R8").unwrap();
+    let m9_idx = river_state.graph.find_id_by_name("M9").unwrap();
+
     river_state.hounds_pos = vec![l8_idx, m8_idx, r8_idx];
     river_state.fox_pos = m9_idx;
     river_state.current_turn = Faction::Hounds;

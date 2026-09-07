@@ -26,6 +26,13 @@ pub const RIVER_CROSSING_DIMENSIONS: BoardDimensions = BoardDimensions {
     right_width: 256.0,
 };
 
+pub const CLASSIC_DIMENSIONS: BoardDimensions = BoardDimensions {
+    image_width: 1024.0,
+    image_height: 1024.0,
+    left_width: 0.0,
+    right_width: 0.0,
+};
+
 pub const BOARD_IMAGE_WIDTH: f32 = RIVER_CROSSING_DIMENSIONS.image_width;
 pub const BOARD_IMAGE_HEIGHT: f32 = RIVER_CROSSING_DIMENSIONS.image_height;
 pub const BOARD_LEFT_WIDTH: f32 = RIVER_CROSSING_DIMENSIONS.left_width;
@@ -59,14 +66,14 @@ pub type LevelConfig = VariantConfig;
 pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::Classic,
     name: "Classic",
-    description: "Traditional rules where hounds advance or hold the line without retreating",
+    description: "Traditional rules on an 11-node spearhead board where hounds cannot retreat",
     allow_hound_retreat: false,
-    dimensions: RIVER_CROSSING_DIMENSIONS,
-    board_image_bytes: include_bytes!("../../assets/board_image.png"),
-    fox_start_node: "M9",
-    hounds_start_nodes: &["L1", "M1", "R1"],
+    dimensions: CLASSIC_DIMENSIONS,
+    board_image_bytes: include_bytes!("../../assets/classic_board_image.png"),
+    fox_start_node: "M4",
+    hounds_start_nodes: &["M0", "T1", "B1"],
     target_coop_node: "M0",
-    build_graph: build_river_crossing_graph,
+    build_graph: build_classic_graph,
 };
 
 pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
@@ -364,6 +371,76 @@ pub fn build_river_crossing_graph() -> Graph {
         ("L8", "M9"),
         ("M8", "M9"),
         ("R8", "M9"),
+    ];
+
+    let name_to_id: std::collections::HashMap<&str, usize> = nodes
+        .iter()
+        .map(|node| (node.name.as_str(), node.id))
+        .collect();
+
+    let edges: Vec<(usize, usize)> = raw_edges
+        .into_iter()
+        .filter_map(|(u_name, v_name)| {
+            let u = name_to_id.get(u_name)?;
+            let v = name_to_id.get(v_name)?;
+            Some((*u, *v))
+        })
+        .collect();
+
+    Graph::new(nodes, &edges)
+}
+
+pub fn build_classic_graph() -> Graph {
+    let raw_nodes = vec![
+        ("M0", 0, 1, NodeType::TargetCoop, Vec2::new(243.0, 511.0)),
+        ("T1", 1, 0, NodeType::Standard, Vec2::new(376.0, 329.0)),
+        ("M1", 1, 1, NodeType::Standard, Vec2::new(375.0, 510.0)),
+        ("B1", 1, 2, NodeType::Standard, Vec2::new(376.0, 689.0)),
+        ("T2", 2, 0, NodeType::Standard, Vec2::new(511.0, 331.0)),
+        ("M2", 2, 1, NodeType::Standard, Vec2::new(510.0, 510.0)),
+        ("B2", 2, 2, NodeType::Standard, Vec2::new(510.0, 689.0)),
+        ("T3", 3, 0, NodeType::Standard, Vec2::new(646.0, 331.0)),
+        ("M3", 3, 1, NodeType::Standard, Vec2::new(645.0, 510.0)),
+        ("B3", 3, 2, NodeType::Standard, Vec2::new(646.0, 690.0)),
+        ("M4", 4, 1, NodeType::FoxStart, Vec2::new(778.0, 510.0)),
+    ];
+
+    let nodes: Vec<Node> = raw_nodes
+        .into_iter()
+        .enumerate()
+        .map(|(id, (name, row, col, node_type, visual_pos))| Node {
+            id,
+            name: name.to_string(),
+            row,
+            col,
+            node_type,
+            visual_pos,
+        })
+        .collect();
+
+    let raw_edges = vec![
+        ("M0", "T1"),
+        ("M0", "M1"),
+        ("M0", "B1"),
+        ("T1", "M1"),
+        ("M1", "B1"),
+        ("T2", "M2"),
+        ("M2", "B2"),
+        ("T3", "M3"),
+        ("M3", "B3"),
+        ("T1", "T2"),
+        ("T2", "T3"),
+        ("M1", "M2"),
+        ("M2", "M3"),
+        ("B1", "B2"),
+        ("B2", "B3"),
+        ("T1", "M2"),
+        ("M2", "B3"),
+        ("B1", "M2"),
+        ("M2", "T3"),
+        ("T3", "M4"),
+        ("M3", "M4"),
+        ("B3", "M4"),
     ];
 
     let name_to_id: std::collections::HashMap<&str, usize> = nodes
