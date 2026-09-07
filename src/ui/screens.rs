@@ -936,20 +936,17 @@ impl Screens {
     ) -> Option<SoundTrigger> {
         let mut sound_trigger = None;
 
-        // Dim background overlay
-        draw_rectangle(0.0, 0.0, screen_w, screen_h, Color::from_rgba(0, 0, 0, 185));
-
         let layout = GameOverModalLayout::compute(screen_w, screen_h, scale);
         let modal = layout.modal_bounds;
         let center_x = screen_w / 2.0;
 
-        // Modal Box
+        // Modal Box (transparent dark glass)
         draw_rectangle(
             modal.x,
             modal.y,
             modal.w,
             modal.h,
-            Color::from_rgba(18, 28, 42, 250),
+            Color::from_rgba(10, 16, 26, 120),
         );
         draw_rectangle_lines(
             modal.x,
@@ -957,7 +954,7 @@ impl Screens {
             modal.w,
             modal.h,
             2.0 * scale,
-            Color::from_rgba(255, 255, 255, 50),
+            Color::from_rgba(255, 255, 255, 60),
         );
 
         let mut curr_y = modal.y + (28.0 * scale).min(modal.h * 0.1);
@@ -1003,7 +1000,7 @@ impl Screens {
             center_x - msg_dims.width / 2.0,
             curr_y + msg_dims.height / 1.2,
             msg_font,
-            Color::from_rgba(224, 224, 224, 255),
+            Color::from_rgba(240, 240, 240, 255),
             font,
         );
         curr_y += 24.0 * scale;
@@ -1027,7 +1024,7 @@ impl Screens {
             center_x - stats_dims.width / 2.0,
             curr_y + stats_dims.height / 1.2,
             stats_font,
-            Color::from_rgba(158, 158, 158, 255),
+            Color::from_rgba(180, 195, 205, 255),
             font,
         );
 
