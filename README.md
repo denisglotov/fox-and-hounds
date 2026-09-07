@@ -21,7 +21,9 @@
   /></a>
 </p>
 
-A turn-based asymmetric pursuit-evasion game played on arbitrary graph topologies.
+A turn-based asymmetric pursuit-evasion game played on arbitrary graph topologies, featuring both
+the traditional [Classic board](https://en.wikipedia.org/wiki/Hare_games) (*Hare and Hounds*) and
+custom campaign maps like *The River Crossing*.
 
 One clever **Fox** ($\text{F}$) matches wits against a pack of **$N$ Hounds** ($\text{H}_1,
 \text{H}_2, \dots, \text{H}_N$). The Fox aims to slip past the pack and infiltrate the **Chicken
@@ -43,8 +45,11 @@ Coop**, while the Hounds must coordinate as a cohesive unit to encircle and immo
     to an adjacent, unoccupied vertex.
 
 ### 3. Movement Rules
-- **Bidirectional Traversal**: Pieces can move along any connected edge (forward, backward,
-  or sideways).
+- **Movement Directionality**:
+  - **Classic**: The Fox moves in any connected direction. Hounds **cannot retreat** backwards
+    toward the Coop (they can only advance or move sideways).
+  - **The River Crossing**: Unrestricted bidirectional traversal for all pieces along connected
+    edges (forward, backward, or sideways).
 - **Step Size**: Exactly one edge traversal per turn.
 - **Occupancy & No Collisions**:
   - No two pieces may occupy the same vertex simultaneously.
@@ -52,21 +57,48 @@ Coop**, while the Hounds must coordinate as a cohesive unit to encircle and immo
 - **No Captures**:
   - Pieces cannot be captured or eliminated. The game is purely positional and tactical.
 - **Chicken Coop Sanctuary**:
-  - **Hounds (Dogs) cannot occupy or enter the Chicken Coop (`M0`)**. The Chicken Coop
-    is strictly an infiltration target for the Fox.
+  - **Hounds cannot enter the Chicken Coop (`M0`)**. The Chicken Coop is strictly an infiltration
+    target for the Fox.
 
 ### 4. Victory Conditions
 | Faction | Objective / Victory Condition |
 | :--- | :--- |
-| 🦊 **Fox** | Reaches the **Chicken Coop** (located at opposite end, behind the Hounds). |
+| 🦊 **Fox** | Reaches the **Chicken Coop** (or Hounds have no legal moves remaining). |
 | 🐶 **Hounds** | **Completely traps** the Fox such that the Fox has **zero legal moves**. |
 
-## 🗺️ Featured Level: "The River Crossing" (3x9 Bottleneck)
+## 🗺️ Board Variants
 
-A tactical campaign map featuring open flanking grounds, a river bottleneck bridge on Row 6, and the
-Chicken Coop behind the Hounds' defensive line.
+### 1. Classic ("Hare and Hounds")
 
-### Graph Architecture
+Based on traditional [Hare games](https://en.wikipedia.org/wiki/Hare_games) (also known as *Hare
+and Hounds*, *French military game*, or *The Soldiers' Game*), an asymmetric pursuit game studied
+in combinatorial game theory. Played on an 11-node spearhead board where hounds cannot retreat.
+
+#### Graph Architecture
+- **Apex Left / Column 0** (`M0`): The Chicken Coop goal vertex and starting post of Hound 1
+  (1 vertex).
+- **Column 1** (`T1`, `M1`, `B1`): Starting posts of Hound 2 (`T1`) and Hound 3 (`B1`) (3 vertices).
+- **Column 2** (`T2`, `M2`, `B2`): Central junction with diagonal cross-tracks passing through `M2`
+  (3 vertices).
+- **Column 3** (`T3`, `M3`, `B3`): Flanking defensive line before the den (3 vertices).
+- **Apex Right / Column 4** (`M4`): The Fox Den start vertex (1 vertex).
+
+#### Board Graph Visualization
+
+<p align="center">
+  <img src="docs/board_graph_classic.svg" alt="Classic Board Graph" width="380" />
+</p>
+
+#### Level Specifications
+
+- [Graphviz DOT Specification](docs/board_graph_classic.dot) — Classic level topology definition.
+
+### 2. "The River Crossing" (3x9 Bottleneck)
+
+A tactical campaign map featuring open flanking grounds, a river bottleneck bridge on Row 6,
+and the Chicken Coop behind the Hounds' defensive line.
+
+#### Graph Architecture
 - **Row 0** (Goal): `M0` — The Chicken Coop target vertex (1 vertex).
 - **Row 1** (Hounds Start): `L1`, `M1`, `R1` — Starting posts of the 3 Hounds (3 vertices).
 - **Rows 2–5** (North Fields): 3 vertices per row (`L`eft, `M`iddle, `R`ight) with centrally
@@ -76,16 +108,22 @@ Chicken Coop behind the Hounds' defensive line.
 - **Rows 7–8** (South Fields): 3 vertices per row (`L`eft, `M`iddle, `R`ight).
 - **Row 9** (Fox Start): `M9` — The Fox Den start vertex (1 vertex).
 
-### Board Graph Visualization
+#### Board Graph Visualization
 
 <p align="center">
-  <img src="docs/board_graph_classic.svg" alt="The River Crossing Board Graph" width="380" />
+  <img src="docs/the_river_crossing.svg" alt="The River Crossing Board Graph" width="380" />
 </p>
 
-### Level Specifications
+#### Level Specifications
 
-- [Graphviz DOT Specification](docs/board_graph_classic.dot) — Graphviz DOT topology definition
-  used for level visualization.
+- [Graphviz DOT Specification](docs/the_river_crossing.dot) — The River Crossing topology
+  definition.
+
+### 3. Future Variants
+
+Additional historical board topologies and rule configurations are planned for future updates.
+For reference on more variants to come, see Mats Winther's research on
+[Hare Games](https://mats-winther.github.io/bg/haregames.htm).
 
 ## 🛠️ Build & Run Instructions
 
