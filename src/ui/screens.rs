@@ -415,8 +415,13 @@ impl Screens {
 
             // 1. Title & Subtitle in Left Column
             let title_text = &state.locales.title_screen.title;
-            let title_font_size = (24.0 * scale) as u16;
-            let title_dims = measure_text_styled(title_text, title_font_size, font);
+            let (title_font_size, title_dims) = Self::fit_font_size(
+                title_text,
+                (24.0 * scale) as u16,
+                left.w - 16.0 * scale,
+                (12.0 * scale) as u16,
+                font,
+            );
             draw_text_styled(
                 title_text,
                 left.x + (left.w - title_dims.width) / 2.0,
@@ -427,8 +432,13 @@ impl Screens {
             );
 
             let subtitle_text = &state.locales.title_screen.subtitle;
-            let sub_font_size = (12.0 * scale) as u16;
-            let sub_dims = measure_text_styled(subtitle_text, sub_font_size, font);
+            let (sub_font_size, sub_dims) = Self::fit_font_size(
+                subtitle_text,
+                (12.0 * scale) as u16,
+                left.w - 16.0 * scale,
+                (8.0 * scale) as u16,
+                font,
+            );
             draw_text_styled(
                 subtitle_text,
                 left.x + (left.w - sub_dims.width) / 2.0,
@@ -613,8 +623,13 @@ impl Screens {
 
             // 1. Game Title & Subtitle
             let title_text = &state.locales.title_screen.title;
-            let title_font_size = (30.0 * scale) as u16;
-            let title_dims = measure_text_styled(title_text, title_font_size, font);
+            let (title_font_size, title_dims) = Self::fit_font_size(
+                title_text,
+                (30.0 * scale) as u16,
+                card_w - 24.0 * scale,
+                (14.0 * scale) as u16,
+                font,
+            );
             let title_y = card_y + 22.0 * scale + title_dims.height / 1.2;
             draw_text_styled(
                 title_text,
@@ -626,8 +641,13 @@ impl Screens {
             );
 
             let subtitle_text = &state.locales.title_screen.subtitle;
-            let sub_font_size = (13.0 * scale) as u16;
-            let sub_dims = measure_text_styled(subtitle_text, sub_font_size, font);
+            let (sub_font_size, sub_dims) = Self::fit_font_size(
+                subtitle_text,
+                (13.0 * scale) as u16,
+                card_w - 24.0 * scale,
+                (8.0 * scale) as u16,
+                font,
+            );
             let sub_y = card_y + (22.0 + 32.0 + 6.0) * scale + sub_dims.height / 1.2;
             draw_text_styled(
                 subtitle_text,
@@ -1060,6 +1080,22 @@ impl Screens {
         sound_trigger
     }
 
+    fn fit_font_size(
+        text: &str,
+        base_size: u16,
+        max_width: f32,
+        min_size: u16,
+        font: Option<&Font>,
+    ) -> (u16, TextDimensions) {
+        let mut size = base_size;
+        let mut dims = measure_text_styled(text, size, font);
+        if dims.width > max_width && dims.width > 0.0 {
+            size = ((size as f32) * (max_width / dims.width)).max(min_size as f32) as u16;
+            dims = measure_text_styled(text, size, font);
+        }
+        (size, dims)
+    }
+
     fn draw_selectable_button(cfg: &SelectableButtonConfig) -> bool {
         let mouse_pos = Vec2::from(mouse_position());
         let is_hovered = cfg.bounds.contains(mouse_pos);
@@ -1096,8 +1132,13 @@ impl Screens {
             border_color,
         );
 
-        let title_size = (14.0 * cfg.scale) as u16;
-        let title_dims = measure_text_styled(cfg.title, title_size, cfg.font);
+        let (title_size, title_dims) = Self::fit_font_size(
+            cfg.title,
+            (14.0 * cfg.scale) as u16,
+            cfg.bounds.w - 8.0 * cfg.scale,
+            (9.0 * cfg.scale) as u16,
+            cfg.font,
+        );
         let text_y = if cfg.subtitle.is_empty() {
             cfg.bounds.y + cfg.bounds.h / 2.0 + title_dims.height / 3.0
         } else {
@@ -1114,8 +1155,13 @@ impl Screens {
         );
 
         if !cfg.subtitle.is_empty() {
-            let sub_size = (11.0 * cfg.scale) as u16;
-            let sub_dims = measure_text_styled(cfg.subtitle, sub_size, cfg.font);
+            let (sub_size, sub_dims) = Self::fit_font_size(
+                cfg.subtitle,
+                (11.0 * cfg.scale) as u16,
+                cfg.bounds.w - 8.0 * cfg.scale,
+                (7.0 * cfg.scale) as u16,
+                cfg.font,
+            );
             draw_text_styled(
                 cfg.subtitle,
                 cfg.bounds.x + (cfg.bounds.w - sub_dims.width) / 2.0,
@@ -1155,8 +1201,13 @@ impl Screens {
             Color::from_rgba(255, 255, 255, 80),
         );
 
-        let font_size = (15.0 * cfg.scale) as u16;
-        let dims = measure_text_styled(cfg.text, font_size, cfg.font);
+        let (font_size, dims) = Self::fit_font_size(
+            cfg.text,
+            (15.0 * cfg.scale) as u16,
+            cfg.bounds.w - 12.0 * cfg.scale,
+            (9.0 * cfg.scale) as u16,
+            cfg.font,
+        );
         draw_text_styled(
             cfg.text,
             cfg.bounds.x + (cfg.bounds.w - dims.width) / 2.0,
