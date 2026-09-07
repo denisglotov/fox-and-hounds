@@ -6,9 +6,9 @@
     "subtitle": "Strategia tattica su grafi",
     "board_variant": "VARIANTE DEL TABELLONE",
     "variant_classic": "Classico",
-    "variant_classic_sub": "Senza ritirata",
+    "variant_classic_sub": "Gioco militare francese",
     "variant_river_crossing": "Il guado del fiume",
-    "variant_river_crossing_sub": "Movimento libero",
+    "variant_river_crossing_sub": "I segugi possono retrocedere",
     "choose_faction": "SCEGLI LA TUA FAZIONE",
     "fox_title": "🦊 La Volpe",
     "fox_subtitle": "Infiltrati nel pollaio",
@@ -21,7 +21,6 @@
     "start_match": "INIZIA PARTITA"
   },
   "hud": {
-    "turn_template": "Turno {count}",
     "fox_turn": "Turno della Volpe",
     "hounds_turn": "Turno dei Segugi",
     "thinking": "Pensando..."

@@ -6,9 +6,9 @@
     "subtitle": "전술 그래프 전략 게임",
     "board_variant": "게임 선택",
     "variant_classic": "Classic",
-    "variant_classic_sub": "No retreat",
+    "variant_classic_sub": "French military game",
     "variant_river_crossing": "The river crossing",
-    "variant_river_crossing_sub": "Free movement",
+    "variant_river_crossing_sub": "hounds can walk backwards",
     "choose_faction": "진영 선택",
     "fox_title": "🦊 여우",
     "fox_subtitle": "닭장에 침투",
@@ -21,7 +21,6 @@
     "start_match": "게임 시작"
   },
   "hud": {
-    "turn_template": "{count}번째 턴",
     "fox_turn": "여우 턴",
     "hounds_turn": "사냥개 턴",
     "thinking": "생각 중..."

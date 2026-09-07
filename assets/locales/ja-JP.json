@@ -6,9 +6,9 @@
     "subtitle": "戦術的グラフ戦略ゲーム",
     "board_variant": "対局",
     "variant_classic": "Classic",
-    "variant_classic_sub": "No retreat",
+    "variant_classic_sub": "French military game",
     "variant_river_crossing": "The river crossing",
-    "variant_river_crossing_sub": "Free movement",
+    "variant_river_crossing_sub": "hounds can walk backwards",
     "choose_faction": "勢力を選択",
     "fox_title": "🦊 狐",
     "fox_subtitle": "鶏小屋に潜入する",
@@ -21,7 +21,6 @@
     "start_match": "対局開始"
   },
   "hud": {
-    "turn_template": "ターン {count}",
     "fox_turn": "狐の手番",
     "hounds_turn": "猟犬の手番",
     "thinking": "思考中..."

@@ -49,16 +49,9 @@ impl TitleScreenStrings {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct HudStrings {
-    pub turn_template: String,
     pub fox_turn: String,
     pub hounds_turn: String,
     pub thinking: String,
-}
-
-impl HudStrings {
-    pub fn format_turn(&self, count: usize) -> String {
-        self.turn_template.replace("{count}", &count.to_string())
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -436,7 +429,6 @@ mod tests {
             assert!(!loc.title_screen.start_match.is_empty());
 
             // HUD
-            assert!(!loc.hud.turn_template.is_empty());
             assert!(!loc.hud.fox_turn.is_empty());
             assert!(!loc.hud.hounds_turn.is_empty());
             assert!(!loc.hud.thinking.is_empty());
@@ -451,13 +443,6 @@ mod tests {
             assert!(!loc.game_over.main_menu.is_empty());
 
             // Format helpers
-            let turn_text = loc.hud.format_turn(7);
-            assert!(
-                turn_text.contains('7'),
-                "Turn string missing count placeholder replacement in {}",
-                loc.locale
-            );
-
             let stats_text = loc.game_over.format_stats(12, "Medium", "Classic");
             assert!(
                 stats_text.contains("12")
@@ -690,7 +675,6 @@ mod tests {
                 &loc.title_screen.difficulty_medium,
                 &loc.title_screen.difficulty_hard,
                 &loc.title_screen.start_match,
-                &loc.hud.turn_template,
                 &loc.hud.fox_turn,
                 &loc.hud.hounds_turn,
                 &loc.hud.thinking,

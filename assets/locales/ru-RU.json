@@ -6,9 +6,9 @@
     "subtitle": "Тактическая графовая стратегия",
     "board_variant": "ВАРИАНТ ИГРЫ",
     "variant_classic": "Классика",
-    "variant_classic_sub": "Без отступления",
+    "variant_classic_sub": "Военная игра",
     "variant_river_crossing": "Переправа через реку",
-    "variant_river_crossing_sub": "Свободно",
+    "variant_river_crossing_sub": "Гончие ходят назад",
     "choose_faction": "ВЫБЕРИТЕ СТОРОНУ",
     "fox_title": "🦊 Лис",
     "fox_subtitle": "Пробраться в курятник",
@@ -21,7 +21,6 @@
     "start_match": "НАЧАТЬ МАТЧ"
   },
   "hud": {
-    "turn_template": "Ход {count}",
     "fox_turn": "Ход Лиса",
     "hounds_turn": "Ход Гончих",
     "thinking": "Думает..."

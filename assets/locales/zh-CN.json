@@ -6,9 +6,9 @@
     "subtitle": "战术图论策略博弈",
     "board_variant": "对战图",
     "variant_classic": "Classic",
-    "variant_classic_sub": "No retreat",
+    "variant_classic_sub": "French military game",
     "variant_river_crossing": "The river crossing",
-    "variant_river_crossing_sub": "Free movement",
+    "variant_river_crossing_sub": "hounds can walk backwards",
     "choose_faction": "选择阵营",
     "fox_title": "🦊 狐狸",
     "fox_subtitle": "潜入鸡舍",
@@ -21,7 +21,6 @@
     "start_match": "开始对局"
   },
   "hud": {
-    "turn_template": "第 {count} 回合",
     "fox_turn": "狐狸回合",
     "hounds_turn": "猎犬回合",
     "thinking": "思考中..."

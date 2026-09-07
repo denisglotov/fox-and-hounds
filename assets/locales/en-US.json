@@ -1,38 +1,138 @@
 {
   "locale": "en-US",
+  "@locale": {
+    "description": "BCP 47 language tag for this locale."
+  },
   "language_name": "English",
+  "@language_name": {
+    "description": "Endonym / native name of the language as displayed in the language selector."
+  },
   "title_screen": {
     "title": "FOX & HOUNDS",
+    "@title": {
+      "description": "Main game title displayed on the title screen banner."
+    },
     "subtitle": "Tactical Graph Strategy",
+    "@subtitle": {
+      "description": "Game tagline / subtitle summarizing the genre: tactical turn-based strategy on a graph board."
+    },
     "board_variant": "BOARD VARIANT",
+    "@board_variant": {
+      "description": "Section header on the title screen for selecting the board layout / ruleset."
+    },
     "variant_classic": "Classic",
-    "variant_classic_sub": "No retreat",
+    "@variant_classic": {
+      "description": "Name of the traditional Fox & Hounds board variant. Board rules: hounds only move forward."
+    },
+    "variant_classic_sub": "French military game",
+    "@variant_classic_sub": {
+      "description": "Historical subtitle for the classic board variant (traditionally known as the French Military Game."
+    },
     "variant_river_crossing": "The river crossing",
-    "variant_river_crossing_sub": "Free movement",
+    "@variant_river_crossing": {
+      "description": "Name of the alternative board variant featuring river bridges and free hound movement."
+    },
+    "variant_river_crossing_sub": "hounds can walk backwards",
+    "@variant_river_crossing_sub": {
+      "description": "Rule subtitle for the River Crossing variant: hounds are allowed to walk backwards."
+    },
     "choose_faction": "CHOOSE YOUR FACTION",
+    "@choose_faction": {
+      "description": "Section header on the title screen prompting the player to choose their side (Fox or Hounds)."
+    },
     "fox_title": "🦊 The Fox",
+    "@fox_title": {
+      "description": "Faction button label for playing as the Fox. Keep the fox emoji prefix."
+    },
     "fox_subtitle": "Infiltrate Coop",
+    "@fox_subtitle": {
+      "description": "Short objective shown under the Fox faction button: reach the chicken coop on the opposite side. Note: 'Coop' refers to a chicken coop, not cooperative multiplayer."
+    },
     "hounds_title": "🐶 The Hounds",
+    "@hounds_title": {
+      "description": "Faction button label for playing as the Hounds. Keep the hound emoji prefix."
+    },
     "hounds_subtitle": "Trap the Fox",
+    "@hounds_subtitle": {
+      "description": "Short objective shown under the Hounds faction button: surround and immobilize the Fox. 'Trap' is an imperative verb."
+    },
     "ai_difficulty": "AI DIFFICULTY",
+    "@ai_difficulty": {
+      "description": "Section header on the title screen for selecting opponent AI difficulty."
+    },
     "difficulty_easy": "Easy",
+    "@difficulty_easy": {
+      "description": "Option label for Easy AI difficulty level."
+    },
     "difficulty_medium": "Medium",
+    "@difficulty_medium": {
+      "description": "Option label for Medium (standard) AI difficulty level."
+    },
     "difficulty_hard": "Hard",
-    "start_match": "START MATCH"
+    "@difficulty_hard": {
+      "description": "Option label for Hard (minimax) AI difficulty level."
+    },
+    "start_match": "START MATCH",
+    "@start_match": {
+      "description": "Main call-to-action button on the title screen to start the game."
+    }
   },
   "hud": {
-    "turn_template": "Turn {count}",
     "fox_turn": "Fox Turn",
+    "@fox_turn": {
+      "description": "HUD status text indicating it is currently the Fox player's turn to move."
+    },
     "hounds_turn": "Hounds Turn",
-    "thinking": "Thinking..."
+    "@hounds_turn": {
+      "description": "HUD status text indicating it is currently the Hounds player's turn to move."
+    },
+    "thinking": "Thinking...",
+    "@thinking": {
+      "description": "HUD status text shown while the AI opponent is calculating its move."
+    }
   },
   "game_over": {
     "victory": "VICTORY!",
+    "@victory": {
+      "description": "Modal header banner shown when the player wins the match."
+    },
     "defeat": "DEFEAT!",
+    "@defeat": {
+      "description": "Modal header banner shown when the player loses the match."
+    },
     "fox_won_msg": "🦊 The Fox reached the Chicken Coop!",
+    "@fox_won_msg": {
+      "description": "Victory/defeat explanation when the Fox wins by escaping to the opposite goal line (chicken coop). Keep the fox emoji prefix."
+    },
     "hounds_won_msg": "🐶 The Hounds encircled and trapped the Fox!",
+    "@hounds_won_msg": {
+      "description": "Victory/defeat explanation when the Hounds win by leaving the Fox with no legal moves. Keep the hound emoji prefix."
+    },
     "stats_template": "Completed in {turns} turns • {difficulty} AI • {variant}",
+    "@stats_template": {
+      "description": "Match summary line on the game over modal showing total turns, AI difficulty, and board variant.",
+      "placeholders": {
+        "turns": {
+          "type": "int",
+          "example": "12"
+        },
+        "difficulty": {
+          "type": "String",
+          "example": "Medium"
+        },
+        "variant": {
+          "type": "String",
+          "example": "Classic"
+        }
+      }
+    },
     "play_again": "PLAY AGAIN",
-    "main_menu": "MAIN MENU"
+    "@play_again": {
+      "description": "Button label on the game over modal to restart the match with the same settings."
+    },
+    "main_menu": "MAIN MENU",
+    "@main_menu": {
+      "description": "Button label on the game over modal to return to the title screen."
+    }
   }
 }

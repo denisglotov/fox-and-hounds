@@ -6,9 +6,9 @@
     "subtitle": "Estrategia táctica en grafos",
     "board_variant": "VARIANTE DEL TABLERO",
     "variant_classic": "Clásico",
-    "variant_classic_sub": "Sin retirada",
+    "variant_classic_sub": "Juego militar francés",
     "variant_river_crossing": "El cruce del río",
-    "variant_river_crossing_sub": "Movimiento libre",
+    "variant_river_crossing_sub": "Sabuesos pueden retroceder",
     "choose_faction": "ELIGE TU BANDO",
     "fox_title": "🦊 El Zorro",
     "fox_subtitle": "Entrar al gallinero",
@@ -21,7 +21,6 @@
     "start_match": "EMPEZAR PARTIDA"
   },
   "hud": {
-    "turn_template": "Turno {count}",
     "fox_turn": "Turno del Zorro",
     "hounds_turn": "Turno de los Sabuesos",
     "thinking": "Pensando..."

@@ -6,9 +6,9 @@
     "subtitle": "Taktische Graphen-Strategie",
     "board_variant": "BRETT-VARIANTE",
     "variant_classic": "Klassisch",
-    "variant_classic_sub": "Kein Rückzug",
+    "variant_classic_sub": "Historisches Kriegsspiel",
     "variant_river_crossing": "Die Flussüberquerung",
-    "variant_river_crossing_sub": "Freie Bewegung",
+    "variant_river_crossing_sub": "Hunde dürfen zurückgehen",
     "choose_faction": "FRAKTION WÄHLEN",
     "fox_title": "🦊 Der Fuchs",
     "fox_subtitle": "In den Stall schleichen",
@@ -21,7 +21,6 @@
     "start_match": "SPIEL STARTEN"
   },
   "hud": {
-    "turn_template": "Zug {count}",
     "fox_turn": "Fuchs am Zug",
     "hounds_turn": "Hunde am Zug",
     "thinking": "Denkt nach..."

@@ -6,9 +6,9 @@
     "subtitle": "Stratégie tactique sur graphes",
     "board_variant": "VARIANTE DE PLATEAU",
     "variant_classic": "Classique",
-    "variant_classic_sub": "Sans retraite",
+    "variant_classic_sub": "Le jeu militaire",
     "variant_river_crossing": "La traversée du fleuve",
-    "variant_river_crossing_sub": "Mouvement libre",
+    "variant_river_crossing_sub": "Les chiens peuvent reculer",
     "choose_faction": "CHOISISSEZ VOTRE CAMP",
     "fox_title": "🦊 Le Renard",
     "fox_subtitle": "Infiltrer le poulailler",
@@ -21,7 +21,6 @@
     "start_match": "COMMENCER"
   },
   "hud": {
-    "turn_template": "Tour {count}",
     "fox_turn": "Tour du Renard",
     "hounds_turn": "Tour des Chiens",
     "thinking": "Réflexion..."
