@@ -589,7 +589,16 @@ impl BoardView {
 
         // 3. Draw Fox
         let ground_pos = origin + fox_visual_pos * scale;
-        let render_pos = Vec2::new(ground_pos.x, ground_pos.y - (fox_jump_lift * scale));
+        // Gentle anticipation hop while the Fox is still choosing its entry square (Classic move 1)
+        let pending_hop = if state.fox_pending {
+            (t * 5.0).sin().abs() * 6.0 * scale
+        } else {
+            0.0
+        };
+        let render_pos = Vec2::new(
+            ground_pos.x,
+            ground_pos.y - (fox_jump_lift * scale) - pending_hop,
+        );
 
         // Active Turn Glow for Fox
         if state.current_turn == Faction::Fox {

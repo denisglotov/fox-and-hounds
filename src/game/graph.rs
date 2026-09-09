@@ -154,6 +154,25 @@ impl Graph {
             .filter(move |&target| !hounds_pos.contains(&target))
     }
 
+    /// Generates an iterator over every vertex the Fox may enter the board on for its
+    /// opening move: any vertex that is not occupied by a Hound and is not the Chicken Coop.
+    pub fn fox_entry_moves<'a>(
+        &'a self,
+        hounds_pos: &'a [usize],
+        coop_pos: usize,
+    ) -> impl Iterator<Item = usize> + 'a {
+        self.nodes
+            .iter()
+            .map(|node| node.id)
+            .filter(move |&target| {
+                !hounds_pos.contains(&target)
+                    && target != coop_pos
+                    && self
+                        .node(target)
+                        .is_none_or(|n| n.node_type != NodeType::TargetCoop)
+            })
+    }
+
     /// Generates an iterator over legal destination nodes for a Hound at `hound_pos`.
     pub fn hound_legal_moves<'a>(
         &'a self,

@@ -7,6 +7,7 @@ const INF: i32 = 1_000_000;
 #[derive(Debug, Clone, Copy)]
 pub struct BoardSnapshot {
     pub fox_pos: usize,
+    pub fox_pending: bool,
     pub hounds_pos: [usize; 3],
     pub coop_pos: usize,
     pub current_turn: Faction,
@@ -21,6 +22,7 @@ impl BoardSnapshot {
         }
         Self {
             fox_pos: state.fox_pos,
+            fox_pending: state.fox_pending,
             hounds_pos: hounds,
             coop_pos: state.coop_pos,
             current_turn: state.current_turn,
@@ -28,8 +30,12 @@ impl BoardSnapshot {
         }
     }
 
-    pub fn fox_legal_moves<'a>(&'a self, graph: &'a Graph) -> impl Iterator<Item = usize> + 'a {
-        graph.fox_legal_moves(self.fox_pos, &self.hounds_pos)
+    pub fn fox_legal_moves<'a>(&'a self, graph: &'a Graph) -> Box<dyn Iterator<Item = usize> + 'a> {
+        if self.fox_pending {
+            Box::new(graph.fox_entry_moves(&self.hounds_pos, self.coop_pos))
+        } else {
+            Box::new(graph.fox_legal_moves(self.fox_pos, &self.hounds_pos))
+        }
     }
 
     pub fn hound_legal_moves<'a>(
@@ -60,6 +66,7 @@ impl BoardSnapshot {
     pub fn apply_fox_move(&self, to: usize) -> Self {
         Self {
             fox_pos: to,
+            fox_pending: false,
             hounds_pos: self.hounds_pos,
             coop_pos: self.coop_pos,
             current_turn: Faction::Hounds,
@@ -72,6 +79,7 @@ impl BoardSnapshot {
         new_hounds[hound_idx] = to;
         Self {
             fox_pos: self.fox_pos,
+            fox_pending: self.fox_pending,
             hounds_pos: new_hounds,
             coop_pos: self.coop_pos,
             current_turn: Faction::Fox,

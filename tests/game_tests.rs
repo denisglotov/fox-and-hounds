@@ -89,16 +89,19 @@ fn test_initial_state_and_legal_moves() {
     assert_eq!(state.result, GameResult::Ongoing);
     assert_eq!(state.phase, GamePhase::Playing);
 
-    // Fox starts at M4 (Row 4). Neighbors are T3, M3, B3
+    // Classic uses free entry: on turn 1 the Fox may place itself on any free (non-Hound,
+    // non-Coop) vertex. M0 (Coop), T1 and B1 are occupied by Hounds, so 11 - 3 = 8 targets.
+    assert!(state.fox_pending);
     let legal_fox_moves = state.fox_legal_moves();
-    assert_eq!(legal_fox_moves.len(), 3);
+    assert_eq!(legal_fox_moves.len(), 8);
 
-    // Make a legal move to M3
+    // Make a legal entry move to M3
     let m3_idx = state.graph.find_id_by_name("M3").unwrap();
     assert!(legal_fox_moves.contains(&m3_idx));
     assert!(state.apply_fox_move(m3_idx).is_ok());
 
     assert_eq!(state.fox_pos, m3_idx);
+    assert!(!state.fox_pending);
     assert_eq!(state.current_turn, Faction::Hounds);
 
     // 2. River Crossing variant
@@ -117,6 +120,56 @@ fn test_initial_state_and_legal_moves() {
 }
 
 #[test]
+fn test_classic_fox_free_entry_first_move() {
+    // Classic: on the very first move the Fox may jump to any free vertex (excluding the
+    // Coop). After that it moves along edges like normal.
+    let mut state = GameState::new();
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    assert!(
+        state.fox_pending,
+        "Classic Fox should await a free-entry choice"
+    );
+
+    let m0_idx = state.graph.find_id_by_name("M0").unwrap();
+    let t1_idx = state.graph.find_id_by_name("T1").unwrap();
+    let b1_idx = state.graph.find_id_by_name("B1").unwrap();
+    let m2_idx = state.graph.find_id_by_name("M2").unwrap();
+    let t2_idx = state.graph.find_id_by_name("T2").unwrap();
+
+    let entry = state.fox_legal_moves();
+    // Coop (M0) and the two occupied hound squares (T1, B1) must be excluded.
+    assert!(!entry.contains(&m0_idx));
+    assert!(!entry.contains(&t1_idx));
+    assert!(!entry.contains(&b1_idx));
+    // A free, non-adjacent square is a valid entry target.
+    assert!(entry.contains(&m2_idx));
+
+    // Should be able to jump directly onto a square the normal graph movement would
+    // never allow in one step (here T2 is not adjacent to the holding square M4).
+    assert!(entry.contains(&t2_idx));
+    assert!(state.apply_fox_move(t2_idx).is_ok());
+    assert_eq!(state.fox_pos, t2_idx);
+    assert!(!state.fox_pending);
+    assert_eq!(state.current_turn, Faction::Hounds);
+
+    // After entry, normal adjacency applies: from T2 the Fox can reach any unoccupied
+    // neighbor (T1 here is still a start square of Hound 1).
+    state.current_turn = Faction::Fox;
+    let mut m2_adj = state.fox_legal_moves();
+    let mut free_neighbors: Vec<usize> = state
+        .graph
+        .neighbors(t2_idx)
+        .iter()
+        .copied()
+        .filter(|&n| !state.hounds_pos.contains(&n))
+        .collect();
+    m2_adj.sort();
+    free_neighbors.sort();
+    assert_eq!(m2_adj, free_neighbors);
+}
+
+#[test]
 fn test_fox_victory_condition() {
     // 1. Classic variant
     let mut state = GameState::new();
@@ -125,6 +178,7 @@ fn test_fox_victory_condition() {
     let m1_idx = state.graph.find_id_by_name("M1").unwrap();
     let m0_idx = state.graph.find_id_by_name("M0").unwrap();
     state.fox_pos = m1_idx;
+    state.fox_pending = false;
     state.hounds_pos = vec![
         state.graph.find_id_by_name("T3").unwrap(),
         state.graph.find_id_by_name("M3").unwrap(),
@@ -169,6 +223,7 @@ fn test_hounds_trap_victory_condition() {
 
     let m4_idx = state.graph.find_id_by_name("M4").unwrap();
     state.fox_pos = m4_idx;
+    state.fox_pending = false;
     state.hounds_pos = vec![
         state.graph.find_id_by_name("T3").unwrap(),
         state.graph.find_id_by_name("M3").unwrap(),
@@ -214,6 +269,7 @@ fn test_ai_finds_immediate_winning_move() {
     let m1_idx = state.graph.find_id_by_name("M1").unwrap();
     let m0_idx = state.graph.find_id_by_name("M0").unwrap();
     state.fox_pos = m1_idx;
+    state.fox_pending = false;
     state.hounds_pos = vec![
         state.graph.find_id_by_name("T3").unwrap(),
         state.graph.find_id_by_name("M3").unwrap(),
@@ -447,13 +503,13 @@ fn test_multi_turn_hounds_advance_and_surround() {
 #[test]
 fn test_move_animation_state_tracking() {
     let mut state = GameState::new();
-    state.start_game(Faction::Fox, Difficulty::Easy);
+    // Player is Hounds so the AI (Fox) does not auto-move during animation updates,
+    // keeping this animation-only test deterministic.
+    state.start_game(Faction::Hounds, Difficulty::Easy);
 
-    let fox_legal = state.fox_legal_moves();
-    assert!(!fox_legal.is_empty());
-    let fox_target = fox_legal[0];
-
-    assert!(state.apply_fox_move(fox_target).is_ok());
+    // Fox move animation (from its holding square to M3).
+    let m3_idx = state.graph.find_id_by_name("M3").unwrap();
+    assert!(state.apply_fox_move(m3_idx).is_ok());
     let fox_anim = state
         .active_anim
         .as_ref()
@@ -481,7 +537,7 @@ fn test_move_animation_state_tracking() {
         "Animation should complete after full duration"
     );
 
-    // Now test Hound move animation
+    // Now test Hound move animation (it's the Hounds' turn, player controls Hounds).
     state.current_turn = Faction::Hounds;
     let hound_legal = state.hound_legal_moves(0);
     assert!(!hound_legal.is_empty());
@@ -531,6 +587,7 @@ fn test_piece_collision_rejection() {
     let m2_idx = state.graph.find_id_by_name("M2").unwrap();
     let m3_idx = state.graph.find_id_by_name("M3").unwrap();
     state.fox_pos = m3_idx;
+    state.fox_pending = false;
     state.hounds_pos[0] = m2_idx; // M2 is adjacent to M3
 
     let fox_legal = state.fox_legal_moves();
@@ -567,6 +624,7 @@ fn test_ai_handles_trapped_fox_position() {
     let b3_idx = state.graph.find_id_by_name("B3").unwrap();
 
     state.fox_pos = m4_idx;
+    state.fox_pending = false;
     state.hounds_pos = vec![t3_idx, m3_idx, b3_idx];
     state.current_turn = Faction::Fox;
 
@@ -605,6 +663,8 @@ fn test_variant_properties() {
     const {
         assert!(!CLASSIC_CONFIG.allow_hound_retreat);
         assert!(RIVER_CROSSING_CONFIG.allow_hound_retreat);
+        assert!(CLASSIC_CONFIG.fox_free_entry);
+        assert!(!RIVER_CROSSING_CONFIG.fox_free_entry);
     }
 
     assert_eq!(CLASSIC_CONFIG.fox_start_node, "M4");

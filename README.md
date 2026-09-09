@@ -40,7 +40,9 @@ Coop**, while the Hounds must coordinate as a cohesive unit to encircle and immo
 - The game is strictly **turn-based**.
 - **Fox Moves First**: The Fox takes turn 1, followed by the Hounds.
 - **Single Piece Movement**:
-  - On the **Fox's turn**: The Fox moves to an adjacent, unoccupied vertex.
+  - On the **Fox's turn**: The Fox moves to an adjacent, unoccupied vertex. On **Classic**,
+    the Fox's first move is a **free entry**: instead of moving one step, it may leap onto
+    **any unoccupied, non-Coop vertex** to begin the game.
   - On the **Hounds' turn**: The Hounds' player selects and moves **exactly one Hound**
     to an adjacent, unoccupied vertex.
 
@@ -81,7 +83,8 @@ in combinatorial game theory. Played on an 11-node spearhead board where hounds 
 - **Column 2** (`T2`, `M2`, `B2`): Central junction with diagonal cross-tracks passing through `M2`
   (3 vertices).
 - **Column 3** (`T3`, `M3`, `B3`): Flanking defensive line before the den (3 vertices).
-- **Apex Right / Column 4** (`M4`): The Fox Den start vertex (1 vertex).
+- **Apex Right / Column 4** (`M4`): The Fox Den holding vertex — the Fox waits here and leaps
+  onto any free vertex on its opening move (1 vertex).
 
 #### Board Graph Visualization
 

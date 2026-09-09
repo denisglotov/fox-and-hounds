@@ -91,6 +91,7 @@ pub struct GameState {
     pub graph: Graph,
     pub variant: BoardVariant,
     pub fox_pos: usize,
+    pub fox_pending: bool,
     pub hounds_pos: Vec<usize>,
     pub coop_pos: usize,
     pub current_turn: Faction,
@@ -124,6 +125,7 @@ impl GameState {
             graph,
             variant,
             fox_pos: 0,
+            fox_pending: false,
             hounds_pos: Vec::new(),
             coop_pos: 0,
             current_turn: Faction::Fox,
@@ -175,6 +177,7 @@ impl GameState {
             .graph
             .find_id_by_name(config.fox_start_node)
             .unwrap_or_else(|| self.graph.nodes.len().saturating_sub(1));
+        self.fox_pending = config.fox_free_entry;
         self.hounds_pos = config
             .hounds_start_nodes
             .iter()
@@ -205,9 +208,15 @@ impl GameState {
     }
 
     pub fn fox_legal_moves(&self) -> Vec<usize> {
-        self.graph
-            .fox_legal_moves(self.fox_pos, &self.hounds_pos)
-            .collect()
+        if self.fox_pending {
+            self.graph
+                .fox_entry_moves(&self.hounds_pos, self.coop_pos)
+                .collect()
+        } else {
+            self.graph
+                .fox_legal_moves(self.fox_pos, &self.hounds_pos)
+                .collect()
+        }
     }
 
     pub fn hound_legal_moves(&self, hound_idx: usize) -> Vec<usize> {
@@ -263,6 +272,7 @@ impl GameState {
         let to_visual = self.graph.node(to).map_or(Vec2::ZERO, |n| n.visual_pos);
 
         self.fox_pos = to;
+        self.fox_pending = false;
         self.move_history.push(PieceMove::FoxMove { to });
         self.current_turn = Faction::Hounds;
         self.selected_hound_idx = None;
