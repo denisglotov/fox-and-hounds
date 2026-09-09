@@ -58,13 +58,18 @@
 <title>L1--L2</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M40.8,-768.7C40.8,-753.43 40.8,-734.64 40.8,-719.41"/>
 </g>
-<!-- C1&#45;&#45;R1 -->
 <!-- C2 -->
 <g id="node6" class="node">
 <title>C2</title>
 <ellipse fill="#ffe082" stroke="#f57f17" stroke-width="1.8" cx="141.8" cy="-690.4" rx="28.8" ry="28.8"/>
 <text xml:space="preserve" text-anchor="middle" x="141.8" y="-686.2" font-family="Helvetica,sans-Serif" font-size="14.00">C2</text>
 </g>
+<!-- L1&#45;&#45;C2 -->
+<g id="edge25" class="edge">
+<title>L1--C2</title>
+<path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M60.51,-776.39C78.2,-757.9 104.02,-730.9 121.79,-712.32"/>
+</g>
+<!-- C1&#45;&#45;R1 -->
 <!-- C1&#45;&#45;C2 -->
 <g id="edge12" class="edge">
 <title>C1--C2</title>
@@ -74,6 +79,11 @@
 <g id="edge24" class="edge">
 <title>R1--C1</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M218.28,-813.88C200.94,-821.51 183.6,-821.51 166.26,-813.86"/>
+</g>
+<!-- R1&#45;&#45;C2 -->
+<g id="edge26" class="edge">
+<title>R1--C2</title>
+<path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M223.09,-776.39C205.4,-757.9 179.58,-730.9 161.81,-712.32"/>
 </g>
 <!-- R2 -->
 <g id="node7" class="node">
@@ -88,7 +98,7 @@
 </g>
 <!-- L2&#45;&#45;C2 -->
 <!-- L2&#45;&#45;C2 -->
-<g id="edge25" class="edge">
+<g id="edge27" class="edge">
 <title>L2--C2</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M65.26,-706.26C82.5,-713.86 99.74,-713.91 116.98,-706.41"/>
 </g>
@@ -105,7 +115,7 @@
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M141.8,-660.82C141.8,-645.67 141.8,-627.13 141.8,-612.03"/>
 </g>
 <!-- R2&#45;&#45;C2 -->
-<g id="edge26" class="edge">
+<g id="edge28" class="edge">
 <title>R2--C2</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M218.41,-706.23C201.16,-713.86 183.91,-713.92 166.66,-706.43"/>
 </g>
@@ -116,7 +126,7 @@
 <text xml:space="preserve" text-anchor="middle" x="40.8" y="-471" font-family="Helvetica,sans-Serif" font-size="14.00">L4</text>
 </g>
 <!-- C3&#45;&#45;L4 -->
-<g id="edge27" class="edge">
+<g id="edge29" class="edge">
 <title>C3--L4</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M122.09,-561.19C104.29,-542.58 78.24,-515.35 60.46,-496.76"/>
 </g>
@@ -138,13 +148,13 @@
 <text xml:space="preserve" text-anchor="middle" x="242.8" y="-471" font-family="Helvetica,sans-Serif" font-size="14.00">R4</text>
 </g>
 <!-- C3&#45;&#45;R4 -->
-<g id="edge28" class="edge">
+<g id="edge30" class="edge">
 <title>C3--R4</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M161.51,-561.19C179.31,-542.58 205.36,-515.35 223.14,-496.76"/>
 </g>
 <!-- L4&#45;&#45;C4 -->
 <!-- L4&#45;&#45;C4 -->
-<g id="edge29" class="edge">
+<g id="edge31" class="edge">
 <title>L4--C4</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M65.26,-491.06C82.6,-498.71 99.94,-498.71 117.28,-491.08"/>
 </g>
@@ -155,18 +165,18 @@
 <text xml:space="preserve" text-anchor="middle" x="40.8" y="-363.4" font-family="Helvetica,sans-Serif" font-size="14.00">L5</text>
 </g>
 <!-- L4&#45;&#45;L5 -->
-<g id="edge31" class="edge">
+<g id="edge33" class="edge">
 <title>L4--L5</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M40.8,-445.9C40.8,-430.63 40.8,-411.84 40.8,-396.61"/>
 </g>
 <!-- C4&#45;&#45;R4 -->
 <!-- C4&#45;&#45;R4 -->
-<g id="edge30" class="edge">
+<g id="edge32" class="edge">
 <title>C4--R4</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M166.26,-491.06C183.6,-498.71 200.94,-498.71 218.28,-491.08"/>
 </g>
 <!-- C4&#45;&#45;L5 -->
-<g id="edge32" class="edge">
+<g id="edge34" class="edge">
 <title>C4--L5</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M122.09,-453.59C104.29,-434.98 78.24,-407.75 60.46,-389.16"/>
 </g>
@@ -188,13 +198,13 @@
 <text xml:space="preserve" text-anchor="middle" x="242.8" y="-363.4" font-family="Helvetica,sans-Serif" font-size="14.00">R5</text>
 </g>
 <!-- C4&#45;&#45;R5 -->
-<g id="edge33" class="edge">
+<g id="edge35" class="edge">
 <title>C4--R5</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M161.51,-453.59C179.31,-434.98 205.36,-407.75 223.14,-389.16"/>
 </g>
 <!-- L5&#45;&#45;C5 -->
 <!-- L5&#45;&#45;C5 -->
-<g id="edge34" class="edge">
+<g id="edge36" class="edge">
 <title>L5--C5</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M65.26,-383.46C82.6,-391.11 99.94,-391.11 117.28,-383.48"/>
 </g>
@@ -205,7 +215,7 @@
 <text xml:space="preserve" text-anchor="middle" x="141.8" y="-255.8" font-family="Helvetica,sans-Serif" font-size="14.00">C6</text>
 </g>
 <!-- L5&#45;&#45;C6 -->
-<g id="edge38" class="edge">
+<g id="edge40" class="edge">
 <title>L5--C6</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M60.51,-345.99C78.31,-327.38 104.36,-300.15 122.14,-281.56"/>
 </g>
@@ -217,13 +227,13 @@
 <text xml:space="preserve" text-anchor="middle" x="32.8" y="-144.2" font-family="Helvetica,sans-Serif" font-size="14.00">🐶 L7</text>
 </g>
 <!-- L5&#45;&#45;L7 -->
-<g id="edge36" class="edge">
+<g id="edge38" class="edge">
 <title>L5--L7</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M39.77,-338.65C38.29,-298.43 35.56,-224.42 33.99,-181.84"/>
 </g>
 <!-- C5&#45;&#45;R5 -->
 <!-- C5&#45;&#45;R5 -->
-<g id="edge35" class="edge">
+<g id="edge37" class="edge">
 <title>C5--R5</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M166.26,-383.46C183.6,-391.11 200.94,-391.11 218.28,-383.48"/>
 </g>
@@ -233,7 +243,7 @@
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M141.8,-338.3C141.8,-323.03 141.8,-304.24 141.8,-289.01"/>
 </g>
 <!-- R5&#45;&#45;C6 -->
-<g id="edge39" class="edge">
+<g id="edge41" class="edge">
 <title>R5--C6</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M223.09,-345.99C205.29,-327.38 179.24,-300.15 161.46,-281.56"/>
 </g>
@@ -245,12 +255,12 @@
 <text xml:space="preserve" text-anchor="middle" x="250.8" y="-144.2" font-family="Helvetica,sans-Serif" font-size="14.00">🐶 R7</text>
 </g>
 <!-- R5&#45;&#45;R7 -->
-<g id="edge37" class="edge">
+<g id="edge39" class="edge">
 <title>R5--R7</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M243.83,-338.65C245.31,-298.43 248.04,-224.42 249.61,-181.84"/>
 </g>
 <!-- C6&#45;&#45;L7 -->
-<g id="edge40" class="edge">
+<g id="edge42" class="edge">
 <title>C6--L7</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M121.81,-238.9C103.25,-220.23 75.61,-192.45 56.07,-172.8"/>
 </g>
@@ -267,13 +277,13 @@
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M141.8,-230.78C141.8,-215.93 141.8,-197.66 141.8,-182.19"/>
 </g>
 <!-- C6&#45;&#45;R7 -->
-<g id="edge41" class="edge">
+<g id="edge43" class="edge">
 <title>C6--R7</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M161.79,-238.9C180.35,-220.23 207.99,-192.45 227.53,-172.8"/>
 </g>
 <!-- L7&#45;&#45;C7 -->
 <!-- L7&#45;&#45;C7 -->
-<g id="edge42" class="edge">
+<g id="edge44" class="edge">
 <title>L7--C7</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M60.48,-167.04C78.27,-174.95 96.06,-174.99 113.84,-167.16"/>
 </g>
@@ -285,13 +295,13 @@
 <text xml:space="preserve" text-anchor="middle" x="141.8" y="-28.6" font-family="Helvetica,sans-Serif" font-size="14.00">🐔 C8</text>
 </g>
 <!-- L7&#45;&#45;C8 -->
-<g id="edge44" class="edge">
+<g id="edge46" class="edge">
 <title>L7--C8</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M55.65,-123.59C74.25,-104.2 100.39,-76.96 118.98,-57.58"/>
 </g>
 <!-- C7&#45;&#45;R7 -->
 <!-- C7&#45;&#45;R7 -->
-<g id="edge43" class="edge">
+<g id="edge45" class="edge">
 <title>C7--R7</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M169.48,-167.04C187.27,-174.95 205.06,-174.99 222.84,-167.16"/>
 </g>
@@ -301,7 +311,7 @@
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M141.8,-114.85C141.8,-99.77 141.8,-81.88 141.8,-66.75"/>
 </g>
 <!-- R7&#45;&#45;C8 -->
-<g id="edge45" class="edge">
+<g id="edge47" class="edge">
 <title>R7--C8</title>
 <path fill="none" stroke="#b71c1c" stroke-width="1.6" d="M227.95,-123.59C209.35,-104.2 183.21,-76.96 164.62,-57.58"/>
 </g>
