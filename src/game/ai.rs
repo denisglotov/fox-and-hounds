@@ -14,6 +14,42 @@ pub struct BoardSnapshot {
     pub allow_hound_retreat: bool,
 }
 
+/// A zero-allocation stack enum iterator over legal Fox moves.
+///
+/// Dispatches statically between opening entry placement moves ([`FoxMovesIter::Entry`])
+/// and standard adjacent graph moves ([`FoxMovesIter::Normal`]), eliminating the need for
+/// heap allocation (`Box<dyn Iterator>`) in inner minimax search loops.
+pub enum FoxMovesIter<A, B> {
+    /// Iterator over initial free-entry placements on the board (e.g. Classic turn 1).
+    Entry(A),
+    /// Iterator over standard adjacent graph moves from the Fox's current vertex.
+    Normal(B),
+}
+
+impl<A, B> Iterator for FoxMovesIter<A, B>
+where
+    A: Iterator<Item = usize>,
+    B: Iterator<Item = usize>,
+{
+    type Item = usize;
+
+    #[inline]
+    fn next(&mut self) -> Option<usize> {
+        match self {
+            Self::Entry(it) => it.next(),
+            Self::Normal(it) => it.next(),
+        }
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Entry(it) => it.size_hint(),
+            Self::Normal(it) => it.size_hint(),
+        }
+    }
+}
+
 impl BoardSnapshot {
     pub fn from_state(state: &GameState) -> Self {
         let mut hounds = [0; 3];
@@ -38,11 +74,11 @@ impl BoardSnapshot {
         self.fox_pos == self.coop_pos
     }
 
-    pub fn fox_legal_moves<'a>(&'a self, graph: &'a Graph) -> Box<dyn Iterator<Item = usize> + 'a> {
+    pub fn fox_legal_moves<'a>(&'a self, graph: &'a Graph) -> impl Iterator<Item = usize> + 'a {
         if self.fox_pending {
-            Box::new(graph.fox_entry_moves(&self.hounds_pos, self.coop_pos))
+            FoxMovesIter::Entry(graph.fox_entry_moves(&self.hounds_pos, self.coop_pos))
         } else {
-            Box::new(graph.fox_legal_moves(self.fox_pos, &self.hounds_pos))
+            FoxMovesIter::Normal(graph.fox_legal_moves(self.fox_pos, &self.hounds_pos))
         }
     }
 
@@ -110,6 +146,23 @@ pub fn find_best_move(state: &GameState) -> Option<PieceMove> {
     }
 }
 
+fn select_best_candidate<T, F>(candidates: &[T], difficulty: Difficulty, mut eval_candidate: F) -> T
+where
+    T: Copy,
+    F: FnMut(T) -> (i32, i32),
+{
+    match difficulty {
+        Difficulty::Easy if candidates.len() > 1 => {
+            let idx = (macroquad::rand::gen_range(0, candidates.len())) as usize;
+            candidates[idx]
+        }
+        _ => *candidates
+            .iter()
+            .max_by_key(|&&item| eval_candidate(item))
+            .unwrap_or(&candidates[0]),
+    }
+}
+
 fn find_best_fox_move(
     board: &BoardSnapshot,
     graph: &Graph,
@@ -145,26 +198,12 @@ fn find_best_fox_move(
         }
     }
 
-    // In Easy difficulty, occasionally choose random candidate if available
-    let chosen = match difficulty {
-        Difficulty::Easy if candidate_moves.len() > 1 => {
-            let idx = (macroquad::rand::gen_range(0, candidate_moves.len())) as usize;
-            candidate_moves[idx]
-        }
-        _ => {
-            // Pick candidate with best immediate static evaluation;
-            // break ties by preferring moves closer to the target destination.
-            *candidate_moves
-                .iter()
-                .max_by_key(|&&to| {
-                    let next_b = board.apply_fox_move(to);
-                    let eval = evaluate_board(&next_b, graph);
-                    let dist = graph.distance(to, next_b.active_target()).unwrap_or(20);
-                    (eval, -(dist as i32))
-                })
-                .unwrap_or(&candidate_moves[0])
-        }
-    };
+    let chosen = select_best_candidate(&candidate_moves, difficulty, |to| {
+        let next_b = board.apply_fox_move(to);
+        let eval = evaluate_board(&next_b, graph);
+        let dist = graph.distance(to, next_b.active_target()).unwrap_or(20);
+        (eval, -(dist as i32))
+    });
 
     Some(PieceMove::FoxMove { to: chosen })
 }
@@ -178,6 +217,19 @@ fn find_best_hound_move(
     let moves: Vec<(usize, usize)> = board.all_hound_moves(graph).collect();
     if moves.is_empty() {
         return None;
+    }
+
+    // If any hound move immediately traps the Fox (checkmate), take it immediately
+    if let Some(&(hound_idx, to)) = moves.iter().find(|&&(h_idx, to)| {
+        let next_b = board.apply_hound_move(h_idx, to);
+        let is_trapped = next_b.fox_legal_moves(graph).next().is_none();
+        is_trapped
+    }) {
+        return Some(PieceMove::HoundMove {
+            hound_idx,
+            from: board.hounds_pos[hound_idx],
+            to,
+        });
     }
 
     let mut best_score = INF; // Hounds minimize Fox's score
@@ -196,22 +248,12 @@ fn find_best_hound_move(
         }
     }
 
-    let chosen = match difficulty {
-        Difficulty::Easy if candidate_moves.len() > 1 => {
-            let idx = (macroquad::rand::gen_range(0, candidate_moves.len())) as usize;
-            candidate_moves[idx]
-        }
-        _ => {
-            // Pick candidate with lowest (best for Hounds) immediate static evaluation
-            *candidate_moves
-                .iter()
-                .min_by_key(|&&(hound_idx, to)| {
-                    let next_b = board.apply_hound_move(hound_idx, to);
-                    evaluate_board(&next_b, graph)
-                })
-                .unwrap_or(&candidate_moves[0])
-        }
-    };
+    let chosen = select_best_candidate(&candidate_moves, difficulty, |(hound_idx, to)| {
+        let next_b = board.apply_hound_move(hound_idx, to);
+        let eval = evaluate_board(&next_b, graph);
+        let dist_to_fox = graph.distance(to, board.fox_pos).unwrap_or(20);
+        (-eval, -(dist_to_fox as i32))
+    });
 
     Some(PieceMove::HoundMove {
         hound_idx: chosen.0,
@@ -234,14 +276,24 @@ pub fn minimax(
     }
 
     if is_fox_turn {
-        let mut fox_moves = board.fox_legal_moves(graph).peekable();
-        if fox_moves.peek().is_none() {
+        let mut fox_moves: Vec<usize> = board.fox_legal_moves(graph).collect();
+        if fox_moves.is_empty() {
             return -WIN_SCORE - (depth as i32 * 100);
         }
 
         if depth == 0 {
             return evaluate_board(board, graph);
         }
+
+        // Move ordering: evaluate immediate winning moves and moves closer to coop first
+        let coop = board.coop_pos;
+        fox_moves.sort_unstable_by_key(|&to| {
+            if to == coop {
+                0
+            } else {
+                graph.distance(to, coop).unwrap_or(20) + 1
+            }
+        });
 
         let mut max_eval = -INF;
         for to in fox_moves {
@@ -255,8 +307,8 @@ pub fn minimax(
         }
         max_eval
     } else {
-        let mut hound_moves = board.all_hound_moves(graph).peekable();
-        if hound_moves.peek().is_none() {
+        let mut hound_moves: Vec<(usize, usize)> = board.all_hound_moves(graph).collect();
+        if hound_moves.is_empty() {
             // Hounds have no moves on their turn: Fox wins immediately
             return WIN_SCORE + (depth as i32 * 100);
         }
@@ -264,6 +316,10 @@ pub fn minimax(
         if depth == 0 {
             return evaluate_board(board, graph);
         }
+
+        // Move ordering for Hounds: evaluate moves that close distance to Fox first
+        let fox_pos = board.fox_pos;
+        hound_moves.sort_unstable_by_key(|&(_, to)| graph.distance(to, fox_pos).unwrap_or(20));
 
         let mut min_eval = INF;
         for (hound_idx, to) in hound_moves {
@@ -312,28 +368,22 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph) -> i32 {
         0
     };
 
-    // Pursuit score: provides an incentive for hounds to close distance across the board,
+    // Pursuit score and threat-based hound penalty computed in a single pass:
+    // Pursuit score provides an incentive for hounds to close distance across the board,
     // while kept low (30) so that 1 step toward target (+350) strictly dominates approaching 3 hounds (-90).
-    let total_hound_dist: i32 = board
-        .hounds_pos
-        .iter()
-        .map(|&h_pos| graph.distance(h_pos, board.fox_pos).unwrap_or(10) as i32)
-        .sum();
-    let pursuit_score = total_hound_dist * 30;
-
-    // Threat-based hound penalty: heavily penalize immediate traps (distance 1-2),
-    // without encouraging running away when hounds are already safely far (>2 steps).
-    let hound_threat_penalty: i32 = board
-        .hounds_pos
-        .iter()
-        .map(
-            |&h_pos| match graph.distance(h_pos, board.fox_pos).unwrap_or(10) {
-                0..=1 => -450,
-                2 => -150,
-                _ => 0,
-            },
-        )
-        .sum();
+    let (pursuit_score, hound_threat_penalty) =
+        board
+            .hounds_pos
+            .iter()
+            .fold((0, 0), |(pursuit, threat), &h_pos| {
+                let dist = graph.distance(h_pos, board.fox_pos).unwrap_or(10);
+                let threat_delta = match dist {
+                    0..=1 => -450,
+                    2 => -150,
+                    _ => 0,
+                };
+                (pursuit + dist as i32 * 30, threat + threat_delta)
+            });
 
     let fox_degrees = board.fox_legal_moves(graph).count();
     let mobility_score = match fox_degrees {
