@@ -152,12 +152,15 @@ fn find_best_fox_move(
             candidate_moves[idx]
         }
         _ => {
-            // Pick candidate with best immediate static evaluation
+            // Pick candidate with best immediate static evaluation;
+            // break ties by preferring moves closer to the target destination.
             *candidate_moves
                 .iter()
                 .max_by_key(|&&to| {
                     let next_b = board.apply_fox_move(to);
-                    evaluate_board(&next_b, graph)
+                    let eval = evaluate_board(&next_b, graph);
+                    let dist = graph.distance(to, next_b.active_target()).unwrap_or(20);
+                    (eval, -(dist as i32))
                 })
                 .unwrap_or(&candidate_moves[0])
         }
@@ -283,31 +286,68 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph) -> i32 {
     }
 
     let target = board.active_target();
-    let dist_to_target = graph.distance(board.fox_pos, target).unwrap_or(10);
-    let dist_to_target_score = (12 - dist_to_target as i32) * 160;
+    let static_dist = graph.distance(board.fox_pos, target).unwrap_or(15);
+    let dist_to_target_score = (18 - static_dist as i32) * 350;
 
+    // Direct unblocked lane bonus: if the hounds leave a clear route to the coop
+    let unblocked_lane_score =
+        match graph.shortest_distance(board.fox_pos, target, &board.hounds_pos) {
+            Some(1) => 15_000,
+            Some(2) => 6_000,
+            Some(3) => 2_500,
+            Some(d) if d <= 5 => (8 - d as i32) * 300,
+            _ => 0,
+        };
+
+    // Breakthrough bonus: Fox is closer to target than any hound
+    let min_hound_dist_to_target = board
+        .hounds_pos
+        .iter()
+        .filter_map(|&h_pos| graph.distance(h_pos, target))
+        .min()
+        .unwrap_or(0);
+    let breakthrough_bonus = if static_dist < min_hound_dist_to_target {
+        (min_hound_dist_to_target as i32 - static_dist as i32) * 450
+    } else {
+        0
+    };
+
+    // Pursuit score: provides an incentive for hounds to close distance across the board,
+    // while kept low (30) so that 1 step toward target (+350) strictly dominates approaching 3 hounds (-90).
     let total_hound_dist: i32 = board
         .hounds_pos
         .iter()
         .map(|&h_pos| graph.distance(h_pos, board.fox_pos).unwrap_or(10) as i32)
         .sum();
-    let pursuit_score = total_hound_dist * 80;
+    let pursuit_score = total_hound_dist * 30;
+
+    // Threat-based hound penalty: heavily penalize immediate traps (distance 1-2),
+    // without encouraging running away when hounds are already safely far (>2 steps).
+    let hound_threat_penalty: i32 = board
+        .hounds_pos
+        .iter()
+        .map(
+            |&h_pos| match graph.distance(h_pos, board.fox_pos).unwrap_or(10) {
+                0..=1 => -450,
+                2 => -150,
+                _ => 0,
+            },
+        )
+        .sum();
 
     let fox_degrees = board.fox_legal_moves(graph).count();
     let mobility_score = match fox_degrees {
         0 => -WIN_SCORE,
         1 => -2_000,
-        2 => -400,
-        3 => 200,
-        _ => 600,
+        2 => -350,
+        3 => 150,
+        _ => 400,
     };
 
-    let close_hounds = board
-        .hounds_pos
-        .iter()
-        .filter(|&&h| graph.neighbors(board.fox_pos).contains(&h))
-        .count() as i32;
-    let pressure_penalty = close_hounds * -400;
-
-    dist_to_target_score + pursuit_score + mobility_score + pressure_penalty
+    dist_to_target_score
+        + unblocked_lane_score
+        + breakthrough_bonus
+        + pursuit_score
+        + hound_threat_penalty
+        + mobility_score
 }
