@@ -942,3 +942,58 @@ fn test_arthur_direct_mission_flow() {
     assert_eq!(state.result, GameResult::FoxWon);
     assert_eq!(state.phase, GamePhase::GameOver);
 }
+
+#[test]
+fn test_the_red_hunt_graph_structure_and_rules() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::TheRedHunt);
+
+    assert_eq!(state.graph.node_count(), 22);
+
+    // Initial piece placement: Fox on C4, Hounds on R4, C3, L4
+    let c4_idx = state.graph.find_id_by_name("C4").unwrap();
+    let r4_idx = state.graph.find_id_by_name("R4").unwrap();
+    let c3_idx = state.graph.find_id_by_name("C3").unwrap();
+    let l4_idx = state.graph.find_id_by_name("L4").unwrap();
+    let c0_idx = state.graph.find_id_by_name("C0").unwrap();
+
+    assert_eq!(state.fox_pos, c4_idx);
+    assert_eq!(state.hounds_pos, vec![r4_idx, c3_idx, l4_idx]);
+    assert_eq!(state.coop_pos, c0_idx);
+    assert_eq!(state.current_turn, Faction::Fox);
+
+    // Hounds allow retreat
+    assert!(state.variant.config().allow_hound_retreat);
+    assert!(!state.variant.config().hounds_start_first);
+
+    // Verify Perekop bottleneck nodes C6 and C7
+    let c6_idx = state.graph.find_id_by_name("C6").unwrap();
+    let c7_idx = state.graph.find_id_by_name("C7").unwrap();
+    assert_eq!(
+        state.graph.node(c6_idx).unwrap().node_type,
+        NodeType::Bottleneck
+    );
+    assert_eq!(
+        state.graph.node(c7_idx).unwrap().node_type,
+        NodeType::Bottleneck
+    );
+    assert!(state.graph.neighbors(c6_idx).contains(&c7_idx));
+}
+
+#[test]
+fn test_the_red_hunt_immediate_victory_at_c0() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::TheRedHunt);
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    let c1_idx = state.graph.find_id_by_name("C1").unwrap();
+    let c0_idx = state.graph.find_id_by_name("C0").unwrap();
+
+    state.fox_pos = c1_idx;
+    state.current_turn = Faction::Fox;
+
+    // Moving to C0 triggers immediate victory
+    assert!(state.apply_fox_move(c0_idx).is_ok());
+    assert_eq!(state.result, GameResult::FoxWon);
+    assert_eq!(state.phase, GamePhase::GameOver);
+}

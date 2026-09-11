@@ -305,6 +305,9 @@ fn test_river_path_for_variant() {
 
     let arthur = RiverPath::for_variant(BoardVariant::FoxAndDogs);
     assert_eq!(arthur.variant, BoardVariant::FoxAndDogs);
+
+    let red_hunt = RiverPath::for_variant(BoardVariant::TheRedHunt);
+    assert_eq!(red_hunt.variant, BoardVariant::TheRedHunt);
 }
 
 #[test]
@@ -326,4 +329,41 @@ fn test_arthur_river_path_and_bridge_occlusion() {
     // Open water (e.g. 200.0, 400.0) should have zero occlusion
     let open_occ = path.bridge_occlusion(Vec2::new(200.0, 400.0));
     assert_eq!(open_occ, 0.0, "Open water should have 0.0 occlusion");
+}
+
+#[test]
+fn test_the_red_hunt_river_path_and_bridge_occlusion() {
+    let path = RiverPath::for_variant(BoardVariant::TheRedHunt);
+    assert!(path.total_length > 900.0 && path.total_length < 1400.0);
+
+    // Fault line flows across the board horizontally from x=0 to x=1024
+    let (start_pos, _, _, _) = path.sample_at(0.0, 0.0);
+    assert_eq!(start_pos.x, 0.0);
+
+    let (end_pos, _, _, _) = path.sample_at(path.total_length, 0.0);
+    assert_eq!(end_pos.x, 1024.0);
+
+    // Perekop bridge center (around 512.0, 655.0) should be occluded
+    let bridge_occ = path.bridge_occlusion(Vec2::new(512.0, 655.0));
+    assert!(
+        bridge_occ > 0.8,
+        "Perekop bridge deck must have high occlusion"
+    );
+
+    // Open fault chasm away from bridge (e.g. 200.0, 650.0) should have zero occlusion
+    let open_occ = path.bridge_occlusion(Vec2::new(200.0, 650.0));
+    assert_eq!(open_occ, 0.0, "Open fault chasm must have 0.0 occlusion");
+
+    // River flow in leftmost, central, and rightmost positions must stay within canyon floor [630, 675]
+    let num_samples = 100;
+    for i in 0..=num_samples {
+        let dist = (i as f32 / num_samples as f32) * path.total_length;
+        let (pos, _, _, _) = path.sample_at(dist, 0.0);
+        assert!(
+            pos.y >= 630.0 && pos.y <= 675.0,
+            "Fault center pos.y ({}) at x={} must stay within canyon floor [630.0, 675.0]",
+            pos.y,
+            pos.x
+        );
+    }
 }

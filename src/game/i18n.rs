@@ -21,6 +21,10 @@ pub struct TitleScreenStrings {
         default = "default_variant_fox_and_dogs_sub"
     )]
     pub variant_fox_and_dogs_sub: String,
+    #[serde(default = "default_variant_the_red_hunt")]
+    pub variant_the_red_hunt: String,
+    #[serde(default = "default_variant_the_red_hunt_sub")]
+    pub variant_the_red_hunt_sub: String,
     pub choose_faction: String,
     pub fox_title: String,
     pub fox_subtitle: String,
@@ -37,7 +41,13 @@ fn default_variant_fox_and_dogs() -> String {
     "Fox and dogs".to_string()
 }
 fn default_variant_fox_and_dogs_sub() -> String {
-    "".to_string()
+    "dogs start first".to_string()
+}
+fn default_variant_the_red_hunt() -> String {
+    "The Red Hunt".to_string()
+}
+fn default_variant_the_red_hunt_sub() -> String {
+    "into golden crater".to_string()
 }
 
 impl TitleScreenStrings {
@@ -54,6 +64,7 @@ impl TitleScreenStrings {
             crate::game::level::BoardVariant::Classic => &self.variant_classic,
             crate::game::level::BoardVariant::RiverCrossing => &self.variant_river_crossing,
             crate::game::level::BoardVariant::FoxAndDogs => &self.variant_fox_and_dogs,
+            crate::game::level::BoardVariant::TheRedHunt => &self.variant_the_red_hunt,
         }
     }
 
@@ -62,6 +73,7 @@ impl TitleScreenStrings {
             crate::game::level::BoardVariant::Classic => &self.variant_classic_sub,
             crate::game::level::BoardVariant::RiverCrossing => &self.variant_river_crossing_sub,
             crate::game::level::BoardVariant::FoxAndDogs => &self.variant_fox_and_dogs_sub,
+            crate::game::level::BoardVariant::TheRedHunt => &self.variant_the_red_hunt_sub,
         }
     }
 }
@@ -436,6 +448,9 @@ mod tests {
             assert!(!loc.title_screen.variant_classic_sub.is_empty());
             assert!(!loc.title_screen.variant_river_crossing.is_empty());
             assert!(!loc.title_screen.variant_river_crossing_sub.is_empty());
+            assert!(!loc.title_screen.variant_fox_and_dogs.is_empty());
+            assert!(!loc.title_screen.variant_the_red_hunt.is_empty());
+            assert!(!loc.title_screen.variant_the_red_hunt_sub.is_empty());
             assert!(!loc.title_screen.choose_faction.is_empty());
             assert!(!loc.title_screen.fox_title.is_empty());
             assert!(!loc.title_screen.fox_subtitle.is_empty());
@@ -484,6 +499,55 @@ mod tests {
                 loc.title_screen.difficulty_hard
             );
         }
+    }
+
+    #[test]
+    fn test_missing_variant_strings_fallback_to_en() {
+        let ru = resolve_locale("ru-RU");
+        let en = resolve_locale("en-US");
+
+        // ru-RU.json does not contain the_red_hunt or fox_and_dogs translations
+        assert_eq!(
+            ru.variant_name(crate::game::level::BoardVariant::TheRedHunt),
+            en.variant_name(crate::game::level::BoardVariant::TheRedHunt)
+        );
+        assert_eq!(
+            ru.variant_sub(crate::game::level::BoardVariant::TheRedHunt),
+            en.variant_sub(crate::game::level::BoardVariant::TheRedHunt)
+        );
+        assert_eq!(
+            ru.variant_name(crate::game::level::BoardVariant::FoxAndDogs),
+            en.variant_name(crate::game::level::BoardVariant::FoxAndDogs)
+        );
+        assert_eq!(
+            ru.variant_sub(crate::game::level::BoardVariant::FoxAndDogs),
+            en.variant_sub(crate::game::level::BoardVariant::FoxAndDogs)
+        );
+
+        // Deserializing partial TitleScreenStrings directly also defaults from en-US
+        let partial_json = r#"{
+            "title":"T","subtitle":"S","board_variant":"B",
+            "variant_classic":"Classic","variant_classic_sub":"Sub",
+            "variant_river_crossing":"River","variant_river_crossing_sub":"RiverSub",
+            "choose_faction":"C","fox_title":"F","fox_subtitle":"FS",
+            "hounds_title":"H","hounds_subtitle":"HS",
+            "ai_difficulty":"A","difficulty_easy":"E","difficulty_medium":"M",
+            "difficulty_hard":"HD","start_match":"SM"
+        }"#;
+        let partial: TitleScreenStrings =
+            serde_json::from_str(partial_json).expect("deserialize partial");
+        assert_eq!(
+            partial.variant_the_red_hunt,
+            en.title_screen.variant_the_red_hunt
+        );
+        assert_eq!(
+            partial.variant_the_red_hunt_sub,
+            en.title_screen.variant_the_red_hunt_sub
+        );
+        assert_eq!(
+            partial.variant_fox_and_dogs,
+            en.title_screen.variant_fox_and_dogs
+        );
     }
 
     #[test]
@@ -684,6 +748,10 @@ mod tests {
                 &loc.title_screen.variant_classic_sub,
                 &loc.title_screen.variant_river_crossing,
                 &loc.title_screen.variant_river_crossing_sub,
+                &loc.title_screen.variant_fox_and_dogs,
+                &loc.title_screen.variant_fox_and_dogs_sub,
+                &loc.title_screen.variant_the_red_hunt,
+                &loc.title_screen.variant_the_red_hunt_sub,
                 &loc.title_screen.choose_faction,
                 &loc.title_screen.fox_title,
                 &loc.title_screen.fox_subtitle,

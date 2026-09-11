@@ -60,7 +60,7 @@ fn test_title_screen_landscape_android_fit() {
         "Variant buttons must not overlap horizontally"
     );
     assert!(
-        layout.variant_btn_bounds[0].y + layout.variant_btn_bounds[0].h
+        layout.variant_btn_bounds.last().unwrap().y + layout.variant_btn_bounds.last().unwrap().h
             <= layout.fox_btn_bounds.y + 0.1,
         "Variant buttons must precede Faction buttons vertically"
     );
@@ -174,7 +174,8 @@ fn test_title_screen_portrait_fit() {
             "Variant buttons must not overlap horizontally"
         );
         assert!(
-            layout.variant_btn_bounds[0].y + layout.variant_btn_bounds[0].h
+            layout.variant_btn_bounds.last().unwrap().y
+                + layout.variant_btn_bounds.last().unwrap().h
                 <= layout.fox_btn_bounds.y + 0.1,
             "Variant buttons must precede Faction buttons vertically"
         );

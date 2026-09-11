@@ -41,6 +41,12 @@ pub const FOX_AND_DOGS_DIMENSIONS: BoardDimensions = BoardDimensions {
 };
 
 pub const ARTHUR_DIMENSIONS: BoardDimensions = FOX_AND_DOGS_DIMENSIONS;
+pub const RED_HUNT_DIMENSIONS: BoardDimensions = BoardDimensions {
+    image_width: 1024.0,
+    image_height: 1024.0,
+    left_width: 0.0,
+    right_width: 0.0,
+};
 
 pub const BOARD_IMAGE_WIDTH: f32 = RIVER_CROSSING_DIMENSIONS.image_width;
 pub const BOARD_IMAGE_HEIGHT: f32 = RIVER_CROSSING_DIMENSIONS.image_height;
@@ -55,6 +61,7 @@ pub enum BoardVariant {
     Classic,
     RiverCrossing,
     FoxAndDogs,
+    TheRedHunt,
 }
 
 pub use BoardVariant::FoxAndDogs as FoxAndDogsSymmetric;
@@ -124,12 +131,28 @@ pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
 
 pub const FOX_AND_DOGS_SYMMETRIC_CONFIG: VariantConfig = FOX_AND_DOGS_CONFIG;
 
+pub const THE_RED_HUNT_CONFIG: VariantConfig = VariantConfig {
+    id: BoardVariant::TheRedHunt,
+    name: "The Red Hunt",
+    description: "Martian crustal fault board: fox starts at C4 and races to C0, hounds start at R4, C3, L4 and can retreat",
+    allow_hound_retreat: true,
+    hounds_start_first: false,
+    dimensions: RED_HUNT_DIMENSIONS,
+    board_image_bytes: include_bytes!("../../assets/the_red_hunt_board.png"),
+    fox_start_node: "C4",
+    fox_free_entry: false,
+    hounds_start_nodes: &["R4", "C3", "L4"],
+    target_coop_node: "C0",
+    build_graph: build_the_red_hunt_graph,
+};
+
 impl BoardVariant {
     pub const fn config(self) -> &'static VariantConfig {
         match self {
             BoardVariant::Classic => &CLASSIC_CONFIG,
             BoardVariant::RiverCrossing => &RIVER_CROSSING_CONFIG,
             BoardVariant::FoxAndDogs => &FOX_AND_DOGS_CONFIG,
+            BoardVariant::TheRedHunt => &THE_RED_HUNT_CONFIG,
         }
     }
 
@@ -138,11 +161,16 @@ impl BoardVariant {
             BoardVariant::Classic,
             BoardVariant::RiverCrossing,
             BoardVariant::FoxAndDogs,
+            BoardVariant::TheRedHunt,
         ]
     }
 
     pub const fn is_arthur(self) -> bool {
         matches!(self, BoardVariant::FoxAndDogs)
+    }
+
+    pub const fn is_red_hunt(self) -> bool {
+        matches!(self, BoardVariant::TheRedHunt)
     }
 
     pub fn localized_name(self, locales: &crate::game::i18n::LocaleStrings) -> &str {
@@ -618,3 +646,122 @@ pub fn build_fox_and_dogs_graph() -> Graph {
 }
 
 pub use build_fox_and_dogs_graph as build_arthur_symmetric_graph;
+
+pub fn build_the_red_hunt_graph() -> Graph {
+    let raw_nodes = vec![
+        // Row 0: North row (Chicken Coop destination)
+        ("L0", 0, 0, NodeType::Standard, Vec2::new(380., 220.)),
+        ("C0", 0, 1, NodeType::TargetCoop, Vec2::new(512.0, 220.)),
+        ("R0", 0, 2, NodeType::Standard, Vec2::new(645., 220.)),
+        // Row 1
+        ("C1", 1, 1, NodeType::Standard, Vec2::new(512.0, 284.)),
+        // Row 2
+        ("L2", 2, 0, NodeType::Standard, Vec2::new(380., 345.)),
+        ("C2", 2, 1, NodeType::Standard, Vec2::new(512.0, 345.)),
+        ("R2", 2, 2, NodeType::Standard, Vec2::new(645., 345.)),
+        // Row 3: Top star node (upper hound start)
+        ("C3", 3, 1, NodeType::Standard, Vec2::new(512.0, 410.0)),
+        // Row 4: Central line (stars at L4 & R4, Fox start at C4)
+        ("L4", 4, 0, NodeType::Standard, Vec2::new(380., 470.)),
+        ("C4", 4, 1, NodeType::FoxStart, Vec2::new(512.0, 470.)),
+        ("R4", 4, 2, NodeType::Standard, Vec2::new(645., 470.)),
+        // Row 5: Bottom diamond center
+        ("C5", 5, 1, NodeType::Standard, Vec2::new(512.0, 536.0)),
+        // Row 6: North bridge landing (Perekop)
+        ("L6", 6, 0, NodeType::Standard, Vec2::new(380., 590.)),
+        ("C6", 6, 1, NodeType::Bottleneck, Vec2::new(512.0, 590.)),
+        ("R6", 6, 2, NodeType::Standard, Vec2::new(645., 590.)),
+        // Row 7: South bridge landing (Perekop)
+        ("L7", 7, 0, NodeType::Standard, Vec2::new(380., 683.)),
+        ("C7", 7, 1, NodeType::Bottleneck, Vec2::new(512.0, 683.)),
+        ("R7", 7, 2, NodeType::Standard, Vec2::new(645., 683.)),
+        // Row 8
+        ("L8", 8, 0, NodeType::Standard, Vec2::new(380., 744.)),
+        ("C8", 8, 1, NodeType::Standard, Vec2::new(512.0, 744.)),
+        ("R8", 8, 2, NodeType::Standard, Vec2::new(645., 744.)),
+        // Row 9: South apex
+        ("C9", 9, 1, NodeType::Standard, Vec2::new(512.0, 808.0)),
+    ];
+
+    let nodes: Vec<Node> = raw_nodes
+        .into_iter()
+        .enumerate()
+        .map(|(id, (name, row, col, node_type, visual_pos))| Node {
+            id,
+            name: name.to_string(),
+            row,
+            col,
+            node_type,
+            visual_pos,
+        })
+        .collect();
+
+    let raw_edges = vec![
+        // Central vertical axis
+        ("C0", "C1"),
+        ("C1", "C2"),
+        ("C2", "C3"),
+        ("C3", "C4"),
+        ("C4", "C5"),
+        ("C5", "C6"),
+        ("C6", "C7"), // Perekop bridge across the fault
+        ("C7", "C8"),
+        ("C8", "C9"),
+        // Horizontal connections
+        ("L0", "C0"),
+        ("C0", "R0"),
+        ("L2", "C2"),
+        ("C2", "R2"),
+        ("L4", "C4"),
+        ("C4", "R4"),
+        ("L6", "C6"),
+        ("C6", "R6"),
+        ("L7", "C7"),
+        ("C7", "R7"),
+        ("L8", "C8"),
+        ("C8", "R8"),
+        // Lateral vertical connections
+        ("L0", "L2"),
+        ("R0", "R2"),
+        ("L2", "L4"),
+        ("R2", "R4"),
+        ("L4", "L6"),
+        ("R4", "R6"),
+        ("L7", "L8"),
+        ("R7", "R8"),
+        // Diagonal: North field (Rows 0-2 through C1)
+        ("L0", "C1"),
+        ("R0", "C1"),
+        ("C1", "L2"),
+        ("C1", "R2"),
+        // Diagonal: Upper diamond (Rows 2-4 through C3)
+        ("L2", "C3"),
+        ("R2", "C3"),
+        ("C3", "L4"),
+        ("C3", "R4"),
+        // Diagonal: Lower diamond (Rows 4-6 through C5)
+        ("L4", "C5"),
+        ("R4", "C5"),
+        ("C5", "L6"),
+        ("C5", "R6"),
+        // Diagonal: South triangle (Rows 8-9 to C9)
+        ("L8", "C9"),
+        ("R8", "C9"),
+    ];
+
+    let name_to_id: std::collections::HashMap<&str, usize> = nodes
+        .iter()
+        .map(|node| (node.name.as_str(), node.id))
+        .collect();
+
+    let edges: Vec<(usize, usize)> = raw_edges
+        .into_iter()
+        .filter_map(|(u_name, v_name)| {
+            let u = name_to_id.get(u_name)?;
+            let v = name_to_id.get(v_name)?;
+            Some((*u, *v))
+        })
+        .collect();
+
+    Graph::new(nodes, &edges)
+}

@@ -39,6 +39,7 @@ impl RiverPath {
             BoardVariant::Classic => Self::classic(),
             BoardVariant::RiverCrossing => Self::river_crossing(),
             BoardVariant::FoxAndDogs => Self::arthur(BoardVariant::FoxAndDogs),
+            BoardVariant::TheRedHunt => Self::the_red_hunt(),
         }
     }
 
@@ -152,6 +153,30 @@ impl RiverPath {
             (Vec2::new(1024.0, 400.0), 45.0),
         ];
         Self::from_control_points(variant, &control_points)
+    }
+
+    pub fn the_red_hunt() -> Self {
+        // Control points: (x, y, half_width) defining the Martian fault rift across the board
+        let control_points = [
+            (Vec2::new(0.0, 658.0), 28.0),
+            (Vec2::new(64.0, 650.0), 28.0),
+            (Vec2::new(128.0, 656.0), 30.0),
+            (Vec2::new(192.0, 668.0), 32.0),
+            (Vec2::new(256.0, 660.0), 30.0),
+            (Vec2::new(320.0, 638.0), 28.0),
+            (Vec2::new(384.0, 645.0), 30.0),
+            (Vec2::new(448.0, 646.0), 32.0),
+            (Vec2::new(512.0, 655.0), 30.0), // Under Perekop bridge between C6 and C7
+            (Vec2::new(576.0, 642.0), 30.0),
+            (Vec2::new(640.0, 648.0), 32.0),
+            (Vec2::new(704.0, 638.0), 30.0),
+            (Vec2::new(768.0, 641.0), 30.0),
+            (Vec2::new(832.0, 645.0), 28.0),
+            (Vec2::new(896.0, 665.0), 28.0),
+            (Vec2::new(960.0, 650.0), 28.0),
+            (Vec2::new(1024.0, 642.0), 30.0),
+        ];
+        Self::from_control_points(BoardVariant::TheRedHunt, &control_points)
     }
 
     pub fn from_control_points(variant: BoardVariant, control_points: &[(Vec2, f32)]) -> Self {
@@ -271,6 +296,7 @@ impl RiverPath {
             BoardVariant::Classic => classic_bridge_occlusion(pos),
             BoardVariant::RiverCrossing => self.river_crossing_bridge_occlusion(pos),
             BoardVariant::FoxAndDogs => self.arthur_bridge_occlusion(pos),
+            BoardVariant::TheRedHunt => self.the_red_hunt_bridge_occlusion(pos),
         }
     }
 
@@ -299,6 +325,17 @@ impl RiverPath {
         if in_wood_bridge {
             let edge_dist_x = (pos.x - 468.0).min(548.0 - pos.x) / 14.0;
             let edge_dist_y = (pos.y - 340.0).min(475.0 - pos.y) / 16.0;
+            return edge_dist_x.min(edge_dist_y).clamp(0.0, 1.0);
+        }
+        0.0
+    }
+
+    fn the_red_hunt_bridge_occlusion(&self, pos: Vec2) -> f32 {
+        // Perekop stone bridge spanning vertically between C6 (y=606) and C7 (y=704)
+        let in_bridge = pos.x >= 476.0 && pos.x <= 548.0 && pos.y >= 590.0 && pos.y <= 720.0;
+        if in_bridge {
+            let edge_dist_x = (pos.x - 476.0).min(548.0 - pos.x) / 14.0;
+            let edge_dist_y = (pos.y - 590.0).min(720.0 - pos.y) / 16.0;
             return edge_dist_x.min(edge_dist_y).clamp(0.0, 1.0);
         }
         0.0
@@ -455,6 +492,14 @@ impl RiverSimulation {
     pub fn draw(&self, origin: Vec2, scale: f32) {
         let t = self.elapsed_time;
 
+        if self.path.variant == BoardVariant::TheRedHunt {
+            // Martian Crustal Fault: Magma glow, flowing lava pulses, and floating lava sparks/embers
+            self.draw_lava_ambient_glow(origin, scale, t);
+            self.draw_lava_magma_flows(origin, scale, t);
+            self.draw_lava_sparks(origin, scale, t);
+            return;
+        }
+
         // 1. Soft Ambient Liquid Glow along riverbed
         self.draw_riverbed_ambient_glow(origin, scale, t);
 
@@ -463,6 +508,171 @@ impl RiverSimulation {
 
         // 3. Sunlight Caustics Network (Glistening Caustic Webs)
         self.draw_sunlight_caustics(origin, scale, t);
+    }
+
+    /// Deep volcanic magma glow along the Martian fault chasm
+    fn draw_lava_ambient_glow(&self, origin: Vec2, scale: f32, t: f32) {
+        let step = 16.0;
+        let num_steps = (self.path.total_length / step).ceil() as usize;
+
+        for i in 0..num_steps {
+            let d0 = (i as f32 * step).min(self.path.total_length);
+            let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
+            if (d1 - d0) < 1.0 {
+                continue;
+            }
+
+            let mid_d = (d0 + d1) * 0.5;
+            let (p0, _, _, w0) = self.path.sample_at(d0, 0.0);
+            let (p1, _, _, w1) = self.path.sample_at(d1, 0.0);
+
+            let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
+            // Throbbing volcanic pulse
+            let pulse = ((mid_d * 0.04 - t * 2.0).sin() * 0.5 + 0.5) * 0.4 + 0.6;
+            let alpha = 0.45 * pulse * (1.0 - occlusion);
+
+            if alpha > 0.02 {
+                let screen_p0 = origin + p0 * scale;
+                let screen_p1 = origin + p1 * scale;
+                let avg_width = (w0 + w1) * 0.5 * 1.5 * scale;
+
+                // Deep incandescent orange-red glow
+                let glow_color =
+                    Color::from_rgba(255, 70, 10, (alpha * 130.0).clamp(0.0, 255.0) as u8);
+                draw_line(
+                    screen_p0.x,
+                    screen_p0.y,
+                    screen_p1.x,
+                    screen_p1.y,
+                    avg_width,
+                    glow_color,
+                );
+            }
+        }
+    }
+
+    /// Molten lava veins and glowing streams flowing through the crustal fault
+    fn draw_lava_magma_flows(&self, origin: Vec2, scale: f32, t: f32) {
+        let step = 10.0;
+        let num_steps = (self.path.total_length / step).ceil() as usize;
+
+        for &v in &STREAMLINE_CHANNELS {
+            let bank_fade = (1.0 - v * v).powf(1.4);
+
+            for i in 0..num_steps {
+                let d0 = (i as f32 * step).min(self.path.total_length);
+                let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
+                if (d1 - d0) < 1.0 {
+                    continue;
+                }
+
+                let mid_d = (d0 + d1) * 0.5;
+                let (p0, _, _, _) = self.path.sample_at(d0, v);
+                let (p1, _, _, _) = self.path.sample_at(d1, v);
+
+                let flow_speed = 2.8 + (1.0 - v.abs()) * 0.9;
+                let w1 = (mid_d * 0.055 - t * flow_speed + v * 2.1).sin();
+                let w2 = (mid_d * 0.11 - t * (flow_speed * 1.4) - v * 2.8).sin();
+                let wave = w1 * 0.6 + w2 * 0.4;
+
+                if wave > -0.1 {
+                    let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
+                    let intensity = ((wave + 0.1) / 1.1).clamp(0.0, 1.0);
+                    let alpha = intensity.powf(1.4) * bank_fade * (1.0 - occlusion);
+
+                    if alpha > 0.015 {
+                        let screen_p0 = origin + p0 * scale;
+                        let screen_p1 = origin + p1 * scale;
+
+                        // Fiery golden/amber lava ribbon
+                        let magma_color =
+                            Color::from_rgba(255, 140, 0, (alpha * 175.0).clamp(0.0, 255.0) as u8);
+                        draw_line(
+                            screen_p0.x,
+                            screen_p0.y,
+                            screen_p1.x,
+                            screen_p1.y,
+                            (2.5 + wave * 1.5) * scale,
+                            magma_color,
+                        );
+
+                        // White-hot molten core
+                        if wave > 0.3 && occlusion < 0.99 {
+                            let core_intensity = ((wave - 0.3) / 0.7 * bank_fade).clamp(0.0, 1.0);
+                            let core_color = Color::from_rgba(
+                                255,
+                                245,
+                                180,
+                                (core_intensity * (1.0 - occlusion) * 220.0).clamp(0.0, 255.0)
+                                    as u8,
+                            );
+                            draw_line(
+                                screen_p0.x,
+                                screen_p0.y,
+                                screen_p1.x,
+                                screen_p1.y,
+                                1.2 * scale,
+                                core_color,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Dynamic lava sparks and embers dancing and floating along the Martian fault
+    fn draw_lava_sparks(&self, origin: Vec2, scale: f32, t: f32) {
+        let num_sparks = 36;
+        for i in 0..num_sparks {
+            let seed = i as f32 * 17.382;
+            let speed = 28.0 + (seed * 5.1).fract() * 32.0;
+            let loop_dist = self.path.total_length + 60.0;
+            let raw_dist = ((t * speed + seed * 43.1) % loop_dist) - 30.0;
+            let dist = raw_dist.clamp(0.0, self.path.total_length);
+
+            let v = ((seed * 7.7 + t * 0.8).sin() * 0.65).clamp(-0.85, 0.85);
+            let (pos, _tangent, normal, _) = self.path.sample_at(dist, v);
+
+            let occlusion = self.path.bridge_occlusion(pos);
+            if occlusion >= 0.95 {
+                continue;
+            }
+
+            // Drift / spark floating upward (against gravity) from heat convection
+            let float_phase = seed * 3.3 + t * 4.2;
+            let float_offset = normal * (float_phase.sin() * 4.0)
+                + Vec2::new(0.0, -1.0) * ((seed * 11.1 + t * 6.0).sin().abs() * 6.0);
+            let spark_pos = origin + (pos + float_offset) * scale;
+
+            let spark_life = ((seed * 9.1 + t * 3.0).sin() * 0.5 + 0.5).powf(1.5);
+            let alpha = spark_life * (1.0 - occlusion);
+
+            if alpha > 0.05 {
+                let r = (1.8 + (seed * 2.3).fract() * 1.8) * scale;
+                // Outer incandescent halo
+                draw_circle(
+                    spark_pos.x,
+                    spark_pos.y,
+                    r * 2.2,
+                    Color::from_rgba(255, 80, 0, (alpha * 120.0).clamp(0.0, 255.0) as u8),
+                );
+                // Vivid yellow-orange spark
+                draw_circle(
+                    spark_pos.x,
+                    spark_pos.y,
+                    r,
+                    Color::from_rgba(255, 200, 30, (alpha * 200.0).clamp(0.0, 255.0) as u8),
+                );
+                // Brilliant white spark nucleus
+                draw_circle(
+                    spark_pos.x,
+                    spark_pos.y,
+                    r * 0.45,
+                    Color::from_rgba(255, 255, 240, (alpha * 240.0).clamp(0.0, 255.0) as u8),
+                );
+            }
+        }
     }
 
     /// Soft, luminous liquid glow that gives the river clear depth and vibrancy
