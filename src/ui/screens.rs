@@ -1075,8 +1075,8 @@ impl Screens {
         let rematch_clicked = Self::draw_action_button(&ActionButtonConfig {
             bounds: layout.rematch_btn_bounds,
             text: &state.locales.game_over.play_again,
-            normal_color: Color::from_rgba(25, 118, 210, 255),
-            hover_color: Color::from_rgba(66, 165, 245, 255),
+            normal_color: Color::from_rgba(25, 118, 210, 128),
+            hover_color: Color::from_rgba(66, 165, 245, 128),
             scale,
             font,
         });
@@ -1090,8 +1090,8 @@ impl Screens {
         let menu_clicked = Self::draw_action_button(&ActionButtonConfig {
             bounds: layout.menu_btn_bounds,
             text: &state.locales.game_over.main_menu,
-            normal_color: Color::from_rgba(55, 71, 79, 255),
-            hover_color: Color::from_rgba(96, 125, 139, 255),
+            normal_color: Color::from_rgba(55, 71, 79, 128),
+            hover_color: Color::from_rgba(96, 125, 139, 128),
             scale,
             font,
         });
