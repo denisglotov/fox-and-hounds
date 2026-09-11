@@ -302,4 +302,31 @@ fn test_river_path_for_variant() {
 
     let river_crossing = RiverPath::for_variant(BoardVariant::RiverCrossing);
     assert_eq!(river_crossing.variant, BoardVariant::RiverCrossing);
+
+    let arthur_sym = RiverPath::for_variant(BoardVariant::FoxAndDogsSymmetric);
+    assert_eq!(arthur_sym.variant, BoardVariant::FoxAndDogsSymmetric);
+
+    let arthur_asym = RiverPath::for_variant(BoardVariant::FoxAndDogsAsymmetric);
+    assert_eq!(arthur_asym.variant, BoardVariant::FoxAndDogsAsymmetric);
+}
+
+#[test]
+fn test_arthur_river_path_and_bridge_occlusion() {
+    let path = RiverPath::for_variant(BoardVariant::FoxAndDogsSymmetric);
+    assert!(path.total_length > 900.0 && path.total_length < 1300.0);
+
+    // River flows horizontally from x=0 to x=1024
+    let (start_pos, _, _, _) = path.sample_at(0.0, 0.0);
+    assert_eq!(start_pos.x, 0.0);
+
+    let (end_pos, _, _, _) = path.sample_at(path.total_length, 0.0);
+    assert_eq!(end_pos.x, 1024.0);
+
+    // Wooden bridge center (around 508.0, 410.0) should be occluded
+    let bridge_occ = path.bridge_occlusion(Vec2::new(508.0, 410.0));
+    assert!(bridge_occ > 0.8, "Bridge deck must have high occlusion");
+
+    // Open water (e.g. 200.0, 400.0) should have zero occlusion
+    let open_occ = path.bridge_occlusion(Vec2::new(200.0, 400.0));
+    assert_eq!(open_occ, 0.0, "Open water should have 0.0 occlusion");
 }

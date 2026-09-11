@@ -38,6 +38,8 @@ impl RiverPath {
         match variant {
             BoardVariant::Classic => Self::classic(),
             BoardVariant::RiverCrossing => Self::river_crossing(),
+            BoardVariant::FoxAndDogsSymmetric => Self::arthur(BoardVariant::FoxAndDogsSymmetric),
+            BoardVariant::FoxAndDogsAsymmetric => Self::arthur(BoardVariant::FoxAndDogsAsymmetric),
         }
     }
 
@@ -129,6 +131,28 @@ impl RiverPath {
             (Vec2::new(1024.0, 658.0), 20.0),
         ];
         Self::from_control_points(BoardVariant::RiverCrossing, &control_points)
+    }
+
+    pub fn arthur(variant: BoardVariant) -> Self {
+        // Control points: (x, y, half_width) defining the horizontal river channel flowing left to right
+        let control_points = [
+            (Vec2::new(0.0, 420.0), 45.0),
+            (Vec2::new(80.0, 410.0), 40.0),
+            (Vec2::new(160.0, 398.0), 38.0),
+            (Vec2::new(240.0, 402.0), 40.0),
+            (Vec2::new(320.0, 428.0), 42.0),
+            (Vec2::new(400.0, 442.0), 40.0),
+            (Vec2::new(460.0, 428.0), 36.0),
+            (Vec2::new(508.0, 410.0), 35.0), // Under C2-C3 wooden bridge
+            (Vec2::new(560.0, 402.0), 35.0),
+            (Vec2::new(640.0, 405.0), 38.0),
+            (Vec2::new(720.0, 418.0), 40.0),
+            (Vec2::new(800.0, 432.0), 42.0),
+            (Vec2::new(880.0, 430.0), 42.0),
+            (Vec2::new(960.0, 415.0), 42.0),
+            (Vec2::new(1024.0, 400.0), 45.0),
+        ];
+        Self::from_control_points(variant, &control_points)
     }
 
     pub fn from_control_points(variant: BoardVariant, control_points: &[(Vec2, f32)]) -> Self {
@@ -247,6 +271,9 @@ impl RiverPath {
         match self.variant {
             BoardVariant::Classic => classic_bridge_occlusion(pos),
             BoardVariant::RiverCrossing => self.river_crossing_bridge_occlusion(pos),
+            BoardVariant::FoxAndDogsSymmetric | BoardVariant::FoxAndDogsAsymmetric => {
+                self.arthur_bridge_occlusion(pos)
+            }
         }
     }
 
@@ -266,6 +293,17 @@ impl RiverPath {
             return edge_dist;
         }
 
+        0.0
+    }
+
+    fn arthur_bridge_occlusion(&self, pos: Vec2) -> f32 {
+        // Wooden bridge spanning vertically between C2 (y=324) and C3 (y=493) over the horizontal river channel
+        let in_wood_bridge = pos.x >= 468.0 && pos.x <= 548.0 && pos.y >= 340.0 && pos.y <= 475.0;
+        if in_wood_bridge {
+            let edge_dist_x = (pos.x - 468.0).min(548.0 - pos.x) / 14.0;
+            let edge_dist_y = (pos.y - 340.0).min(475.0 - pos.y) / 16.0;
+            return edge_dist_x.min(edge_dist_y).clamp(0.0, 1.0);
+        }
         0.0
     }
 }

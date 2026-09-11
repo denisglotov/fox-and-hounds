@@ -340,6 +340,19 @@ impl BoardView {
                     );
                 }
             }
+
+            // 3. Active Target Objective Halo
+            let is_active_target = node.id == state.active_target_node();
+            if is_active_target && !is_legal && state.phase == GamePhase::Playing {
+                let target_radius = (22.0 + pulse * 3.0) * scale;
+                draw_circle_lines(
+                    pos.x,
+                    pos.y,
+                    target_radius,
+                    2.0 * scale,
+                    Color::from_rgba(255, 215, 64, 140 + (pulse * 80.0) as u8),
+                );
+            }
         }
     }
 
@@ -372,13 +385,13 @@ impl BoardView {
             let angle = (delta.y).atan2(delta.x) + std::f32::consts::FRAC_PI_2;
             (pos, jump, angle)
         } else if let Some(n) = fox_node {
-            // While idle, orient towards Chicken Coop
-            let coop_pos = state
+            // While idle, orient towards active objective target
+            let target_pos = state
                 .graph
-                .node(state.coop_pos)
+                .node(state.active_target_node())
                 .map(|cn| cn.visual_pos)
                 .unwrap_or(Vec2::ZERO);
-            let delta = coop_pos - n.visual_pos;
+            let delta = target_pos - n.visual_pos;
             let angle = if delta.length_squared() > 1e-4 {
                 (delta.y).atan2(delta.x) + std::f32::consts::FRAC_PI_2
             } else {

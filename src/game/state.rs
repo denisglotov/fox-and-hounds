@@ -94,6 +94,10 @@ pub struct GameState {
     pub fox_pending: bool,
     pub hounds_pos: Vec<usize>,
     pub coop_pos: usize,
+    pub waypoint_pos: Option<usize>,
+    pub fox_visited_waypoint: bool,
+    pub fox_waiting_at_waypoint: bool,
+    pub waypoint_wait_timer: f32,
     pub current_turn: Faction,
     pub player_faction: Faction,
     pub difficulty: Difficulty,
@@ -128,6 +132,10 @@ impl GameState {
             fox_pending: false,
             hounds_pos: Vec::new(),
             coop_pos: 0,
+            waypoint_pos: None,
+            fox_visited_waypoint: false,
+            fox_waiting_at_waypoint: false,
+            waypoint_wait_timer: 0.0,
             current_turn: Faction::Fox,
             player_faction: Faction::Fox,
             difficulty: Difficulty::Medium,
@@ -187,27 +195,46 @@ impl GameState {
             .graph
             .find_id_by_name(config.target_coop_node)
             .unwrap_or(0);
-        self.current_turn = Faction::Fox;
+        self.waypoint_pos = config
+            .target_waypoint_node
+            .and_then(|name| self.graph.find_id_by_name(name));
+        self.fox_visited_waypoint = false;
+        self.fox_waiting_at_waypoint = false;
+        self.waypoint_wait_timer = 0.0;
+        self.current_turn = if config.hounds_start_first {
+            Faction::Hounds
+        } else {
+            Faction::Fox
+        };
         self.result = GameResult::Ongoing;
         self.selected_hound_idx = None;
         self.turn_count = 1;
         self.move_history.clear();
-        self.ai_think_delay = if self.player_faction == Faction::Hounds {
-            0.4
-        } else {
-            0.0
-        };
         self.active_anim = None;
         self.cached_game_over_stats = None;
+        self.ai_think_delay = if self.is_ai_turn() { 0.4 } else { 0.0 };
     }
 
     pub fn is_ai_turn(&self) -> bool {
         self.phase == GamePhase::Playing
             && self.result == GameResult::Ongoing
+            && !self.fox_waiting_at_waypoint
             && self.current_turn != self.player_faction
     }
 
+    pub fn active_target_node(&self) -> usize {
+        if let Some(waypoint) = self.waypoint_pos {
+            if !self.fox_visited_waypoint {
+                return waypoint;
+            }
+        }
+        self.coop_pos
+    }
+
     pub fn fox_legal_moves(&self) -> Vec<usize> {
+        if self.fox_waiting_at_waypoint {
+            return Vec::new();
+        }
         if self.fox_pending {
             self.graph
                 .fox_entry_moves(&self.hounds_pos, self.coop_pos)
@@ -273,6 +300,10 @@ impl GameState {
 
         self.fox_pos = to;
         self.fox_pending = false;
+        if self.waypoint_pos == Some(to) && !self.fox_visited_waypoint {
+            self.fox_waiting_at_waypoint = true;
+            self.waypoint_wait_timer = 0.0;
+        }
         self.move_history.push(PieceMove::FoxMove { to });
         self.current_turn = Faction::Hounds;
         self.selected_hound_idx = None;
@@ -343,7 +374,11 @@ impl GameState {
     }
 
     pub fn evaluate_game_result(&mut self) {
-        if self.fox_pos == self.coop_pos {
+        let fox_won = match self.waypoint_pos {
+            Some(_) => self.fox_visited_waypoint && self.fox_pos == self.coop_pos,
+            None => self.fox_pos == self.coop_pos,
+        };
+        if fox_won {
             self.result = GameResult::FoxWon;
             self.phase = GamePhase::GameOver;
             self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
@@ -354,7 +389,10 @@ impl GameState {
             return;
         }
 
-        if self.current_turn == Faction::Fox && self.fox_legal_moves().is_empty() {
+        if self.current_turn == Faction::Fox
+            && !self.fox_waiting_at_waypoint
+            && self.fox_legal_moves().is_empty()
+        {
             self.result = GameResult::HoundsWon;
             self.phase = GamePhase::GameOver;
             self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
@@ -388,6 +426,30 @@ impl GameState {
             anim.progress += dt / anim.duration;
             if anim.progress >= 1.0 {
                 self.active_anim = None;
+            }
+        }
+
+        // Automatic waypoint wait / prey grabbing turn
+        if self.phase == GamePhase::Playing
+            && self.result == GameResult::Ongoing
+            && self.current_turn == Faction::Fox
+            && self.fox_waiting_at_waypoint
+            && self.active_anim.is_none()
+        {
+            self.waypoint_wait_timer += dt;
+            if self.waypoint_wait_timer >= 0.5 {
+                self.waypoint_wait_timer = 0.0;
+                self.fox_waiting_at_waypoint = false;
+                self.fox_visited_waypoint = true;
+                self.current_turn = Faction::Hounds;
+                self.turn_count += 1;
+                self.ai_think_delay = if self.player_faction == Faction::Fox {
+                    0.35
+                } else {
+                    0.0
+                };
+                self.evaluate_game_result();
+                trigger = Some(SoundTrigger::Select);
             }
         }
 

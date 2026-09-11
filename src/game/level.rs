@@ -33,6 +33,15 @@ pub const CLASSIC_DIMENSIONS: BoardDimensions = BoardDimensions {
     right_width: 0.0,
 };
 
+pub const FOX_AND_DOGS_DIMENSIONS: BoardDimensions = BoardDimensions {
+    image_width: 1024.0,
+    image_height: 1024.0,
+    left_width: 0.0,
+    right_width: 0.0,
+};
+
+pub const ARTHUR_DIMENSIONS: BoardDimensions = FOX_AND_DOGS_DIMENSIONS;
+
 pub const BOARD_IMAGE_WIDTH: f32 = RIVER_CROSSING_DIMENSIONS.image_width;
 pub const BOARD_IMAGE_HEIGHT: f32 = RIVER_CROSSING_DIMENSIONS.image_height;
 pub const BOARD_LEFT_WIDTH: f32 = RIVER_CROSSING_DIMENSIONS.left_width;
@@ -45,6 +54,8 @@ pub enum BoardVariant {
     #[default]
     Classic,
     RiverCrossing,
+    FoxAndDogsSymmetric,
+    FoxAndDogsAsymmetric,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -53,11 +64,13 @@ pub struct VariantConfig {
     pub name: &'static str,
     pub description: &'static str,
     pub allow_hound_retreat: bool,
+    pub hounds_start_first: bool,
     pub dimensions: BoardDimensions,
     pub board_image_bytes: &'static [u8],
     pub fox_start_node: &'static str,
     pub fox_free_entry: bool,
     pub hounds_start_nodes: &'static [&'static str],
+    pub target_waypoint_node: Option<&'static str>,
     pub target_coop_node: &'static str,
     pub build_graph: fn() -> Graph,
 }
@@ -69,11 +82,13 @@ pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
     name: "Classic",
     description: "Traditional rules on an 11-node spearhead board where hounds cannot retreat",
     allow_hound_retreat: false,
+    hounds_start_first: false,
     dimensions: CLASSIC_DIMENSIONS,
     board_image_bytes: include_bytes!("../../assets/classic_board_image.png"),
     fox_start_node: "M4",
     fox_free_entry: true,
     hounds_start_nodes: &["M0", "T1", "B1"],
+    target_waypoint_node: None,
     target_coop_node: "M0",
     build_graph: build_classic_graph,
 };
@@ -83,13 +98,47 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
     name: "The river crossing",
     description: "3x9 board with a river bottleneck on Row 6 and free hound movement",
     allow_hound_retreat: true,
+    hounds_start_first: false,
     dimensions: RIVER_CROSSING_DIMENSIONS,
     board_image_bytes: include_bytes!("../../assets/board_image.png"),
     fox_start_node: "M9",
     fox_free_entry: false,
     hounds_start_nodes: &["L1", "M1", "R1"],
+    target_waypoint_node: None,
     target_coop_node: "M0",
     build_graph: build_river_crossing_graph,
+};
+
+pub const FOX_AND_DOGS_SYMMETRIC_CONFIG: VariantConfig = VariantConfig {
+    id: BoardVariant::FoxAndDogsSymmetric,
+    name: "fox and dogs",
+    description: "Fox and dogs board: dogs start on Row 7 and move first, fox must reach C0 then return to C8",
+    allow_hound_retreat: true,
+    hounds_start_first: true,
+    dimensions: FOX_AND_DOGS_DIMENSIONS,
+    board_image_bytes: include_bytes!("../../assets/fox_and_dogs_board.png"),
+    fox_start_node: "C8",
+    fox_free_entry: false,
+    hounds_start_nodes: &["R7", "C7", "L7"],
+    target_waypoint_node: Some("C0"),
+    target_coop_node: "C8",
+    build_graph: build_arthur_symmetric_graph,
+};
+
+pub const FOX_AND_DOGS_ASYMMETRIC_CONFIG: VariantConfig = VariantConfig {
+    id: BoardVariant::FoxAndDogsAsymmetric,
+    name: "fox and dogs assymetric",
+    description: "Fox and dogs assymetric board without L4-L5 shortcut: dogs start on Row 7 and move first, fox must reach C0 then return to C8",
+    allow_hound_retreat: true,
+    hounds_start_first: true,
+    dimensions: FOX_AND_DOGS_DIMENSIONS,
+    board_image_bytes: include_bytes!("../../assets/fox_and_dogs_assymetric_board.png"),
+    fox_start_node: "C8",
+    fox_free_entry: false,
+    hounds_start_nodes: &["R7", "C7", "L7"],
+    target_waypoint_node: Some("C0"),
+    target_coop_node: "C8",
+    build_graph: build_arthur_asymmetric_graph,
 };
 
 impl BoardVariant {
@@ -97,11 +146,25 @@ impl BoardVariant {
         match self {
             BoardVariant::Classic => &CLASSIC_CONFIG,
             BoardVariant::RiverCrossing => &RIVER_CROSSING_CONFIG,
+            BoardVariant::FoxAndDogsSymmetric => &FOX_AND_DOGS_SYMMETRIC_CONFIG,
+            BoardVariant::FoxAndDogsAsymmetric => &FOX_AND_DOGS_ASYMMETRIC_CONFIG,
         }
     }
 
     pub const fn all() -> &'static [BoardVariant] {
-        &[BoardVariant::Classic, BoardVariant::RiverCrossing]
+        &[
+            BoardVariant::Classic,
+            BoardVariant::RiverCrossing,
+            BoardVariant::FoxAndDogsSymmetric,
+            BoardVariant::FoxAndDogsAsymmetric,
+        ]
+    }
+
+    pub const fn is_arthur(self) -> bool {
+        matches!(
+            self,
+            BoardVariant::FoxAndDogsSymmetric | BoardVariant::FoxAndDogsAsymmetric
+        )
     }
 
     pub fn localized_name(self, locales: &crate::game::i18n::LocaleStrings) -> &str {
@@ -445,6 +508,148 @@ pub fn build_classic_graph() -> Graph {
         ("M3", "M4"),
         ("B3", "M4"),
     ];
+
+    let name_to_id: std::collections::HashMap<&str, usize> = nodes
+        .iter()
+        .map(|node| (node.name.as_str(), node.id))
+        .collect();
+
+    let edges: Vec<(usize, usize)> = raw_edges
+        .into_iter()
+        .filter_map(|(u_name, v_name)| {
+            let u = name_to_id.get(u_name)?;
+            let v = name_to_id.get(v_name)?;
+            Some((*u, *v))
+        })
+        .collect();
+
+    Graph::new(nodes, &edges)
+}
+
+fn build_arthur_nodes() -> Vec<Node> {
+    let raw_nodes = vec![
+        ("C0", 0, 1, NodeType::Standard, Vec2::new(510., 184.4)),
+        ("L1", 1, 0, NodeType::Standard, Vec2::new(389.3, 253.5)),
+        ("C1", 1, 1, NodeType::Standard, Vec2::new(510., 254.5)),
+        ("R1", 1, 2, NodeType::Standard, Vec2::new(630.1, 254.7)),
+        ("L2", 2, 0, NodeType::Standard, Vec2::new(366.5, 328.5)),
+        ("C2", 2, 1, NodeType::Bottleneck, Vec2::new(510., 323.8)),
+        ("R2", 2, 2, NodeType::Standard, Vec2::new(649.2, 323.1)),
+        ("C3", 3, 1, NodeType::Bottleneck, Vec2::new(511., 494.)),
+        ("L4", 4, 0, NodeType::Standard, Vec2::new(386.8, 562.4)),
+        ("C4", 4, 1, NodeType::Standard, Vec2::new(510., 565.)),
+        ("R4", 4, 2, NodeType::Standard, Vec2::new(632., 565.)),
+        ("L5", 5, 0, NodeType::Standard, Vec2::new(386., 640.)),
+        ("C5", 5, 1, NodeType::Standard, Vec2::new(510., 640.)),
+        ("R5", 5, 2, NodeType::Standard, Vec2::new(632., 640.)),
+        ("C6", 6, 1, NodeType::Standard, Vec2::new(509.2, 710.)),
+        ("L7", 7, 0, NodeType::Standard, Vec2::new(387.4, 780.)),
+        ("C7", 7, 1, NodeType::Standard, Vec2::new(510., 780.)),
+        ("R7", 7, 2, NodeType::Standard, Vec2::new(632., 780.)),
+        ("C8", 8, 1, NodeType::TargetCoop, Vec2::new(510., 850.)),
+    ];
+
+    raw_nodes
+        .into_iter()
+        .enumerate()
+        .map(|(id, (name, row, col, node_type, visual_pos))| Node {
+            id,
+            name: name.to_string(),
+            row,
+            col,
+            node_type,
+            visual_pos,
+        })
+        .collect()
+}
+
+/// Base edges shared between both Arthur variants.
+///
+/// Note that symmetric and asymmetric graphs are different:
+/// - The symmetric variant (`assets/fox_and_dogs_board.png`) has the `L4-L5` edge.
+/// - The asymmetric variant (`assets/fox_and_dogs_assymetric_board.png`) does not have `L4-L5`.
+///
+/// `L4-L5` is intentionally omitted from these base edges and added in
+/// `build_arthur_symmetric_graph()`.
+fn arthur_base_raw_edges() -> Vec<(&'static str, &'static str)> {
+    vec![
+        // Central axis
+        ("C0", "C1"),
+        ("C1", "C2"),
+        ("C2", "C3"),
+        ("C3", "C4"),
+        ("C4", "C5"),
+        ("C5", "C6"),
+        ("C6", "C7"),
+        ("C7", "C8"),
+        // 0 -> 1
+        ("C0", "L1"),
+        ("C0", "R1"),
+        // Rows 1 and 2
+        ("L1", "L2"),
+        ("R1", "R2"),
+        ("L1", "C1"),
+        ("R1", "C1"),
+        ("L1", "C2"),
+        ("R1", "C2"),
+        ("L2", "C2"),
+        ("R2", "C2"),
+        // 3 -> 4
+        ("C3", "L4"),
+        ("C3", "R4"),
+        // Row 4 horizontal
+        ("L4", "C4"),
+        ("C4", "R4"),
+        // 4 -> 5 diagonal (Note: symmetric variant additionally has L4-L5, while asymmetric does not)
+        ("C4", "L5"),
+        ("C4", "R5"),
+        // Row 5 horizontal
+        ("L5", "C5"),
+        ("C5", "R5"),
+        // 5 -> 6 and outputs to dogs
+        ("L5", "L7"),
+        ("R5", "R7"),
+        ("L5", "C6"),
+        ("R5", "C6"),
+        // 6 -> dogs
+        ("C6", "L7"),
+        ("C6", "R7"),
+        // Row 7 horizontal
+        ("L7", "C7"),
+        ("C7", "R7"),
+        // 7 -> C8 (Target Coop)
+        ("L7", "C8"),
+        ("R7", "C8"),
+    ]
+}
+
+pub fn build_arthur_symmetric_graph() -> Graph {
+    let nodes = build_arthur_nodes();
+    let mut raw_edges = arthur_base_raw_edges();
+    // Symmetric board includes L4-L5 edge matching assets/fox_and_dogs_board.png
+    raw_edges.push(("L4", "L5"));
+
+    let name_to_id: std::collections::HashMap<&str, usize> = nodes
+        .iter()
+        .map(|node| (node.name.as_str(), node.id))
+        .collect();
+
+    let edges: Vec<(usize, usize)> = raw_edges
+        .into_iter()
+        .filter_map(|(u_name, v_name)| {
+            let u = name_to_id.get(u_name)?;
+            let v = name_to_id.get(v_name)?;
+            Some((*u, *v))
+        })
+        .collect();
+
+    Graph::new(nodes, &edges)
+}
+
+pub fn build_arthur_asymmetric_graph() -> Graph {
+    let nodes = build_arthur_nodes();
+    // Asymmetric variant lacks the L4-L5 shortcut edge matching assets/fox_and_dogs_assymetric_board.png
+    let raw_edges = arthur_base_raw_edges();
 
     let name_to_id: std::collections::HashMap<&str, usize> = nodes
         .iter()

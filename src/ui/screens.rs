@@ -37,7 +37,7 @@ pub struct TitleScreenLayout {
     pub left_column: Rect,
     pub right_column: Rect,
     pub hero_bounds: Option<Rect>,
-    pub variant_btn_bounds: [Rect; 2],
+    pub variant_btn_bounds: [Rect; 4],
     pub fox_btn_bounds: Rect,
     pub hounds_btn_bounds: Rect,
     pub difficulty_btn_bounds: [Rect; 3],
@@ -111,15 +111,17 @@ impl TitleScreenLayout {
             None
         };
 
-        let v_btn_h = (38.0 * scale).min(right_column.h * 0.16);
-        let f_btn_h = (38.0 * scale).min(right_column.h * 0.16);
-        let d_btn_h = (30.0 * scale).min(right_column.h * 0.13);
-        let s_btn_h = (38.0 * scale).min(right_column.h * 0.16);
-        let label_h = (11.0 * scale).min(right_column.h * 0.05);
+        let v_btn_h = (32.0 * scale).min(right_column.h * 0.11);
+        let v_row_gap = (4.0 * scale).min(right_column.h * 0.015);
+        let total_v_h = v_btn_h * 2.0 + v_row_gap;
+        let f_btn_h = (36.0 * scale).min(right_column.h * 0.14);
+        let d_btn_h = (28.0 * scale).min(right_column.h * 0.11);
+        let s_btn_h = (36.0 * scale).min(right_column.h * 0.14);
+        let label_h = (11.0 * scale).min(right_column.h * 0.045);
 
-        let total_fixed = label_h * 3.0 + v_btn_h + f_btn_h + d_btn_h + s_btn_h;
+        let total_fixed = label_h * 3.0 + total_v_h + f_btn_h + d_btn_h + s_btn_h;
         let remaining_h = (right_column.h - total_fixed).max(0.0);
-        let spacing = (remaining_h / 5.0).min(9.0 * scale);
+        let spacing = (remaining_h / 5.0).min(7.0 * scale);
         let total_content_h = total_fixed + spacing * 5.0;
         let mut curr_y = right_column.y + (right_column.h - total_content_h) / 2.0;
 
@@ -130,8 +132,15 @@ impl TitleScreenLayout {
         let variant_btn_bounds = [
             Rect::new(right_column.x, curr_y, v_w, v_btn_h),
             Rect::new(right_column.x + v_w + v_gap, curr_y, v_w, v_btn_h),
+            Rect::new(right_column.x, curr_y + v_btn_h + v_row_gap, v_w, v_btn_h),
+            Rect::new(
+                right_column.x + v_w + v_gap,
+                curr_y + v_btn_h + v_row_gap,
+                v_w,
+                v_btn_h,
+            ),
         ];
-        curr_y += v_btn_h + spacing;
+        curr_y += total_v_h + spacing;
 
         curr_y += label_h + spacing * 0.4;
 
@@ -192,8 +201,10 @@ impl TitleScreenLayout {
         let banner_bottom_gap = 14.0 * scale;
 
         let v_lbl_h = 16.0 * scale;
-        let v_btn_h = (44.0 * scale).min(avail_h * 0.08);
-        let v_gap = 14.0 * scale;
+        let v_btn_h = (36.0 * scale).min(avail_h * 0.06);
+        let v_row_gap = 6.0 * scale;
+        let total_v_h = v_btn_h * 2.0 + v_row_gap;
+        let v_gap = 12.0 * scale;
 
         let f_lbl_h = 16.0 * scale;
         let f_btn_h = (44.0 * scale).min(avail_h * 0.08);
@@ -213,7 +224,7 @@ impl TitleScreenLayout {
             + banner_top_gap
             + banner_bottom_gap
             + v_lbl_h
-            + v_btn_h
+            + total_v_h
             + v_gap
             + f_lbl_h
             + f_btn_h
@@ -260,8 +271,20 @@ impl TitleScreenLayout {
         let variant_btn_bounds = [
             Rect::new(card_x + 18.0 * scale, curr_y, v_w, v_btn_h),
             Rect::new(card_x + 18.0 * scale + v_w + v_gap_w, curr_y, v_w, v_btn_h),
+            Rect::new(
+                card_x + 18.0 * scale,
+                curr_y + v_btn_h + v_row_gap,
+                v_w,
+                v_btn_h,
+            ),
+            Rect::new(
+                card_x + 18.0 * scale + v_w + v_gap_w,
+                curr_y + v_btn_h + v_row_gap,
+                v_w,
+                v_btn_h,
+            ),
         ];
-        curr_y += v_btn_h + v_gap;
+        curr_y += total_v_h + v_gap;
 
         curr_y += f_lbl_h;
 
@@ -512,7 +535,7 @@ impl Screens {
                 font,
             );
 
-            let variants = [BoardVariant::Classic, BoardVariant::RiverCrossing];
+            let variants = BoardVariant::all();
             for (idx, &v) in variants.iter().enumerate() {
                 let is_sel = state.variant == v;
                 let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
@@ -721,7 +744,7 @@ impl Screens {
                 font,
             );
 
-            let variants = [BoardVariant::Classic, BoardVariant::RiverCrossing];
+            let variants = BoardVariant::all();
             for (idx, &v) in variants.iter().enumerate() {
                 let is_sel = state.variant == v;
                 let clicked = Self::draw_selectable_button(&SelectableButtonConfig {

@@ -141,7 +141,9 @@ impl ViewportCamera {
                     duration,
                 );
             }
-            BoardVariant::Classic => {
+            BoardVariant::Classic
+            | BoardVariant::FoxAndDogsSymmetric
+            | BoardVariant::FoxAndDogsAsymmetric => {
                 self.start_classic_intro(viewport_rect, base_board_size, base_board_scale);
             }
         }

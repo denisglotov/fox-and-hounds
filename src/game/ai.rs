@@ -1,4 +1,4 @@
-use super::graph::{Graph, NodeType};
+use super::graph::Graph;
 use super::state::{Difficulty, Faction, GameState, PieceMove};
 
 const WIN_SCORE: i32 = 100_000;
@@ -10,6 +10,8 @@ pub struct BoardSnapshot {
     pub fox_pending: bool,
     pub hounds_pos: [usize; 3],
     pub coop_pos: usize,
+    pub waypoint_pos: Option<usize>,
+    pub fox_visited_waypoint: bool,
     pub current_turn: Faction,
     pub allow_hound_retreat: bool,
 }
@@ -25,8 +27,26 @@ impl BoardSnapshot {
             fox_pending: state.fox_pending,
             hounds_pos: hounds,
             coop_pos: state.coop_pos,
+            waypoint_pos: state.waypoint_pos,
+            fox_visited_waypoint: state.fox_visited_waypoint,
             current_turn: state.current_turn,
             allow_hound_retreat: state.variant.config().allow_hound_retreat,
+        }
+    }
+
+    pub fn active_target(&self) -> usize {
+        if let Some(waypoint) = self.waypoint_pos {
+            if !self.fox_visited_waypoint {
+                return waypoint;
+            }
+        }
+        self.coop_pos
+    }
+
+    pub fn is_fox_win(&self) -> bool {
+        match self.waypoint_pos {
+            Some(_) => self.fox_visited_waypoint && self.fox_pos == self.coop_pos,
+            None => self.fox_pos == self.coop_pos,
         }
     }
 
@@ -64,11 +84,14 @@ impl BoardSnapshot {
     }
 
     pub fn apply_fox_move(&self, to: usize) -> Self {
+        let visited = self.fox_visited_waypoint || (self.waypoint_pos == Some(to));
         Self {
             fox_pos: to,
             fox_pending: false,
             hounds_pos: self.hounds_pos,
             coop_pos: self.coop_pos,
+            waypoint_pos: self.waypoint_pos,
+            fox_visited_waypoint: visited,
             current_turn: Faction::Hounds,
             allow_hound_retreat: self.allow_hound_retreat,
         }
@@ -82,6 +105,8 @@ impl BoardSnapshot {
             fox_pending: self.fox_pending,
             hounds_pos: new_hounds,
             coop_pos: self.coop_pos,
+            waypoint_pos: self.waypoint_pos,
+            fox_visited_waypoint: self.fox_visited_waypoint,
             current_turn: Faction::Fox,
             allow_hound_retreat: self.allow_hound_retreat,
         }
@@ -97,27 +122,14 @@ pub fn find_best_move(state: &GameState) -> Option<PieceMove> {
     };
 
     match state.current_turn {
-        Faction::Fox => find_best_fox_move(
-            &snapshot,
-            &state.graph,
-            state.coop_pos,
-            depth,
-            state.difficulty,
-        ),
-        Faction::Hounds => find_best_hound_move(
-            &snapshot,
-            &state.graph,
-            state.coop_pos,
-            depth,
-            state.difficulty,
-        ),
+        Faction::Fox => find_best_fox_move(&snapshot, &state.graph, depth, state.difficulty),
+        Faction::Hounds => find_best_hound_move(&snapshot, &state.graph, depth, state.difficulty),
     }
 }
 
 fn find_best_fox_move(
     board: &BoardSnapshot,
     graph: &Graph,
-    coop_pos: usize,
     max_depth: usize,
     difficulty: Difficulty,
 ) -> Option<PieceMove> {
@@ -126,8 +138,11 @@ fn find_best_fox_move(
         return None;
     }
 
-    // If any move reaches coop directly, take it immediately
-    if let Some(&direct_win) = moves.iter().find(|&&m| m == coop_pos) {
+    // If any move achieves direct win, take it immediately
+    if let Some(&direct_win) = moves
+        .iter()
+        .find(|&&m| board.apply_fox_move(m).is_fox_win())
+    {
         return Some(PieceMove::FoxMove { to: direct_win });
     }
 
@@ -136,15 +151,7 @@ fn find_best_fox_move(
 
     for &to in &moves {
         let next_board = board.apply_fox_move(to);
-        let score = minimax(
-            &next_board,
-            graph,
-            coop_pos,
-            max_depth - 1,
-            -INF,
-            INF,
-            false,
-        );
+        let score = minimax(&next_board, graph, max_depth - 1, -INF, INF, false);
 
         if score > best_score {
             best_score = score;
@@ -167,7 +174,7 @@ fn find_best_fox_move(
                 .iter()
                 .max_by_key(|&&to| {
                     let next_b = board.apply_fox_move(to);
-                    evaluate_board(&next_b, graph, coop_pos)
+                    evaluate_board(&next_b, graph)
                 })
                 .unwrap_or(&candidate_moves[0])
         }
@@ -179,7 +186,6 @@ fn find_best_fox_move(
 fn find_best_hound_move(
     board: &BoardSnapshot,
     graph: &Graph,
-    coop_pos: usize,
     max_depth: usize,
     difficulty: Difficulty,
 ) -> Option<PieceMove> {
@@ -193,7 +199,7 @@ fn find_best_hound_move(
 
     for &(hound_idx, to) in &moves {
         let next_board = board.apply_hound_move(hound_idx, to);
-        let score = minimax(&next_board, graph, coop_pos, max_depth - 1, -INF, INF, true);
+        let score = minimax(&next_board, graph, max_depth - 1, -INF, INF, true);
 
         if score < best_score {
             best_score = score;
@@ -215,7 +221,7 @@ fn find_best_hound_move(
                 .iter()
                 .min_by_key(|&&(hound_idx, to)| {
                     let next_b = board.apply_hound_move(hound_idx, to);
-                    evaluate_board(&next_b, graph, coop_pos)
+                    evaluate_board(&next_b, graph)
                 })
                 .unwrap_or(&candidate_moves[0])
         }
@@ -231,14 +237,13 @@ fn find_best_hound_move(
 pub fn minimax(
     board: &BoardSnapshot,
     graph: &Graph,
-    coop_pos: usize,
     depth: usize,
     mut alpha: i32,
     mut beta: i32,
     is_fox_turn: bool,
 ) -> i32 {
     // 1. Terminal condition checks
-    if board.fox_pos == coop_pos {
+    if board.is_fox_win() {
         return WIN_SCORE + (depth as i32 * 100);
     }
 
@@ -249,13 +254,13 @@ pub fn minimax(
         }
 
         if depth == 0 {
-            return evaluate_board(board, graph, coop_pos);
+            return evaluate_board(board, graph);
         }
 
         let mut max_eval = -INF;
         for to in fox_moves {
             let next_board = board.apply_fox_move(to);
-            let eval = minimax(&next_board, graph, coop_pos, depth - 1, alpha, beta, false);
+            let eval = minimax(&next_board, graph, depth - 1, alpha, beta, false);
             max_eval = max_eval.max(eval);
             alpha = alpha.max(eval);
             if beta <= alpha {
@@ -271,13 +276,13 @@ pub fn minimax(
         }
 
         if depth == 0 {
-            return evaluate_board(board, graph, coop_pos);
+            return evaluate_board(board, graph);
         }
 
         let mut min_eval = INF;
         for (hound_idx, to) in hound_moves {
             let next_board = board.apply_hound_move(hound_idx, to);
-            let eval = minimax(&next_board, graph, coop_pos, depth - 1, alpha, beta, true);
+            let eval = minimax(&next_board, graph, depth - 1, alpha, beta, true);
             min_eval = min_eval.min(eval);
             beta = beta.min(eval);
             if beta <= alpha {
@@ -289,44 +294,15 @@ pub fn minimax(
 }
 
 /// Evaluation score from Fox perspective (positive = Fox advantage, negative = Hounds advantage)
-pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph, coop_pos: usize) -> i32 {
-    if board.fox_pos == coop_pos {
+pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph) -> i32 {
+    if board.is_fox_win() {
         return WIN_SCORE;
     }
 
-    let fox_node = match graph.node(board.fox_pos) {
-        Some(n) => n,
-        None => return 0,
-    };
+    let target = board.active_target();
+    let dist_to_target = graph.distance(board.fox_pos, target).unwrap_or(10);
+    let dist_to_target_score = (12 - dist_to_target as i32) * 160;
 
-    let hound_nodes: Vec<_> = board
-        .hounds_pos
-        .iter()
-        .filter_map(|&pos| graph.node(pos))
-        .collect();
-
-    let max_row = graph.nodes.iter().map(|n| n.row).max().unwrap_or(9);
-    let min_hound_row = hound_nodes.iter().map(|n| n.row).min().unwrap_or(0);
-    let max_hound_row = hound_nodes.iter().map(|n| n.row).max().unwrap_or(max_row);
-
-    // 1. Fox breakthrough bonus: if Fox slipped strictly past ALL hounds towards Coop
-    let breakthrough_bonus = if fox_node.row < min_hound_row {
-        10_000
-    } else {
-        0
-    };
-
-    // 2. Fox distance to coop & row progress
-    let dist_to_coop = graph.distance(board.fox_pos, coop_pos).unwrap_or(10);
-    let dist_to_coop_score = (10 - dist_to_coop as i32) * 150;
-    let row_progress = (max_row as i32 - fox_node.row as i32) * 150;
-
-    // 3. Defensive Blockade: Count how many hounds are positioned between Fox and Coop
-    let hounds_ahead = hound_nodes.iter().filter(|h| h.row <= fox_node.row).count() as i32;
-    let blockade_score = (3 - hounds_ahead) * 400;
-
-    // 4. Hound Pursuit / Proximity: Distance from each hound to the Fox
-    // Hounds want to minimize distance to Fox; Fox wants to maximize it.
     let total_hound_dist: i32 = board
         .hounds_pos
         .iter()
@@ -334,22 +310,15 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph, coop_pos: usize) -> 
         .sum();
     let pursuit_score = total_hound_dist * 80;
 
-    // 5. Hound Line Advancement: Reward hounds for advancing their frontline towards the Fox
-    let avg_hound_row =
-        hound_nodes.iter().map(|n| n.row as f32).sum::<f32>() / hound_nodes.len().max(1) as f32;
-    let hound_advance_score = (avg_hound_row * -140.0) as i32;
-
-    // 6. Fox degrees of freedom / mobility & cornering
     let fox_degrees = board.fox_legal_moves(graph).count();
     let mobility_score = match fox_degrees {
         0 => -WIN_SCORE,
-        1 => -2_000, // Fox is on the verge of capture
-        2 => -400,   // Fox options are constrained
-        3 => 200,    // Fox has moderate mobility
-        _ => 600,    // Fox is free to roam
+        1 => -2_000,
+        2 => -400,
+        3 => 200,
+        _ => 600,
     };
 
-    // 7. Immediate surrounding pressure: Hounds directly adjacent to Fox
     let close_hounds = board
         .hounds_pos
         .iter()
@@ -357,43 +326,7 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph, coop_pos: usize) -> 
         .count() as i32;
     let pressure_penalty = close_hounds * -400;
 
-    // 8. Hound cohesion: Reward maintaining a united rank, penalize disjointed lines
-    let hound_row_span = (max_hound_row - min_hound_row) as i32;
-    let cohesion_score = if hound_row_span <= 1 {
-        -250
-    } else if hound_row_span == 2 {
-        0
-    } else {
-        350
-    };
+    let waypoint_bonus = if board.fox_visited_waypoint { 5_000 } else { 0 };
 
-    // 9. Bottleneck control: Controlling the river bridge (M6)
-    let bridge_score = graph
-        .nodes
-        .iter()
-        .find(|n| n.node_type == NodeType::Bottleneck)
-        .map_or(0, |bridge_node| {
-            if board.fox_pos == bridge_node.id {
-                600
-            } else if board.hounds_pos.contains(&bridge_node.id) {
-                if fox_node.row >= bridge_node.row {
-                    -800 // Hound locks down bridge while Fox is south
-                } else {
-                    -200
-                }
-            } else {
-                0
-            }
-        });
-
-    breakthrough_bonus
-        + dist_to_coop_score
-        + row_progress
-        + blockade_score
-        + pursuit_score
-        + hound_advance_score
-        + mobility_score
-        + pressure_penalty
-        + cohesion_score
-        + bridge_score
+    dist_to_target_score + pursuit_score + mobility_score + pressure_penalty + waypoint_bonus
 }
