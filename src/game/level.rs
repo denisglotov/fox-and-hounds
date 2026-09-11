@@ -597,6 +597,7 @@ fn arthur_base_raw_edges() -> Vec<(&'static str, &'static str)> {
         // 3 -> 4
         ("C3", "L4"),
         ("C3", "R4"),
+        ("R4", "R5"),
         // Row 4 horizontal
         ("L4", "C4"),
         ("C4", "R4"),

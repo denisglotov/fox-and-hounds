@@ -847,9 +847,11 @@ fn test_arthur_graph_structure_and_symmetry() {
     assert!(!asym.neighbors(l4_idx).contains(&l5_idx));
     assert!(!asym.neighbors(l5_idx).contains(&l4_idx));
 
-    // Neither variant has R4-R5
-    assert!(!sym.neighbors(r4_idx).contains(&r5_idx));
-    assert!(!asym.neighbors(r4_idx).contains(&r5_idx));
+    // Both variants have R4-R5
+    assert!(sym.neighbors(r4_idx).contains(&r5_idx));
+    assert!(sym.neighbors(r5_idx).contains(&r4_idx));
+    assert!(asym.neighbors(r4_idx).contains(&r5_idx));
+    assert!(asym.neighbors(r5_idx).contains(&r4_idx));
 
     // C8 is TargetCoop
     let c8_idx = sym.find_id_by_name("C8").unwrap();
