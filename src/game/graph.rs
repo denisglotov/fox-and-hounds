@@ -116,30 +116,72 @@ impl Graph {
             return Some(0);
         }
 
-        let mut distances = vec![None; self.nodes.len()];
-        let mut queue = VecDeque::new();
-
-        distances[start] = Some(0);
-        queue.push_back(start);
-
-        while let Some(current) = queue.pop_front() {
-            let curr_dist = distances[current].unwrap();
-            if current == target {
-                return Some(curr_dist);
-            }
-
-            for &next in self.neighbors(current) {
-                if next == target {
-                    return Some(curr_dist + 1);
-                }
-                if distances[next].is_none() && !obstacles.contains(&next) {
-                    distances[next] = Some(curr_dist + 1);
-                    queue.push_back(next);
-                }
-            }
+        let n = self.nodes.len();
+        if start >= n || target >= n {
+            return None;
         }
 
-        distances[target]
+        // Fast zero-allocation path for typical game graphs (<= 32 nodes)
+        if n <= 32 {
+            let mut dist = [u8::MAX; 32];
+            let mut queue = [0usize; 32];
+            let mut head = 0;
+            let mut tail = 0;
+
+            dist[start] = 0;
+            queue[tail] = start;
+            tail += 1;
+
+            while head < tail {
+                let current = queue[head];
+                head += 1;
+                let curr_dist = dist[current];
+
+                for &next in self.neighbors(current) {
+                    if next == target {
+                        return Some((curr_dist + 1) as usize);
+                    }
+                    if next < n && dist[next] == u8::MAX && !obstacles.contains(&next) {
+                        dist[next] = curr_dist + 1;
+                        if tail < 32 {
+                            queue[tail] = next;
+                            tail += 1;
+                        }
+                    }
+                }
+            }
+
+            if dist[target] != u8::MAX {
+                Some(dist[target] as usize)
+            } else {
+                None
+            }
+        } else {
+            let mut distances = vec![None; n];
+            let mut queue = VecDeque::new();
+
+            distances[start] = Some(0);
+            queue.push_back(start);
+
+            while let Some(current) = queue.pop_front() {
+                let curr_dist = distances[current].unwrap();
+                if current == target {
+                    return Some(curr_dist);
+                }
+
+                for &next in self.neighbors(current) {
+                    if next == target {
+                        return Some(curr_dist + 1);
+                    }
+                    if distances[next].is_none() && !obstacles.contains(&next) {
+                        distances[next] = Some(curr_dist + 1);
+                        queue.push_back(next);
+                    }
+                }
+            }
+
+            distances[target]
+        }
     }
 
     /// Generates an iterator over legal destination nodes for the Fox.

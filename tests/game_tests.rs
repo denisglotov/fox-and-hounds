@@ -1057,3 +1057,68 @@ fn test_the_red_hunt_slowness_and_move_duration() {
         .expect("Hound move on Mars should create active_anim");
     assert_eq!(hound_anim.duration, THE_RED_HUNT_CONFIG.move_duration);
 }
+
+#[test]
+fn test_fox_ai_heads_to_destination_in_fox_and_dogs() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::FoxAndDogs);
+    state.start_game(Faction::Hounds, Difficulty::Medium);
+
+    assert_eq!(state.current_turn, Faction::Hounds);
+    let c7_idx = state.graph.find_id_by_name("C7").unwrap();
+    let c6_idx = state.graph.find_id_by_name("C6").unwrap();
+    let dog_idx = state.hounds_pos.iter().position(|&p| p == c7_idx).unwrap();
+    assert!(state.apply_hound_move(dog_idx, c6_idx).is_ok());
+
+    assert_eq!(state.current_turn, Faction::Fox);
+    let best_move = find_best_move(&state).expect("Fox AI should choose a move");
+    if let fox_and_hounds::game::state::PieceMove::FoxMove { to } = best_move {
+        let to_node = state.graph.node(to).unwrap();
+        let c3_idx = state.graph.find_id_by_name("C3").unwrap();
+        let c0_idx = state.graph.find_id_by_name("C0").unwrap();
+        assert_ne!(to, c3_idx, "Fox should not retreat north to C3");
+        assert_ne!(to, c0_idx, "Fox should not retreat north to C0");
+        assert!(
+            to_node.row >= 4,
+            "Fox should advance or maneuver toward destination C8 (row >= 4, got row {})",
+            to_node.row
+        );
+    } else {
+        panic!("Expected FoxMove");
+    }
+}
+
+#[test]
+fn test_fox_ai_advances_toward_destination_in_river_crossing() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::RiverCrossing);
+    state.start_game(Faction::Hounds, Difficulty::Medium);
+
+    assert_eq!(state.current_turn, Faction::Fox);
+    let best_move = find_best_move(&state).expect("Fox AI should choose a move");
+    if let fox_and_hounds::game::state::PieceMove::FoxMove { to } = best_move {
+        let to_node = state.graph.node(to).unwrap();
+        assert_eq!(to_node.row, 8, "Fox should advance from Row 9 to Row 8");
+    } else {
+        panic!("Expected FoxMove");
+    }
+}
+
+#[test]
+fn test_fox_ai_aggressive_entry_in_classic() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::Classic);
+    state.start_game(Faction::Hounds, Difficulty::Medium);
+
+    let best_move = find_best_move(&state).expect("Fox AI should choose an entry move");
+    if let fox_and_hounds::game::state::PieceMove::FoxMove { to } = best_move {
+        let to_node = state.graph.node(to).unwrap();
+        assert!(
+            to_node.row <= 2,
+            "Fox should choose an aggressive entry position close to destination (got row {})",
+            to_node.row
+        );
+    } else {
+        panic!("Expected FoxMove");
+    }
+}
