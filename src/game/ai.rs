@@ -10,8 +10,6 @@ pub struct BoardSnapshot {
     pub fox_pending: bool,
     pub hounds_pos: [usize; 3],
     pub coop_pos: usize,
-    pub waypoint_pos: Option<usize>,
-    pub fox_visited_waypoint: bool,
     pub current_turn: Faction,
     pub allow_hound_retreat: bool,
 }
@@ -27,27 +25,17 @@ impl BoardSnapshot {
             fox_pending: state.fox_pending,
             hounds_pos: hounds,
             coop_pos: state.coop_pos,
-            waypoint_pos: state.waypoint_pos,
-            fox_visited_waypoint: state.fox_visited_waypoint,
             current_turn: state.current_turn,
             allow_hound_retreat: state.variant.config().allow_hound_retreat,
         }
     }
 
-    pub fn active_target(&self) -> usize {
-        if let Some(waypoint) = self.waypoint_pos {
-            if !self.fox_visited_waypoint {
-                return waypoint;
-            }
-        }
+    pub const fn active_target(&self) -> usize {
         self.coop_pos
     }
 
-    pub fn is_fox_win(&self) -> bool {
-        match self.waypoint_pos {
-            Some(_) => self.fox_visited_waypoint && self.fox_pos == self.coop_pos,
-            None => self.fox_pos == self.coop_pos,
-        }
+    pub const fn is_fox_win(&self) -> bool {
+        self.fox_pos == self.coop_pos
     }
 
     pub fn fox_legal_moves<'a>(&'a self, graph: &'a Graph) -> Box<dyn Iterator<Item = usize> + 'a> {
@@ -84,14 +72,11 @@ impl BoardSnapshot {
     }
 
     pub fn apply_fox_move(&self, to: usize) -> Self {
-        let visited = self.fox_visited_waypoint || (self.waypoint_pos == Some(to));
         Self {
             fox_pos: to,
             fox_pending: false,
             hounds_pos: self.hounds_pos,
             coop_pos: self.coop_pos,
-            waypoint_pos: self.waypoint_pos,
-            fox_visited_waypoint: visited,
             current_turn: Faction::Hounds,
             allow_hound_retreat: self.allow_hound_retreat,
         }
@@ -105,8 +90,6 @@ impl BoardSnapshot {
             fox_pending: self.fox_pending,
             hounds_pos: new_hounds,
             coop_pos: self.coop_pos,
-            waypoint_pos: self.waypoint_pos,
-            fox_visited_waypoint: self.fox_visited_waypoint,
             current_turn: Faction::Fox,
             allow_hound_retreat: self.allow_hound_retreat,
         }
@@ -326,7 +309,5 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph) -> i32 {
         .count() as i32;
     let pressure_penalty = close_hounds * -400;
 
-    let waypoint_bonus = if board.fox_visited_waypoint { 5_000 } else { 0 };
-
-    dist_to_target_score + pursuit_score + mobility_score + pressure_penalty + waypoint_bonus
+    dist_to_target_score + pursuit_score + mobility_score + pressure_penalty
 }

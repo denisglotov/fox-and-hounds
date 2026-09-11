@@ -37,7 +37,7 @@ pub struct TitleScreenLayout {
     pub left_column: Rect,
     pub right_column: Rect,
     pub hero_bounds: Option<Rect>,
-    pub variant_btn_bounds: [Rect; 4],
+    pub variant_btn_bounds: [Rect; 3],
     pub fox_btn_bounds: Rect,
     pub hounds_btn_bounds: Rect,
     pub difficulty_btn_bounds: [Rect; 3],
@@ -132,13 +132,7 @@ impl TitleScreenLayout {
         let variant_btn_bounds = [
             Rect::new(right_column.x, curr_y, v_w, v_btn_h),
             Rect::new(right_column.x + v_w + v_gap, curr_y, v_w, v_btn_h),
-            Rect::new(right_column.x, curr_y + v_btn_h + v_row_gap, v_w, v_btn_h),
-            Rect::new(
-                right_column.x + v_w + v_gap,
-                curr_y + v_btn_h + v_row_gap,
-                v_w,
-                v_btn_h,
-            ),
+            Rect::new(right_column.x, curr_y + v_btn_h + v_row_gap, col_w, v_btn_h),
         ];
         curr_y += total_v_h + spacing;
 
@@ -274,13 +268,7 @@ impl TitleScreenLayout {
             Rect::new(
                 card_x + 18.0 * scale,
                 curr_y + v_btn_h + v_row_gap,
-                v_w,
-                v_btn_h,
-            ),
-            Rect::new(
-                card_x + 18.0 * scale + v_w + v_gap_w,
-                curr_y + v_btn_h + v_row_gap,
-                v_w,
+                card_w - 36.0 * scale,
                 v_btn_h,
             ),
         ];

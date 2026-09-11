@@ -38,8 +38,7 @@ impl RiverPath {
         match variant {
             BoardVariant::Classic => Self::classic(),
             BoardVariant::RiverCrossing => Self::river_crossing(),
-            BoardVariant::FoxAndDogsSymmetric => Self::arthur(BoardVariant::FoxAndDogsSymmetric),
-            BoardVariant::FoxAndDogsAsymmetric => Self::arthur(BoardVariant::FoxAndDogsAsymmetric),
+            BoardVariant::FoxAndDogs => Self::arthur(BoardVariant::FoxAndDogs),
         }
     }
 
@@ -271,9 +270,7 @@ impl RiverPath {
         match self.variant {
             BoardVariant::Classic => classic_bridge_occlusion(pos),
             BoardVariant::RiverCrossing => self.river_crossing_bridge_occlusion(pos),
-            BoardVariant::FoxAndDogsSymmetric | BoardVariant::FoxAndDogsAsymmetric => {
-                self.arthur_bridge_occlusion(pos)
-            }
+            BoardVariant::FoxAndDogs => self.arthur_bridge_occlusion(pos),
         }
     }
 

@@ -11,14 +11,16 @@ pub struct TitleScreenStrings {
     pub variant_classic_sub: String,
     pub variant_river_crossing: String,
     pub variant_river_crossing_sub: String,
-    #[serde(default = "default_variant_fox_and_dogs_symmetric")]
-    pub variant_fox_and_dogs_symmetric: String,
-    #[serde(default = "default_variant_fox_and_dogs_symmetric_sub")]
-    pub variant_fox_and_dogs_symmetric_sub: String,
-    #[serde(default = "default_variant_fox_and_dogs_asymmetric")]
-    pub variant_fox_and_dogs_asymmetric: String,
-    #[serde(default = "default_variant_fox_and_dogs_asymmetric_sub")]
-    pub variant_fox_and_dogs_asymmetric_sub: String,
+    #[serde(
+        alias = "variant_fox_and_dogs_symmetric",
+        default = "default_variant_fox_and_dogs"
+    )]
+    pub variant_fox_and_dogs: String,
+    #[serde(
+        alias = "variant_fox_and_dogs_symmetric_sub",
+        default = "default_variant_fox_and_dogs_sub"
+    )]
+    pub variant_fox_and_dogs_sub: String,
     pub choose_faction: String,
     pub fox_title: String,
     pub fox_subtitle: String,
@@ -31,17 +33,11 @@ pub struct TitleScreenStrings {
     pub start_match: String,
 }
 
-fn default_variant_fox_and_dogs_symmetric() -> String {
+fn default_variant_fox_and_dogs() -> String {
     "Fox and dogs".to_string()
 }
-fn default_variant_fox_and_dogs_symmetric_sub() -> String {
-    "symmetric".to_string()
-}
-fn default_variant_fox_and_dogs_asymmetric() -> String {
-    "Fox and dogs assymetric".to_string()
-}
-fn default_variant_fox_and_dogs_asymmetric_sub() -> String {
-    "asymmetric".to_string()
+fn default_variant_fox_and_dogs_sub() -> String {
+    "".to_string()
 }
 
 impl TitleScreenStrings {
@@ -57,12 +53,7 @@ impl TitleScreenStrings {
         match variant {
             crate::game::level::BoardVariant::Classic => &self.variant_classic,
             crate::game::level::BoardVariant::RiverCrossing => &self.variant_river_crossing,
-            crate::game::level::BoardVariant::FoxAndDogsSymmetric => {
-                &self.variant_fox_and_dogs_symmetric
-            }
-            crate::game::level::BoardVariant::FoxAndDogsAsymmetric => {
-                &self.variant_fox_and_dogs_asymmetric
-            }
+            crate::game::level::BoardVariant::FoxAndDogs => &self.variant_fox_and_dogs,
         }
     }
 
@@ -70,12 +61,7 @@ impl TitleScreenStrings {
         match variant {
             crate::game::level::BoardVariant::Classic => &self.variant_classic_sub,
             crate::game::level::BoardVariant::RiverCrossing => &self.variant_river_crossing_sub,
-            crate::game::level::BoardVariant::FoxAndDogsSymmetric => {
-                &self.variant_fox_and_dogs_symmetric_sub
-            }
-            crate::game::level::BoardVariant::FoxAndDogsAsymmetric => {
-                &self.variant_fox_and_dogs_asymmetric_sub
-            }
+            crate::game::level::BoardVariant::FoxAndDogs => &self.variant_fox_and_dogs_sub,
         }
     }
 }

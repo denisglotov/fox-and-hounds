@@ -54,9 +54,10 @@ pub enum BoardVariant {
     #[default]
     Classic,
     RiverCrossing,
-    FoxAndDogsSymmetric,
-    FoxAndDogsAsymmetric,
+    FoxAndDogs,
 }
+
+pub use BoardVariant::FoxAndDogs as FoxAndDogsSymmetric;
 
 #[derive(Debug, Clone, Copy)]
 pub struct VariantConfig {
@@ -70,7 +71,6 @@ pub struct VariantConfig {
     pub fox_start_node: &'static str,
     pub fox_free_entry: bool,
     pub hounds_start_nodes: &'static [&'static str],
-    pub target_waypoint_node: Option<&'static str>,
     pub target_coop_node: &'static str,
     pub build_graph: fn() -> Graph,
 }
@@ -88,7 +88,6 @@ pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
     fox_start_node: "M4",
     fox_free_entry: true,
     hounds_start_nodes: &["M0", "T1", "B1"],
-    target_waypoint_node: None,
     target_coop_node: "M0",
     build_graph: build_classic_graph,
 };
@@ -104,50 +103,33 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
     fox_start_node: "M9",
     fox_free_entry: false,
     hounds_start_nodes: &["L1", "M1", "R1"],
-    target_waypoint_node: None,
     target_coop_node: "M0",
     build_graph: build_river_crossing_graph,
 };
 
-pub const FOX_AND_DOGS_SYMMETRIC_CONFIG: VariantConfig = VariantConfig {
-    id: BoardVariant::FoxAndDogsSymmetric,
+pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
+    id: BoardVariant::FoxAndDogs,
     name: "fox and dogs",
-    description: "Fox and dogs board: dogs start on Row 7 and move first, fox must reach C0 then return to C8",
+    description: "Fox and dogs board: dogs start on Row 7 and move first, fox must reach C8",
     allow_hound_retreat: true,
     hounds_start_first: true,
     dimensions: FOX_AND_DOGS_DIMENSIONS,
     board_image_bytes: include_bytes!("../../assets/fox_and_dogs_board.png"),
-    fox_start_node: "C8",
+    fox_start_node: "C4",
     fox_free_entry: false,
     hounds_start_nodes: &["R7", "C7", "L7"],
-    target_waypoint_node: Some("C0"),
     target_coop_node: "C8",
-    build_graph: build_arthur_symmetric_graph,
+    build_graph: build_fox_and_dogs_graph,
 };
 
-pub const FOX_AND_DOGS_ASYMMETRIC_CONFIG: VariantConfig = VariantConfig {
-    id: BoardVariant::FoxAndDogsAsymmetric,
-    name: "fox and dogs assymetric",
-    description: "Fox and dogs assymetric board without L4-L5 shortcut: dogs start on Row 7 and move first, fox must reach C0 then return to C8",
-    allow_hound_retreat: true,
-    hounds_start_first: true,
-    dimensions: FOX_AND_DOGS_DIMENSIONS,
-    board_image_bytes: include_bytes!("../../assets/fox_and_dogs_assymetric_board.png"),
-    fox_start_node: "C8",
-    fox_free_entry: false,
-    hounds_start_nodes: &["R7", "C7", "L7"],
-    target_waypoint_node: Some("C0"),
-    target_coop_node: "C8",
-    build_graph: build_arthur_asymmetric_graph,
-};
+pub const FOX_AND_DOGS_SYMMETRIC_CONFIG: VariantConfig = FOX_AND_DOGS_CONFIG;
 
 impl BoardVariant {
     pub const fn config(self) -> &'static VariantConfig {
         match self {
             BoardVariant::Classic => &CLASSIC_CONFIG,
             BoardVariant::RiverCrossing => &RIVER_CROSSING_CONFIG,
-            BoardVariant::FoxAndDogsSymmetric => &FOX_AND_DOGS_SYMMETRIC_CONFIG,
-            BoardVariant::FoxAndDogsAsymmetric => &FOX_AND_DOGS_ASYMMETRIC_CONFIG,
+            BoardVariant::FoxAndDogs => &FOX_AND_DOGS_CONFIG,
         }
     }
 
@@ -155,16 +137,12 @@ impl BoardVariant {
         &[
             BoardVariant::Classic,
             BoardVariant::RiverCrossing,
-            BoardVariant::FoxAndDogsSymmetric,
-            BoardVariant::FoxAndDogsAsymmetric,
+            BoardVariant::FoxAndDogs,
         ]
     }
 
     pub const fn is_arthur(self) -> bool {
-        matches!(
-            self,
-            BoardVariant::FoxAndDogsSymmetric | BoardVariant::FoxAndDogsAsymmetric
-        )
+        matches!(self, BoardVariant::FoxAndDogs)
     }
 
     pub fn localized_name(self, locales: &crate::game::i18n::LocaleStrings) -> &str {
@@ -528,7 +506,7 @@ pub fn build_classic_graph() -> Graph {
 
 fn build_arthur_nodes() -> Vec<Node> {
     let raw_nodes = vec![
-        ("C0", 0, 1, NodeType::Standard, Vec2::new(510., 184.4)),
+        ("C0", 0, 1, NodeType::FoxStart, Vec2::new(510., 184.4)),
         ("L1", 1, 0, NodeType::Standard, Vec2::new(389.3, 253.5)),
         ("C1", 1, 1, NodeType::Standard, Vec2::new(510., 254.5)),
         ("R1", 1, 2, NodeType::Standard, Vec2::new(630.1, 254.7)),
@@ -563,15 +541,8 @@ fn build_arthur_nodes() -> Vec<Node> {
         .collect()
 }
 
-/// Base edges shared between both Arthur variants.
-///
-/// Note that symmetric and asymmetric graphs are different:
-/// - The symmetric variant (`assets/fox_and_dogs_board.png`) has the `L4-L5` edge.
-/// - The asymmetric variant (`assets/fox_and_dogs_assymetric_board.png`) does not have `L4-L5`.
-///
-/// `L4-L5` is intentionally omitted from these base edges and added in
-/// `build_arthur_symmetric_graph()`.
-fn arthur_base_raw_edges() -> Vec<(&'static str, &'static str)> {
+/// Edges for the Fox and Dogs board.
+fn fox_and_dogs_raw_edges() -> Vec<(&'static str, &'static str)> {
     vec![
         // Central axis
         ("C0", "C1"),
@@ -597,11 +568,12 @@ fn arthur_base_raw_edges() -> Vec<(&'static str, &'static str)> {
         // 3 -> 4
         ("C3", "L4"),
         ("C3", "R4"),
+        ("L4", "L5"),
         ("R4", "R5"),
         // Row 4 horizontal
         ("L4", "C4"),
         ("C4", "R4"),
-        // 4 -> 5 diagonal (Note: symmetric variant additionally has L4-L5, while asymmetric does not)
+        // 4 -> 5 diagonal
         ("C4", "L5"),
         ("C4", "R5"),
         // Row 5 horizontal
@@ -624,11 +596,9 @@ fn arthur_base_raw_edges() -> Vec<(&'static str, &'static str)> {
     ]
 }
 
-pub fn build_arthur_symmetric_graph() -> Graph {
+pub fn build_fox_and_dogs_graph() -> Graph {
     let nodes = build_arthur_nodes();
-    let mut raw_edges = arthur_base_raw_edges();
-    // Symmetric board includes L4-L5 edge matching assets/fox_and_dogs_board.png
-    raw_edges.push(("L4", "L5"));
+    let raw_edges = fox_and_dogs_raw_edges();
 
     let name_to_id: std::collections::HashMap<&str, usize> = nodes
         .iter()
@@ -647,24 +617,4 @@ pub fn build_arthur_symmetric_graph() -> Graph {
     Graph::new(nodes, &edges)
 }
 
-pub fn build_arthur_asymmetric_graph() -> Graph {
-    let nodes = build_arthur_nodes();
-    // Asymmetric variant lacks the L4-L5 shortcut edge matching assets/fox_and_dogs_assymetric_board.png
-    let raw_edges = arthur_base_raw_edges();
-
-    let name_to_id: std::collections::HashMap<&str, usize> = nodes
-        .iter()
-        .map(|node| (node.name.as_str(), node.id))
-        .collect();
-
-    let edges: Vec<(usize, usize)> = raw_edges
-        .into_iter()
-        .filter_map(|(u_name, v_name)| {
-            let u = name_to_id.get(u_name)?;
-            let v = name_to_id.get(v_name)?;
-            Some((*u, *v))
-        })
-        .collect();
-
-    Graph::new(nodes, &edges)
-}
+pub use build_fox_and_dogs_graph as build_arthur_symmetric_graph;
