@@ -2,7 +2,7 @@ use fox_and_hounds::game::ai::{find_best_move, BoardSnapshot};
 use fox_and_hounds::game::graph::NodeType;
 use fox_and_hounds::game::level::{
     build_classic_graph, build_river_crossing_graph, BoardVariant, CLASSIC_CONFIG,
-    RIVER_CROSSING_CONFIG,
+    FOX_AND_DOGS_ASYMMETRIC_CONFIG, FOX_AND_DOGS_SYMMETRIC_CONFIG, RIVER_CROSSING_CONFIG,
 };
 use fox_and_hounds::game::state::{
     Difficulty, Faction, GamePhase, GameResult, GameState, MoveError,
@@ -678,6 +678,12 @@ fn test_variant_properties() {
         &["L1", "M1", "R1"]
     );
 
+    assert_eq!(FOX_AND_DOGS_SYMMETRIC_CONFIG.fox_start_node, "C0");
+    assert_eq!(FOX_AND_DOGS_SYMMETRIC_CONFIG.target_coop_node, "C8");
+
+    assert_eq!(FOX_AND_DOGS_ASYMMETRIC_CONFIG.fox_start_node, "C0");
+    assert_eq!(FOX_AND_DOGS_ASYMMETRIC_CONFIG.target_coop_node, "C8");
+
     let g_classic = (CLASSIC_CONFIG.build_graph)();
     let g_river = (RIVER_CROSSING_CONFIG.build_graph)();
     assert_eq!(g_classic.node_count(), 11);
@@ -863,9 +869,9 @@ fn test_arthur_graph_structure_and_symmetry() {
     assert_eq!(sym.node(c2_idx).unwrap().node_type, NodeType::Bottleneck);
     assert_eq!(sym.node(c3_idx).unwrap().node_type, NodeType::Bottleneck);
 
-    // C0 is Standard (dogs can enter)
+    // C0 is FoxStart (dogs can enter)
     let c0_idx = sym.find_id_by_name("C0").unwrap();
-    assert_eq!(sym.node(c0_idx).unwrap().node_type, NodeType::Standard);
+    assert_eq!(sym.node(c0_idx).unwrap().node_type, NodeType::FoxStart);
 }
 
 #[test]
@@ -883,9 +889,10 @@ fn test_arthur_dogs_start_and_rules() {
     let l7_idx = state.graph.find_id_by_name("L7").unwrap();
     assert_eq!(state.hounds_pos, vec![r7_idx, c7_idx, l7_idx]);
 
-    // Initial fox position: C8
+    // Initial fox position: C0
+    let c0_idx = state.graph.find_id_by_name("C0").unwrap();
     let c8_idx = state.graph.find_id_by_name("C8").unwrap();
-    assert_eq!(state.fox_pos, c8_idx);
+    assert_eq!(state.fox_pos, c0_idx);
 
     // Dogs can retreat (move backwards)
     assert!(state.variant.config().allow_hound_retreat);
@@ -906,8 +913,11 @@ fn test_arthur_dogs_can_enter_c0() {
     let c0_idx = state.graph.find_id_by_name("C0").unwrap();
     let c1_idx = state.graph.find_id_by_name("C1").unwrap();
 
+    let c8_idx = state.graph.find_id_by_name("C8").unwrap();
+
     // Place a dog on C1 adjacent to C0, fox at C8
     state.hounds_pos[0] = c1_idx;
+    state.fox_pos = c8_idx;
     state.current_turn = Faction::Hounds;
 
     let moves = state.hound_legal_moves(0);
@@ -915,61 +925,33 @@ fn test_arthur_dogs_can_enter_c0() {
 }
 
 #[test]
-fn test_arthur_two_stage_mission_flow() {
+fn test_arthur_direct_mission_flow() {
     let mut state = GameState::new();
     state.switch_variant(BoardVariant::FoxAndDogsSymmetric);
     state.start_game(Faction::Fox, Difficulty::Medium);
 
     let c0_idx = state.graph.find_id_by_name("C0").unwrap();
-    let c1_idx = state.graph.find_id_by_name("C1").unwrap();
     let c7_idx = state.graph.find_id_by_name("C7").unwrap();
     let c8_idx = state.graph.find_id_by_name("C8").unwrap();
 
-    // Active target initially is C0
-    assert_eq!(state.active_target_node(), c0_idx);
-    assert!(!state.fox_visited_waypoint);
-
-    // Fox moves to C1
-    state.current_turn = Faction::Fox;
-    state.fox_pos = c1_idx;
-
-    // Fox moves to C0
-    assert!(state.apply_fox_move(c0_idx).is_ok());
+    // Active target initially is C8 (Chicken Coop)
     assert_eq!(state.fox_pos, c0_idx);
-    assert!(state.fox_waiting_at_waypoint);
-    assert!(!state.fox_visited_waypoint);
+    assert_eq!(state.active_target_node(), c8_idx);
 
-    // Game is ongoing (not won yet)
-    assert_eq!(state.result, GameResult::Ongoing);
-
-    // Hounds take their turn
+    // Dogs start first
     assert_eq!(state.current_turn, Faction::Hounds);
     let h_moves = state.all_hound_legal_moves();
     assert!(!h_moves.is_empty());
     assert!(state.apply_hound_move(h_moves[0].0, h_moves[0].1).is_ok());
 
-    // Now turn passes to Fox, but Fox is waiting at C0
+    // Turn passes to Fox
     assert_eq!(state.current_turn, Faction::Fox);
-    assert!(state.fox_waiting_at_waypoint);
-    assert_eq!(state.fox_legal_moves().len(), 0);
 
-    // Update triggers the automatic wait completion
-    state.update(0.6);
-    assert!(!state.fox_waiting_at_waypoint);
-    assert!(state.fox_visited_waypoint);
-    assert_eq!(state.active_target_node(), c8_idx);
-
-    // Turn yielded to Hounds
-    assert_eq!(state.current_turn, Faction::Hounds);
-    let h_moves2 = state.all_hound_legal_moves();
-    assert!(state.apply_hound_move(h_moves2[0].0, h_moves2[0].1).is_ok());
-
-    // Fox now moves back towards C8 and lands on C8
-    state.current_turn = Faction::Fox;
+    // Fox moves towards C8 and lands on C8
     state.fox_pos = c7_idx;
     assert!(state.apply_fox_move(c8_idx).is_ok());
 
-    // Fox wins!
+    // Fox wins immediately!
     assert_eq!(state.result, GameResult::FoxWon);
     assert_eq!(state.phase, GamePhase::GameOver);
 }

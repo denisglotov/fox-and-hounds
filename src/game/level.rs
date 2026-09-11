@@ -70,7 +70,6 @@ pub struct VariantConfig {
     pub fox_start_node: &'static str,
     pub fox_free_entry: bool,
     pub hounds_start_nodes: &'static [&'static str],
-    pub target_waypoint_node: Option<&'static str>,
     pub target_coop_node: &'static str,
     pub build_graph: fn() -> Graph,
 }
@@ -88,7 +87,6 @@ pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
     fox_start_node: "M4",
     fox_free_entry: true,
     hounds_start_nodes: &["M0", "T1", "B1"],
-    target_waypoint_node: None,
     target_coop_node: "M0",
     build_graph: build_classic_graph,
 };
@@ -104,7 +102,6 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
     fox_start_node: "M9",
     fox_free_entry: false,
     hounds_start_nodes: &["L1", "M1", "R1"],
-    target_waypoint_node: None,
     target_coop_node: "M0",
     build_graph: build_river_crossing_graph,
 };
@@ -112,15 +109,14 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
 pub const FOX_AND_DOGS_SYMMETRIC_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::FoxAndDogsSymmetric,
     name: "fox and dogs",
-    description: "Fox and dogs board: dogs start on Row 7 and move first, fox must reach C0 then return to C8",
+    description: "Fox and dogs board: dogs start on Row 7 and move first, fox must reach C8",
     allow_hound_retreat: true,
     hounds_start_first: true,
     dimensions: FOX_AND_DOGS_DIMENSIONS,
     board_image_bytes: include_bytes!("../../assets/fox_and_dogs_board.png"),
-    fox_start_node: "C8",
+    fox_start_node: "C0",
     fox_free_entry: false,
     hounds_start_nodes: &["R7", "C7", "L7"],
-    target_waypoint_node: Some("C0"),
     target_coop_node: "C8",
     build_graph: build_arthur_symmetric_graph,
 };
@@ -128,15 +124,14 @@ pub const FOX_AND_DOGS_SYMMETRIC_CONFIG: VariantConfig = VariantConfig {
 pub const FOX_AND_DOGS_ASYMMETRIC_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::FoxAndDogsAsymmetric,
     name: "fox and dogs assymetric",
-    description: "Fox and dogs assymetric board without L4-L5 shortcut: dogs start on Row 7 and move first, fox must reach C0 then return to C8",
+    description: "Fox and dogs assymetric board without L4-L5 shortcut: dogs start on Row 7 and move first, fox must reach C8",
     allow_hound_retreat: true,
     hounds_start_first: true,
     dimensions: FOX_AND_DOGS_DIMENSIONS,
     board_image_bytes: include_bytes!("../../assets/fox_and_dogs_assymetric_board.png"),
-    fox_start_node: "C8",
+    fox_start_node: "C0",
     fox_free_entry: false,
     hounds_start_nodes: &["R7", "C7", "L7"],
-    target_waypoint_node: Some("C0"),
     target_coop_node: "C8",
     build_graph: build_arthur_asymmetric_graph,
 };
@@ -528,7 +523,7 @@ pub fn build_classic_graph() -> Graph {
 
 fn build_arthur_nodes() -> Vec<Node> {
     let raw_nodes = vec![
-        ("C0", 0, 1, NodeType::Standard, Vec2::new(510., 184.4)),
+        ("C0", 0, 1, NodeType::FoxStart, Vec2::new(510., 184.4)),
         ("L1", 1, 0, NodeType::Standard, Vec2::new(389.3, 253.5)),
         ("C1", 1, 1, NodeType::Standard, Vec2::new(510., 254.5)),
         ("R1", 1, 2, NodeType::Standard, Vec2::new(630.1, 254.7)),
