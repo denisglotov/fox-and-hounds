@@ -290,13 +290,14 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph) -> i32 {
     let dist_to_target_score = (18 - static_dist as i32) * 350;
 
     // Direct unblocked lane bonus: if the hounds leave a clear route to the coop
-    let unblocked_lane_score = match graph.shortest_distance(board.fox_pos, target, &board.hounds_pos) {
-        Some(1) => 15_000,
-        Some(2) => 6_000,
-        Some(3) => 2_500,
-        Some(d) if d <= 5 => (8 - d as i32) * 300,
-        _ => 0,
-    };
+    let unblocked_lane_score =
+        match graph.shortest_distance(board.fox_pos, target, &board.hounds_pos) {
+            Some(1) => 15_000,
+            Some(2) => 6_000,
+            Some(3) => 2_500,
+            Some(d) if d <= 5 => (8 - d as i32) * 300,
+            _ => 0,
+        };
 
     // Breakthrough bonus: Fox is closer to target than any hound
     let min_hound_dist_to_target = board
@@ -325,11 +326,13 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph) -> i32 {
     let hound_threat_penalty: i32 = board
         .hounds_pos
         .iter()
-        .map(|&h_pos| match graph.distance(h_pos, board.fox_pos).unwrap_or(10) {
-            0..=1 => -450,
-            2 => -150,
-            _ => 0,
-        })
+        .map(
+            |&h_pos| match graph.distance(h_pos, board.fox_pos).unwrap_or(10) {
+                0..=1 => -450,
+                2 => -150,
+                _ => 0,
+            },
+        )
         .sum();
 
     let fox_degrees = board.fox_legal_moves(graph).count();
