@@ -1,0 +1,130 @@
+graph FoxAndHoundsTheRedHunt {
+    layout=dot;
+    rankdir=TB;
+    nodesep=0.6;
+    ranksep=0.7;
+
+    node [shape=circle, style=filled, fillcolor="#f5f5f5", color="#757575", fontname="Helvetica", width=0.8, fixedsize=true];
+    edge [color="#424242", penwidth=1.5];
+
+    // --- Ряды вершин (строго слева направо внутри каждого rank) ---
+
+    // Ряд 0: Северная вершина
+    { rank=same;
+        L0 [label="L0"];
+        C0 [label="C0", fillcolor="#ffe082", color="#ff8f00", penwidth=2.5];
+        R0 [label="R0"];
+        L0 -- C0 -- R0 [style=invis, weight=10];
+    }
+
+    // Ряд 1
+    { rank=same;
+        C1 [label="C1"];
+    }
+
+    // Ряд 2
+    { rank=same;
+        L2 [label="L2"];
+        C2 [label="C2"];
+        R2 [label="R2"];
+        L2 -- C2 -- R2 [style=invis, weight=10];
+    }
+
+    // Ряд 3: Верхний манёвренный узел со звездой
+    { rank=same;
+        C3 [label="⭐ C3", shape=doublecircle, fillcolor="#ffcdd2", color="#c62828", penwidth=2.2];
+    }
+
+    // Ряд 4: Центральный рубеж (узлы со звёздами и центральный узел)
+    { rank=same;
+        L4 [label="⭐ L4", shape=doublecircle, fillcolor="#ffcdd2", color="#c62828", penwidth=2.2];
+        C4 [label="C4", fillcolor="#b0bec5", color="#263238", penwidth=2.2];
+        R4 [label="⭐ R4", shape=doublecircle, fillcolor="#ffcdd2", color="#c62828", penwidth=2.2];
+        L4 -- C4 -- R4 [style=invis, weight=10];
+    }
+
+    // Ряд 5: Нижний манёвренный узел
+    { rank=same;
+        C5 [label="C5"];
+    }
+
+    // Ряд 6: Рубеж перед Перекопом
+    { rank=same;
+        L6 [label="L6"];
+        C6 [label="C6", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0];
+        R6 [label="R6"];
+        L6 -- C6 -- R6 [style=invis, weight=10];
+    }
+
+    // Ряд 7: Рубеж за Перекопом
+    { rank=same;
+        L7 [label="L7"];
+        C7 [label="C7", fillcolor="#bbdefb", color="#1976d2", penwidth=2.0];
+        R7 [label="R7"];
+        L7 -- C7 -- R7 [style=invis, weight=10];
+    }
+
+    // Ряд 8
+    { rank=same;
+        L8 [label="L8"];
+        C8 [label="C8"];
+        R8 [label="R8"];
+        L8 -- C8 -- R8 [style=invis, weight=10];
+    }
+
+    // Ряд 9: Южная вершина
+    { rank=same;
+        C9 [label="C9", fillcolor="#ffcc80", color="#e65100", penwidth=2.5];
+    }
+
+    // --- Центральная вертикальная ось ---
+    C0 -- C1 [weight=5];
+    C1 -- C2 [weight=5];
+    C2 -- C3 [weight=5];
+    C3 -- C4 [weight=5];
+    C4 -- C5 [weight=5];
+    C5 -- C6 [weight=5];
+    C6 -- C7 [label="Перекоп", fontcolor="#0d47a1", color="#1565c0", penwidth=3.0, weight=8];
+    C7 -- C8 [weight=5];
+    C8 -- C9 [weight=5];
+
+    // --- Горизонтальные связи ---
+    L0 -- C0 -- R0;
+    L2 -- C2 -- R2;
+    L4 -- C4 -- R4;
+    L6 -- C6 -- R6;
+    L7 -- C7 -- R7;
+    L8 -- C8 -- R8;
+
+    // --- Боковые вертикальные связи ---
+    L0 -- L2;
+    R0 -- R2;
+    L2 -- L4;
+    R2 -- R4;
+    L4 -- L6;
+    R4 -- R6;
+    L7 -- L8;
+    R7 -- R8;
+
+    // --- Диагональные связи: Северное поле (Ряды 0 - 2 через C1) ---
+    L0 -- C1;
+    R0 -- C1;
+    C1 -- L2;
+    C1 -- R2;
+
+    // --- Диагональные связи: Верхний ромб (Ряды 2 - 4 через C3) ---
+    L2 -- C3;
+    R2 -- C3;
+    C3 -- L4;
+    C3 -- R4;
+
+    // --- Диагональные связи: Нижний ромб (Ряды 4 - 6 через C5) ---
+    L4 -- C5;
+    R4 -- C5;
+    C5 -- L6;
+    C5 -- R6;
+
+    // --- Диагональные связи: Южный треугольник (Ряды 8 - 9 к C9) ---
+    L8 -- C9;
+    R8 -- C9;
+}
