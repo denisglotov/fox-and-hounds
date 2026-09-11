@@ -201,6 +201,11 @@ impl GameState {
         self.ai_think_delay = if self.is_ai_turn() { 0.4 } else { 0.0 };
     }
 
+    #[inline]
+    pub fn move_duration(&self) -> f32 {
+        self.variant.config().move_duration
+    }
+
     pub fn is_ai_turn(&self) -> bool {
         self.phase == GamePhase::Playing
             && self.result == GameResult::Ongoing
@@ -290,7 +295,7 @@ impl GameState {
             from: from_visual,
             to: to_visual,
             progress: 0.0,
-            duration: 0.26,
+            duration: self.move_duration(),
             faction: Faction::Fox,
             hound_idx: None,
         });
@@ -337,7 +342,7 @@ impl GameState {
             from: from_visual,
             to: to_visual,
             progress: 0.0,
-            duration: 0.26,
+            duration: self.move_duration(),
             faction: Faction::Hounds,
             hound_idx: Some(hound_idx),
         });

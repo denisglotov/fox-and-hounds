@@ -44,6 +44,14 @@
     "@variant_fox_and_dogs_sub": {
       "description": "Rule subtitle for the Fox and dogs variant: dogs move first."
     },
+    "variant_the_red_hunt": "The Red Hunt",
+    "@variant_the_red_hunt": {
+      "description": "Name of The Red Hunt Martian board variant."
+    },
+    "variant_the_red_hunt_sub": "into golden crater",
+    "@variant_the_red_hunt_sub": {
+      "description": "Subtitle for The Red Hunt variant: martian fault."
+    },
     "choose_faction": "CHOOSE YOUR FACTION",
     "@choose_faction": {
       "description": "Section header on the title screen prompting the player to choose their side (Fox or Hounds)."

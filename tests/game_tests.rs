@@ -2,7 +2,8 @@ use fox_and_hounds::game::ai::{find_best_move, BoardSnapshot};
 use fox_and_hounds::game::graph::NodeType;
 use fox_and_hounds::game::level::{
     build_classic_graph, build_river_crossing_graph, BoardVariant, CLASSIC_CONFIG,
-    FOX_AND_DOGS_CONFIG, RIVER_CROSSING_CONFIG,
+    DEFAULT_MOVE_DURATION, FOX_AND_DOGS_CONFIG, RED_HUNT_MOVE_DURATION, RED_HUNT_MOVE_SLOWNESS,
+    RIVER_CROSSING_CONFIG, THE_RED_HUNT_CONFIG,
 };
 use fox_and_hounds::game::state::{
     Difficulty, Faction, GamePhase, GameResult, GameState, MoveError,
@@ -941,4 +942,118 @@ fn test_arthur_direct_mission_flow() {
     // Fox wins immediately!
     assert_eq!(state.result, GameResult::FoxWon);
     assert_eq!(state.phase, GamePhase::GameOver);
+}
+
+#[test]
+fn test_the_red_hunt_graph_structure_and_rules() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::TheRedHunt);
+
+    assert_eq!(state.graph.node_count(), 22);
+
+    // Initial piece placement: Fox on C4, Hounds on R4, C3, L4
+    let c4_idx = state.graph.find_id_by_name("C4").unwrap();
+    let r4_idx = state.graph.find_id_by_name("R4").unwrap();
+    let c3_idx = state.graph.find_id_by_name("C3").unwrap();
+    let l4_idx = state.graph.find_id_by_name("L4").unwrap();
+    let c0_idx = state.graph.find_id_by_name("C0").unwrap();
+
+    assert_eq!(state.fox_pos, c4_idx);
+    assert_eq!(state.hounds_pos, vec![r4_idx, c3_idx, l4_idx]);
+    assert_eq!(state.coop_pos, c0_idx);
+    assert_eq!(state.current_turn, Faction::Fox);
+
+    // Hounds allow retreat
+    assert!(state.variant.config().allow_hound_retreat);
+    assert!(!state.variant.config().hounds_start_first);
+
+    // Verify Perekop bottleneck nodes C6 and C7
+    let c6_idx = state.graph.find_id_by_name("C6").unwrap();
+    let c7_idx = state.graph.find_id_by_name("C7").unwrap();
+    assert_eq!(
+        state.graph.node(c6_idx).unwrap().node_type,
+        NodeType::Bottleneck
+    );
+    assert_eq!(
+        state.graph.node(c7_idx).unwrap().node_type,
+        NodeType::Bottleneck
+    );
+    assert!(state.graph.neighbors(c6_idx).contains(&c7_idx));
+}
+
+#[test]
+fn test_the_red_hunt_immediate_victory_at_c0() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::TheRedHunt);
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    let c1_idx = state.graph.find_id_by_name("C1").unwrap();
+    let c0_idx = state.graph.find_id_by_name("C0").unwrap();
+
+    state.fox_pos = c1_idx;
+    state.current_turn = Faction::Fox;
+
+    // Moving to C0 triggers immediate victory
+    assert!(state.apply_fox_move(c0_idx).is_ok());
+    assert_eq!(state.result, GameResult::FoxWon);
+    assert_eq!(state.phase, GamePhase::GameOver);
+}
+
+#[test]
+fn test_the_red_hunt_slowness_and_move_duration() {
+    assert_eq!(CLASSIC_CONFIG.move_duration, DEFAULT_MOVE_DURATION);
+    assert_eq!(THE_RED_HUNT_CONFIG.move_duration, RED_HUNT_MOVE_DURATION);
+    assert_eq!(
+        THE_RED_HUNT_CONFIG.move_duration,
+        DEFAULT_MOVE_DURATION * RED_HUNT_MOVE_SLOWNESS
+    );
+    assert!((THE_RED_HUNT_CONFIG.move_duration - 0.39).abs() < 1e-4);
+
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::TheRedHunt);
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    assert_eq!(state.move_duration(), THE_RED_HUNT_CONFIG.move_duration);
+
+    // Fox starts at C4. Find legal moves for Fox from C4.
+    let fox_legal = state.fox_legal_moves();
+    assert!(!fox_legal.is_empty());
+    let target_idx = fox_legal[0];
+
+    assert!(state.apply_fox_move(target_idx).is_ok());
+
+    let fox_anim = state
+        .active_anim
+        .as_ref()
+        .expect("Fox move on Mars should create active_anim");
+    assert_eq!(fox_anim.duration, THE_RED_HUNT_CONFIG.move_duration);
+    assert_eq!(fox_anim.progress, 0.0);
+
+    // After 0.26s (the standard Earth duration), the Martian movement is still in progress
+    state.update(0.26);
+    let mid_anim = state
+        .active_anim
+        .as_ref()
+        .expect("Animation should still be active after standard Earth duration");
+    assert!(mid_anim.progress > 0.0 && mid_anim.progress < 1.0);
+
+    // After remaining time, the animation completes
+    state.update(0.15);
+    assert!(
+        state.active_anim.is_none(),
+        "Animation should complete after full 1.5x Martian duration"
+    );
+
+    // Test Hound move animation slowness on Mars
+    state.current_turn = Faction::Hounds;
+    let legal = state.hound_legal_moves(0);
+    assert!(!legal.is_empty());
+    let hound_target = legal[0];
+
+    assert!(state.apply_hound_move(0, hound_target).is_ok());
+    let hound_anim = state
+        .active_anim
+        .as_ref()
+        .expect("Hound move on Mars should create active_anim");
+    assert_eq!(hound_anim.duration, THE_RED_HUNT_CONFIG.move_duration);
 }

@@ -141,7 +141,7 @@ impl ViewportCamera {
                     duration,
                 );
             }
-            BoardVariant::Classic | BoardVariant::FoxAndDogs => {
+            BoardVariant::Classic | BoardVariant::FoxAndDogs | BoardVariant::TheRedHunt => {
                 self.start_classic_intro(viewport_rect, base_board_size, base_board_scale);
             }
         }
