@@ -2,7 +2,8 @@ use fox_and_hounds::game::ai::{find_best_move, BoardSnapshot};
 use fox_and_hounds::game::graph::NodeType;
 use fox_and_hounds::game::level::{
     build_classic_graph, build_river_crossing_graph, BoardVariant, CLASSIC_CONFIG,
-    FOX_AND_DOGS_CONFIG, RIVER_CROSSING_CONFIG,
+    DEFAULT_MOVE_DURATION, FOX_AND_DOGS_CONFIG, RED_HUNT_MOVE_DURATION, RED_HUNT_MOVE_SLOWNESS,
+    RIVER_CROSSING_CONFIG, THE_RED_HUNT_CONFIG,
 };
 use fox_and_hounds::game::state::{
     Difficulty, Faction, GamePhase, GameResult, GameState, MoveError,
@@ -996,4 +997,63 @@ fn test_the_red_hunt_immediate_victory_at_c0() {
     assert!(state.apply_fox_move(c0_idx).is_ok());
     assert_eq!(state.result, GameResult::FoxWon);
     assert_eq!(state.phase, GamePhase::GameOver);
+}
+
+#[test]
+fn test_the_red_hunt_slowness_and_move_duration() {
+    assert_eq!(CLASSIC_CONFIG.move_duration, DEFAULT_MOVE_DURATION);
+    assert_eq!(THE_RED_HUNT_CONFIG.move_duration, RED_HUNT_MOVE_DURATION);
+    assert_eq!(
+        THE_RED_HUNT_CONFIG.move_duration,
+        DEFAULT_MOVE_DURATION * RED_HUNT_MOVE_SLOWNESS
+    );
+    assert!((THE_RED_HUNT_CONFIG.move_duration - 0.39).abs() < 1e-4);
+
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::TheRedHunt);
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    assert_eq!(state.move_duration(), THE_RED_HUNT_CONFIG.move_duration);
+
+    // Fox starts at C4. Find legal moves for Fox from C4.
+    let fox_legal = state.fox_legal_moves();
+    assert!(!fox_legal.is_empty());
+    let target_idx = fox_legal[0];
+
+    assert!(state.apply_fox_move(target_idx).is_ok());
+
+    let fox_anim = state
+        .active_anim
+        .as_ref()
+        .expect("Fox move on Mars should create active_anim");
+    assert_eq!(fox_anim.duration, THE_RED_HUNT_CONFIG.move_duration);
+    assert_eq!(fox_anim.progress, 0.0);
+
+    // After 0.26s (the standard Earth duration), the Martian movement is still in progress
+    state.update(0.26);
+    let mid_anim = state
+        .active_anim
+        .as_ref()
+        .expect("Animation should still be active after standard Earth duration");
+    assert!(mid_anim.progress > 0.0 && mid_anim.progress < 1.0);
+
+    // After remaining time, the animation completes
+    state.update(0.15);
+    assert!(
+        state.active_anim.is_none(),
+        "Animation should complete after full 1.5x Martian duration"
+    );
+
+    // Test Hound move animation slowness on Mars
+    state.current_turn = Faction::Hounds;
+    let legal = state.hound_legal_moves(0);
+    assert!(!legal.is_empty());
+    let hound_target = legal[0];
+
+    assert!(state.apply_hound_move(0, hound_target).is_ok());
+    let hound_anim = state
+        .active_anim
+        .as_ref()
+        .expect("Hound move on Mars should create active_anim");
+    assert_eq!(hound_anim.duration, THE_RED_HUNT_CONFIG.move_duration);
 }

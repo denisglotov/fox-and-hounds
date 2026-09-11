@@ -79,10 +79,15 @@ pub struct VariantConfig {
     pub fox_free_entry: bool,
     pub hounds_start_nodes: &'static [&'static str],
     pub target_coop_node: &'static str,
+    pub move_duration: f32,
     pub build_graph: fn() -> Graph,
 }
 
 pub type LevelConfig = VariantConfig;
+
+pub const DEFAULT_MOVE_DURATION: f32 = 0.26;
+pub const RED_HUNT_MOVE_SLOWNESS: f32 = 1.5;
+pub const RED_HUNT_MOVE_DURATION: f32 = DEFAULT_MOVE_DURATION * RED_HUNT_MOVE_SLOWNESS;
 
 pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::Classic,
@@ -96,6 +101,7 @@ pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
     fox_free_entry: true,
     hounds_start_nodes: &["M0", "T1", "B1"],
     target_coop_node: "M0",
+    move_duration: DEFAULT_MOVE_DURATION,
     build_graph: build_classic_graph,
 };
 
@@ -111,6 +117,7 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
     fox_free_entry: false,
     hounds_start_nodes: &["L1", "M1", "R1"],
     target_coop_node: "M0",
+    move_duration: DEFAULT_MOVE_DURATION,
     build_graph: build_river_crossing_graph,
 };
 
@@ -126,6 +133,7 @@ pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
     fox_free_entry: false,
     hounds_start_nodes: &["R7", "C7", "L7"],
     target_coop_node: "C8",
+    move_duration: DEFAULT_MOVE_DURATION,
     build_graph: build_fox_and_dogs_graph,
 };
 
@@ -143,10 +151,14 @@ pub const THE_RED_HUNT_CONFIG: VariantConfig = VariantConfig {
     fox_free_entry: false,
     hounds_start_nodes: &["R4", "C3", "L4"],
     target_coop_node: "C0",
+    move_duration: RED_HUNT_MOVE_DURATION,
     build_graph: build_the_red_hunt_graph,
 };
 
 impl BoardVariant {
+    pub const fn move_duration(self) -> f32 {
+        self.config().move_duration
+    }
     pub const fn config(self) -> &'static VariantConfig {
         match self {
             BoardVariant::Classic => &CLASSIC_CONFIG,
@@ -660,7 +672,7 @@ pub fn build_the_red_hunt_graph() -> Graph {
         ("C2", 2, 1, NodeType::Standard, Vec2::new(512.0, 345.)),
         ("R2", 2, 2, NodeType::Standard, Vec2::new(645., 345.)),
         // Row 3: Top star node (upper hound start)
-        ("C3", 3, 1, NodeType::Standard, Vec2::new(512.0, 410.0)),
+        ("C3", 3, 1, NodeType::Standard, Vec2::new(512.0, 406.)),
         // Row 4: Central line (stars at L4 & R4, Fox start at C4)
         ("L4", 4, 0, NodeType::Standard, Vec2::new(380., 470.)),
         ("C4", 4, 1, NodeType::FoxStart, Vec2::new(512.0, 470.)),
@@ -676,7 +688,7 @@ pub fn build_the_red_hunt_graph() -> Graph {
         ("C7", 7, 1, NodeType::Bottleneck, Vec2::new(512.0, 683.)),
         ("R7", 7, 2, NodeType::Standard, Vec2::new(645., 683.)),
         // Row 8
-        ("L8", 8, 0, NodeType::Standard, Vec2::new(380., 744.)),
+        ("L8", 8, 0, NodeType::Standard, Vec2::new(381., 744.)),
         ("C8", 8, 1, NodeType::Standard, Vec2::new(512.0, 744.)),
         ("R8", 8, 2, NodeType::Standard, Vec2::new(645., 744.)),
         // Row 9: South apex
