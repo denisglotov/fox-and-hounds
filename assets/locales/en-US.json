@@ -36,21 +36,13 @@
     "@variant_river_crossing_sub": {
       "description": "Rule subtitle for the River Crossing variant: hounds are allowed to walk backwards."
     },
-    "variant_fox_and_dogs_symmetric": "Fox and dogs",
-    "@variant_fox_and_dogs_symmetric": {
-      "description": "Name of the symmetric Fox and dogs board variant with 3 dogs and bridge."
+    "variant_fox_and_dogs": "Fox and dogs",
+    "@variant_fox_and_dogs": {
+      "description": "Name of the Fox and dogs board variant with 3 dogs and bridge."
     },
-    "variant_fox_and_dogs_symmetric_sub": "symmetric",
-    "@variant_fox_and_dogs_symmetric_sub": {
-      "description": "Subtitle for the symmetric variant."
-    },
-    "variant_fox_and_dogs_asymmetric": "Fox and dogs assymetric",
-    "@variant_fox_and_dogs_asymmetric": {
-      "description": "Name of the asymmetric Fox and dogs board variant without L4-L5 shortcut edge."
-    },
-    "variant_fox_and_dogs_asymmetric_sub": "asymmetric",
-    "@variant_fox_and_dogs_asymmetric_sub": {
-      "description": "Subtitle for the asymmetric variant."
+    "variant_fox_and_dogs_sub": "dogs start first",
+    "@variant_fox_and_dogs_sub": {
+      "description": "Rule subtitle for the Fox and dogs variant: dogs move first."
     },
     "choose_faction": "CHOOSE YOUR FACTION",
     "@choose_faction": {

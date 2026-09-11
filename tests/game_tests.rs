@@ -2,7 +2,7 @@ use fox_and_hounds::game::ai::{find_best_move, BoardSnapshot};
 use fox_and_hounds::game::graph::NodeType;
 use fox_and_hounds::game::level::{
     build_classic_graph, build_river_crossing_graph, BoardVariant, CLASSIC_CONFIG,
-    FOX_AND_DOGS_ASYMMETRIC_CONFIG, FOX_AND_DOGS_SYMMETRIC_CONFIG, RIVER_CROSSING_CONFIG,
+    FOX_AND_DOGS_CONFIG, RIVER_CROSSING_CONFIG,
 };
 use fox_and_hounds::game::state::{
     Difficulty, Faction, GamePhase, GameResult, GameState, MoveError,
@@ -678,11 +678,8 @@ fn test_variant_properties() {
         &["L1", "M1", "R1"]
     );
 
-    assert_eq!(FOX_AND_DOGS_SYMMETRIC_CONFIG.fox_start_node, "C0");
-    assert_eq!(FOX_AND_DOGS_SYMMETRIC_CONFIG.target_coop_node, "C8");
-
-    assert_eq!(FOX_AND_DOGS_ASYMMETRIC_CONFIG.fox_start_node, "C0");
-    assert_eq!(FOX_AND_DOGS_ASYMMETRIC_CONFIG.target_coop_node, "C8");
+    assert_eq!(FOX_AND_DOGS_CONFIG.fox_start_node, "C4");
+    assert_eq!(FOX_AND_DOGS_CONFIG.target_coop_node, "C8");
 
     let g_classic = (CLASSIC_CONFIG.build_graph)();
     let g_river = (RIVER_CROSSING_CONFIG.build_graph)();
@@ -829,55 +826,43 @@ fn test_hound_stalemate_fox_victory() {
 }
 
 #[test]
-fn test_arthur_graph_structure_and_symmetry() {
-    use fox_and_hounds::game::level::{
-        build_arthur_asymmetric_graph, build_arthur_symmetric_graph,
-    };
+fn test_fox_and_dogs_graph_structure() {
+    use fox_and_hounds::game::level::build_fox_and_dogs_graph;
 
-    let sym = build_arthur_symmetric_graph();
-    let asym = build_arthur_asymmetric_graph();
+    let graph = build_fox_and_dogs_graph();
 
-    assert_eq!(sym.node_count(), 19);
-    assert_eq!(asym.node_count(), 19);
+    assert_eq!(graph.node_count(), 19);
 
-    let l4_idx = sym.find_id_by_name("L4").unwrap();
-    let l5_idx = sym.find_id_by_name("L5").unwrap();
-    let r4_idx = sym.find_id_by_name("R4").unwrap();
-    let r5_idx = sym.find_id_by_name("R5").unwrap();
+    let l4_idx = graph.find_id_by_name("L4").unwrap();
+    let l5_idx = graph.find_id_by_name("L5").unwrap();
+    let r4_idx = graph.find_id_by_name("R4").unwrap();
+    let r5_idx = graph.find_id_by_name("R5").unwrap();
 
-    // Symmetric variant HAS L4-L5 (matching assets/fox_and_dogs_board.png)
-    assert!(sym.neighbors(l4_idx).contains(&l5_idx));
-    assert!(sym.neighbors(l5_idx).contains(&l4_idx));
-
-    // Asymmetric variant lacks L4-L5 (matching assets/fox_and_dogs_assymetric_board.png)
-    assert!(!asym.neighbors(l4_idx).contains(&l5_idx));
-    assert!(!asym.neighbors(l5_idx).contains(&l4_idx));
-
-    // Both variants have R4-R5
-    assert!(sym.neighbors(r4_idx).contains(&r5_idx));
-    assert!(sym.neighbors(r5_idx).contains(&r4_idx));
-    assert!(asym.neighbors(r4_idx).contains(&r5_idx));
-    assert!(asym.neighbors(r5_idx).contains(&r4_idx));
+    // Fox and Dogs board HAS L4-L5 and R4-R5 (matching assets/fox_and_dogs_board.png)
+    assert!(graph.neighbors(l4_idx).contains(&l5_idx));
+    assert!(graph.neighbors(l5_idx).contains(&l4_idx));
+    assert!(graph.neighbors(r4_idx).contains(&r5_idx));
+    assert!(graph.neighbors(r5_idx).contains(&r4_idx));
 
     // C8 is TargetCoop
-    let c8_idx = sym.find_id_by_name("C8").unwrap();
-    assert_eq!(sym.node(c8_idx).unwrap().node_type, NodeType::TargetCoop);
+    let c8_idx = graph.find_id_by_name("C8").unwrap();
+    assert_eq!(graph.node(c8_idx).unwrap().node_type, NodeType::TargetCoop);
 
     // C2 and C3 are Bottlenecks
-    let c2_idx = sym.find_id_by_name("C2").unwrap();
-    let c3_idx = sym.find_id_by_name("C3").unwrap();
-    assert_eq!(sym.node(c2_idx).unwrap().node_type, NodeType::Bottleneck);
-    assert_eq!(sym.node(c3_idx).unwrap().node_type, NodeType::Bottleneck);
+    let c2_idx = graph.find_id_by_name("C2").unwrap();
+    let c3_idx = graph.find_id_by_name("C3").unwrap();
+    assert_eq!(graph.node(c2_idx).unwrap().node_type, NodeType::Bottleneck);
+    assert_eq!(graph.node(c3_idx).unwrap().node_type, NodeType::Bottleneck);
 
     // C0 is FoxStart (dogs can enter)
-    let c0_idx = sym.find_id_by_name("C0").unwrap();
-    assert_eq!(sym.node(c0_idx).unwrap().node_type, NodeType::FoxStart);
+    let c0_idx = graph.find_id_by_name("C0").unwrap();
+    assert_eq!(graph.node(c0_idx).unwrap().node_type, NodeType::FoxStart);
 }
 
 #[test]
 fn test_arthur_dogs_start_and_rules() {
     let mut state = GameState::new();
-    state.switch_variant(BoardVariant::FoxAndDogsSymmetric);
+    state.switch_variant(BoardVariant::FoxAndDogs);
     state.start_game(Faction::Fox, Difficulty::Medium);
 
     // Dogs start first!
@@ -889,10 +874,11 @@ fn test_arthur_dogs_start_and_rules() {
     let l7_idx = state.graph.find_id_by_name("L7").unwrap();
     assert_eq!(state.hounds_pos, vec![r7_idx, c7_idx, l7_idx]);
 
-    // Initial fox position: C0
-    let c0_idx = state.graph.find_id_by_name("C0").unwrap();
+    // Initial fox position
+    let start_node = FOX_AND_DOGS_CONFIG.fox_start_node;
+    let fox_start_idx = state.graph.find_id_by_name(start_node).unwrap();
     let c8_idx = state.graph.find_id_by_name("C8").unwrap();
-    assert_eq!(state.fox_pos, c0_idx);
+    assert_eq!(state.fox_pos, fox_start_idx);
 
     // Dogs can retreat (move backwards)
     assert!(state.variant.config().allow_hound_retreat);
@@ -907,7 +893,7 @@ fn test_arthur_dogs_start_and_rules() {
 #[test]
 fn test_arthur_dogs_can_enter_c0() {
     let mut state = GameState::new();
-    state.switch_variant(BoardVariant::FoxAndDogsAsymmetric);
+    state.switch_variant(BoardVariant::FoxAndDogs);
     state.start_game(Faction::Hounds, Difficulty::Medium);
 
     let c0_idx = state.graph.find_id_by_name("C0").unwrap();
@@ -927,15 +913,16 @@ fn test_arthur_dogs_can_enter_c0() {
 #[test]
 fn test_arthur_direct_mission_flow() {
     let mut state = GameState::new();
-    state.switch_variant(BoardVariant::FoxAndDogsSymmetric);
+    state.switch_variant(BoardVariant::FoxAndDogs);
     state.start_game(Faction::Fox, Difficulty::Medium);
 
-    let c0_idx = state.graph.find_id_by_name("C0").unwrap();
+    let start_node = FOX_AND_DOGS_CONFIG.fox_start_node;
+    let fox_start_idx = state.graph.find_id_by_name(start_node).unwrap();
     let c7_idx = state.graph.find_id_by_name("C7").unwrap();
     let c8_idx = state.graph.find_id_by_name("C8").unwrap();
 
     // Active target initially is C8 (Chicken Coop)
-    assert_eq!(state.fox_pos, c0_idx);
+    assert_eq!(state.fox_pos, fox_start_idx);
     assert_eq!(state.active_target_node(), c8_idx);
 
     // Dogs start first

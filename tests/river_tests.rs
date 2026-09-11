@@ -303,16 +303,13 @@ fn test_river_path_for_variant() {
     let river_crossing = RiverPath::for_variant(BoardVariant::RiverCrossing);
     assert_eq!(river_crossing.variant, BoardVariant::RiverCrossing);
 
-    let arthur_sym = RiverPath::for_variant(BoardVariant::FoxAndDogsSymmetric);
-    assert_eq!(arthur_sym.variant, BoardVariant::FoxAndDogsSymmetric);
-
-    let arthur_asym = RiverPath::for_variant(BoardVariant::FoxAndDogsAsymmetric);
-    assert_eq!(arthur_asym.variant, BoardVariant::FoxAndDogsAsymmetric);
+    let arthur = RiverPath::for_variant(BoardVariant::FoxAndDogs);
+    assert_eq!(arthur.variant, BoardVariant::FoxAndDogs);
 }
 
 #[test]
 fn test_arthur_river_path_and_bridge_occlusion() {
-    let path = RiverPath::for_variant(BoardVariant::FoxAndDogsSymmetric);
+    let path = RiverPath::for_variant(BoardVariant::FoxAndDogs);
     assert!(path.total_length > 900.0 && path.total_length < 1300.0);
 
     // River flows horizontally from x=0 to x=1024
