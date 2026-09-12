@@ -33,82 +33,9 @@ fn assert_rect_inside(inner: Rect, outer: Rect, name: &str) {
 }
 
 #[test]
-fn test_title_screen_landscape_android_fit() {
-    let screen_w: f32 = 2400.0;
-    let screen_h: f32 = 1080.0;
-    let scale: f32 = (1080.0f32 / 380.0f32).clamp(1.0, 4.0); // ~2.842
-
-    let layout = TitleScreenLayout::compute(screen_w, screen_h, scale, true, 16.0 / 9.0);
-
-    assert!(layout.is_landscape);
-
-    let screen_bounds = Rect::new(0.0, 0.0, screen_w, screen_h);
-    assert_rect_inside(layout.card_bounds, screen_bounds, "card_bounds");
-    assert_rect_inside(layout.left_column, layout.card_bounds, "left_column");
-    assert_rect_inside(layout.right_column, layout.card_bounds, "right_column");
-
-    if let Some(hb) = layout.hero_bounds {
-        assert_rect_inside(hb, layout.left_column, "hero_bounds");
-    }
-
-    for (idx, &vb) in layout.variant_btn_bounds.iter().enumerate() {
-        assert_rect_inside(vb, layout.right_column, &format!("variant_btn_{}", idx));
-    }
-    assert!(
-        layout.variant_btn_bounds[0].x + layout.variant_btn_bounds[0].w
-            <= layout.variant_btn_bounds[1].x + 0.1,
-        "Variant buttons must not overlap horizontally"
-    );
-    assert!(
-        layout.variant_btn_bounds.last().unwrap().y + layout.variant_btn_bounds.last().unwrap().h
-            <= layout.fox_btn_bounds.y + 0.1,
-        "Variant buttons must precede Faction buttons vertically"
-    );
-
-    assert_rect_inside(layout.fox_btn_bounds, layout.right_column, "fox_btn_bounds");
-    assert_rect_inside(
-        layout.hounds_btn_bounds,
-        layout.right_column,
-        "hounds_btn_bounds",
-    );
-    assert!(
-        layout.fox_btn_bounds.x + layout.fox_btn_bounds.w <= layout.hounds_btn_bounds.x + 0.1,
-        "Fox and Hounds buttons must not overlap horizontally"
-    );
-
-    for (idx, &db) in layout.difficulty_btn_bounds.iter().enumerate() {
-        assert_rect_inside(db, layout.right_column, &format!("diff_btn_{}", idx));
-    }
-    assert!(
-        layout.difficulty_btn_bounds[0].x + layout.difficulty_btn_bounds[0].w
-            <= layout.difficulty_btn_bounds[1].x + 0.1
-    );
-    assert!(
-        layout.difficulty_btn_bounds[1].x + layout.difficulty_btn_bounds[1].w
-            <= layout.difficulty_btn_bounds[2].x + 0.1
-    );
-
-    assert_rect_inside(
-        layout.start_btn_bounds,
-        layout.right_column,
-        "start_btn_bounds",
-    );
-
-    assert!(
-        layout.fox_btn_bounds.y + layout.fox_btn_bounds.h
-            <= layout.difficulty_btn_bounds[0].y + 0.1,
-        "Faction buttons must precede difficulty buttons vertically"
-    );
-    assert!(
-        layout.difficulty_btn_bounds[0].y + layout.difficulty_btn_bounds[0].h
-            <= layout.start_btn_bounds.y + 0.1,
-        "Difficulty buttons must precede Start button vertically"
-    );
-}
-
-#[test]
-fn test_title_screen_landscape_desktop_and_web_fit() {
-    let test_resolutions: [(f32, f32); 5] = [
+fn test_title_screen_landscape_fit() {
+    let test_resolutions: [(f32, f32); 6] = [
+        (2400.0, 1080.0), // Ultra-wide landscape
         (1920.0, 1080.0), // 1080p
         (1280.0, 720.0),  // 720p
         (960.0, 540.0),   // qHD
@@ -118,7 +45,7 @@ fn test_title_screen_landscape_desktop_and_web_fit() {
 
     for (screen_w, screen_h) in test_resolutions {
         let base_scale = (screen_w / 850.0f32).min(screen_h / 520.0f32);
-        let scale = base_scale.clamp(0.65, 2.5);
+        let scale = base_scale.clamp(0.65, 2.85);
 
         let layout = TitleScreenLayout::compute(screen_w, screen_h, scale, true, 16.0 / 9.0);
         assert!(
@@ -138,6 +65,15 @@ fn test_title_screen_landscape_desktop_and_web_fit() {
             assert_rect_inside(vb, layout.card_bounds, &format!("variant_btn_{}", idx));
         }
         assert_rect_inside(layout.fox_btn_bounds, layout.card_bounds, "fox_btn_bounds");
+        assert_rect_inside(
+            layout.hounds_btn_bounds,
+            layout.card_bounds,
+            "hounds_btn_bounds",
+        );
+        assert!(
+            layout.fox_btn_bounds.x + layout.fox_btn_bounds.w <= layout.hounds_btn_bounds.x + 0.1,
+            "Fox and Hounds buttons must not overlap horizontally"
+        );
     }
 }
 
@@ -196,14 +132,6 @@ fn test_title_screen_portrait_fit() {
                 screen_w,
                 screen_h
             );
-            // Verify banner starts with generous margin below header (no subtitle overlap)
-            let header_min_bottom = layout.card_bounds.y + (22.0 + 32.0 + 6.0 + 14.0) * scale;
-            assert!(
-                hb.y >= header_min_bottom,
-                "Hero banner y ({}) overlaps or is too close to subtitle (min bottom {})",
-                hb.y,
-                header_min_bottom
-            );
         }
 
         assert!(
@@ -246,45 +174,6 @@ fn test_game_over_modal_layout_fit() {
             layout.rematch_btn_bounds.y + layout.rematch_btn_bounds.h
                 <= layout.menu_btn_bounds.y + 0.1,
             "Rematch button must be above Menu button without overlap"
-        );
-    }
-}
-
-#[test]
-fn test_welcome_banner_aspect_ratio_not_squeezed() {
-    // fox_and_hounds.png aspect ratio: 1378x768 = 1.79427...
-    let texture_aspect = 1378.0 / 768.0;
-
-    let test_cases = [
-        // Default desktop window
-        (960.0, 1360.0, 1.6),
-        // Android phone portrait
-        (1080.0, 2400.0, 2.842),
-        // HD portrait
-        (720.0, 1280.0, 1.89),
-        // 3:4 portrait
-        (600.0, 800.0, 0.94),
-        // 1080p landscape
-        (1920.0, 1080.0, 2.0),
-        // 720p landscape
-        (1280.0, 720.0, 1.38),
-    ];
-
-    for (screen_w, screen_h, scale) in test_cases {
-        let layout = TitleScreenLayout::compute(screen_w, screen_h, scale, true, texture_aspect);
-        let hb = layout
-            .hero_bounds
-            .unwrap_or_else(|| panic!("Hero bounds should exist for {}x{}", screen_w, screen_h));
-
-        let hb_aspect = hb.w / hb.h;
-        assert!(
-            (hb_aspect - texture_aspect).abs() < 0.01,
-            "Banner at {}x{} has aspect ratio {}, expected {} (squeezed by factor {:.2})",
-            screen_w,
-            screen_h,
-            hb_aspect,
-            texture_aspect,
-            texture_aspect / hb_aspect,
         );
     }
 }

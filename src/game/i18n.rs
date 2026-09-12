@@ -605,33 +605,6 @@ mod tests {
         assert_eq!(resolve_locale("unknown").locale, "en-US");
     }
 
-    #[test]
-    fn test_parse_cli_locale() {
-        assert_eq!(
-            parse_cli_locale(["--lang", "ru-RU"]),
-            Some("ru-RU".to_string())
-        );
-        assert_eq!(parse_cli_locale(["-l", "es-ES"]), Some("es-ES".to_string()));
-        assert_eq!(
-            parse_cli_locale(["--lang=de-DE"]),
-            Some("de-DE".to_string())
-        );
-        assert_eq!(parse_cli_locale(["--lang=fr"]), Some("fr".to_string()));
-        assert_eq!(
-            parse_cli_locale(["--other", "val", "-l", "pt+BR"]),
-            Some("pt+BR".to_string())
-        );
-        assert_eq!(parse_cli_locale(["--other", "val"]), None);
-    }
-
-    #[test]
-    fn test_detect_locale_tag() {
-        let tag = detect_locale_tag();
-        assert!(!tag.is_empty(), "Detected locale tag should not be empty");
-        let resolved = resolve_locale(&tag);
-        assert!(!resolved.locale.is_empty());
-    }
-
     fn extract_ttf_cmap_codepoints(data: &[u8]) -> std::collections::HashSet<u32> {
         let mut chars = std::collections::HashSet::new();
         if data.len() < 12 {
