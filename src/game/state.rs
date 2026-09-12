@@ -92,6 +92,7 @@ pub struct GameState {
     pub variant: BoardVariant,
     pub fox_pos: usize,
     pub fox_pending: bool,
+    pub fox_has_left_start: bool,
     pub hounds_pos: Vec<usize>,
     pub coop_pos: usize,
     pub current_turn: Faction,
@@ -126,6 +127,7 @@ impl GameState {
             variant,
             fox_pos: 0,
             fox_pending: false,
+            fox_has_left_start: false,
             hounds_pos: Vec::new(),
             coop_pos: 0,
             current_turn: Faction::Fox,
@@ -178,6 +180,7 @@ impl GameState {
             .find_id_by_name(config.fox_start_node)
             .unwrap_or_else(|| self.graph.nodes.len().saturating_sub(1));
         self.fox_pending = config.fox_free_entry;
+        self.fox_has_left_start = false;
         self.hounds_pos = config
             .hounds_start_nodes
             .iter()
@@ -187,7 +190,11 @@ impl GameState {
             .graph
             .find_id_by_name(config.target_coop_node)
             .unwrap_or(0);
-        self.current_turn = Faction::Fox;
+        self.current_turn = if config.hounds_start_first {
+            Faction::Hounds
+        } else {
+            Faction::Fox
+        };
         self.result = GameResult::Ongoing;
         self.selected_hound_idx = None;
         self.turn_count = 1;
@@ -226,6 +233,7 @@ impl GameState {
 
     pub fn hound_legal_moves(&self, hound_idx: usize) -> Vec<usize> {
         let allow_retreat = self.variant.config().allow_hound_retreat;
+        let allow_coop = self.variant.config().allow_hounds_in_coop;
         self.hounds_pos
             .get(hound_idx)
             .map_or_else(Vec::new, |&pos| {
@@ -236,6 +244,7 @@ impl GameState {
                         self.coop_pos,
                         &self.hounds_pos,
                         allow_retreat,
+                        allow_coop,
                     )
                     .collect()
             })
@@ -243,6 +252,7 @@ impl GameState {
 
     pub fn all_hound_legal_moves(&self) -> Vec<(usize, usize)> {
         let allow_retreat = self.variant.config().allow_hound_retreat;
+        let allow_coop = self.variant.config().allow_hounds_in_coop;
         self.hounds_pos
             .iter()
             .enumerate()
@@ -254,6 +264,7 @@ impl GameState {
                         self.coop_pos,
                         &self.hounds_pos,
                         allow_retreat,
+                        allow_coop,
                     )
                     .map(move |target| (idx, target))
             })
@@ -278,6 +289,9 @@ impl GameState {
 
         self.fox_pos = to;
         self.fox_pending = false;
+        if to != self.coop_pos {
+            self.fox_has_left_start = true;
+        }
         self.move_history.push(PieceMove::FoxMove { to });
         self.current_turn = Faction::Hounds;
         self.selected_hound_idx = None;
@@ -348,7 +362,17 @@ impl GameState {
     }
 
     pub fn evaluate_game_result(&mut self) {
-        let fox_won = self.fox_pos == self.coop_pos;
+        let is_coop_start =
+            self.variant.config().fox_start_node == self.variant.config().target_coop_node;
+        let fox_won = if self.fox_pos == self.coop_pos {
+            if is_coop_start {
+                self.fox_has_left_start
+            } else {
+                true
+            }
+        } else {
+            false
+        };
         if fox_won {
             self.result = GameResult::FoxWon;
             self.phase = GamePhase::GameOver;
