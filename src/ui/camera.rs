@@ -1,3 +1,4 @@
+pub use crate::game::level::BoardIntroFraming;
 use crate::game::level::{BoardDimensions, BoardVariant};
 use macroquad::input::TouchPhase;
 use macroquad::prelude::*;
@@ -123,7 +124,7 @@ impl ViewportCamera {
         self.anim = None;
     }
 
-    /// Starts the match start camera framing or intro animation for the given board variant.
+    /// Starts the match start camera framing and intro zoom animation for the given board variant.
     pub fn start_intro(
         &mut self,
         variant: BoardVariant,
@@ -132,29 +133,9 @@ impl ViewportCamera {
         base_board_scale: f32,
         duration: f32,
     ) {
-        match variant {
-            BoardVariant::RiverCrossing => {
-                self.start_river_crossing_intro(
-                    viewport_rect,
-                    base_board_size,
-                    base_board_scale,
-                    duration,
-                );
-            }
-            BoardVariant::Classic | BoardVariant::FoxAndDogs | BoardVariant::TheRedHunt => {
-                self.start_classic_intro(viewport_rect, base_board_size, base_board_scale);
-            }
-        }
-    }
+        let dims = &variant.config().dimensions;
+        let framing = variant.config().intro_framing;
 
-    fn start_river_crossing_intro(
-        &mut self,
-        viewport_rect: Rect,
-        base_board_size: Vec2,
-        base_board_scale: f32,
-        duration: f32,
-    ) {
-        let dims = &crate::game::level::RIVER_CROSSING_DIMENSIONS;
         // 1. Initial wide overview framing at MIN_ZOOM (1.0x)
         let start_zoom = MIN_ZOOM;
         let start_scale = base_board_scale * start_zoom;
@@ -166,15 +147,10 @@ impl ViewportCamera {
         let start_pan_y = ((viewport_rect.h - start_board_h) / 2.0).clamp(start_min_y, start_max_y);
         let start_pan = Vec2::new(start_pan_x, start_pan_y);
 
-        // 2. Target "Coop-to-Fox" framing
-        // Chicken Coop roof is at y ≈ 60..156, Fox Den is at y ≈ 1052..1140.
-        // The playable vertical span is ~1080px out of total BOARD_IMAGE_HEIGHT (1376px).
-        const COOP_FOX_PLAYABLE_HEIGHT: f32 = 1080.0;
-        const COOP_FOX_CENTER_Y: f32 = 600.0;
-        let coop_fox_center_x: f32 = dims.image_width / 2.0; // 384.0
-
-        let target_zoom =
-            (viewport_rect.h / (COOP_FOX_PLAYABLE_HEIGHT * base_board_scale)).clamp(MIN_ZOOM, 1.85);
+        // 2. Target playable framing with zoom into the field
+        let zoom_h = viewport_rect.h / (framing.playable_size.y * base_board_scale);
+        let zoom_w = (viewport_rect.w * 0.95) / (framing.playable_size.x * base_board_scale);
+        let target_zoom = zoom_h.min(zoom_w).clamp(MIN_ZOOM, framing.max_target_zoom);
 
         let target_scale = base_board_scale * target_zoom;
         let (target_min_x, target_max_x) =
@@ -184,7 +160,7 @@ impl ViewportCamera {
         let target_pan_x = if target_total_w <= viewport_rect.w {
             viewport_rect.w / 2.0 - dims.composition_center_x() * target_scale
         } else {
-            (viewport_rect.w / 2.0 - coop_fox_center_x * target_scale)
+            (viewport_rect.w / 2.0 - framing.playable_center.x * target_scale)
                 .clamp(target_min_x, target_max_x)
         };
 
@@ -193,7 +169,7 @@ impl ViewportCamera {
         let target_pan_y = if target_board_h <= viewport_rect.h {
             (viewport_rect.h - target_board_h) / 2.0
         } else {
-            (viewport_rect.h / 2.0 - COOP_FOX_CENTER_Y * target_scale)
+            (viewport_rect.h / 2.0 - framing.playable_center.y * target_scale)
                 .clamp(target_min_y, target_max_y)
         };
 
@@ -206,49 +182,18 @@ impl ViewportCamera {
         self.is_dragging = false;
         self.initialized = true;
 
-        self.anim = Some(CameraAnimation {
-            start_zoom,
-            target_zoom,
-            start_pan,
-            target_pan,
-            duration: duration.max(0.1),
-            elapsed: 0.0,
-        });
-    }
-
-    fn start_classic_intro(
-        &mut self,
-        viewport_rect: Rect,
-        base_board_size: Vec2,
-        base_board_scale: f32,
-    ) {
-        let dims = &crate::game::level::CLASSIC_DIMENSIONS;
-        let zoom = MIN_ZOOM;
-        let effective_scale = base_board_scale * zoom;
-        let (min_x, max_x) = horizontal_pan_bounds(viewport_rect.w, effective_scale, dims);
-        let total_artwork_w = dims.total_width() * effective_scale;
-
-        let pan_x = if total_artwork_w <= viewport_rect.w {
-            viewport_rect.w / 2.0 - dims.composition_center_x() * effective_scale
+        if target_zoom > start_zoom + 0.001 || (start_pan - target_pan).length_squared() > 1.0 {
+            self.anim = Some(CameraAnimation {
+                start_zoom,
+                target_zoom,
+                start_pan,
+                target_pan,
+                duration: duration.max(0.1),
+                elapsed: 0.0,
+            });
         } else {
-            (viewport_rect.w / 2.0 - (dims.image_width / 2.0) * effective_scale).clamp(min_x, max_x)
-        };
-
-        let cur_board_h = base_board_size.y * zoom;
-        let (min_y, max_y) = vertical_pan_bounds(viewport_rect.h, cur_board_h);
-        let pan_y = if cur_board_h <= viewport_rect.h {
-            (viewport_rect.h - cur_board_h) / 2.0
-        } else {
-            ((viewport_rect.h - cur_board_h) / 2.0).clamp(min_y, max_y)
-        };
-
-        self.zoom = zoom;
-        self.target_zoom = zoom;
-        self.pan_offset = Vec2::new(pan_x, pan_y);
-        self.drag_start = None;
-        self.is_dragging = false;
-        self.initialized = true;
-        self.anim = None;
+            self.anim = None;
+        }
     }
 
     /// Starts a cinematic slow zooming animation into the Coop-to-Fox playing field at match start.
@@ -260,7 +205,13 @@ impl ViewportCamera {
         _scale: f32,
         duration: f32,
     ) {
-        self.start_river_crossing_intro(viewport_rect, base_board_size, base_board_scale, duration);
+        self.start_intro(
+            BoardVariant::RiverCrossing,
+            viewport_rect,
+            base_board_size,
+            base_board_scale,
+            duration,
+        );
     }
 
     /// Centers camera on player's pieces at match start (bottom for Fox, top for Hounds).

@@ -290,20 +290,82 @@ fn test_classic_board_intro_initialization() {
     );
 
     assert_eq!(camera.zoom, MIN_ZOOM);
-    assert_eq!(camera.target_zoom, MIN_ZOOM);
-    assert!(camera.anim.is_none());
+    assert!(camera.target_zoom > 1.20 && camera.target_zoom <= 1.50);
+    assert!(camera.anim.is_some());
     assert!(camera.initialized);
+
+    let anim = camera.anim.unwrap();
+    assert_eq!(anim.start_zoom, MIN_ZOOM);
+    assert_eq!(anim.target_zoom, camera.target_zoom);
+    assert_eq!(anim.duration, 2.0);
+    assert_eq!(anim.elapsed, 0.0);
 
     let left_gap = camera.pan_offset.x;
     let right_gap = viewport.w - (camera.pan_offset.x + board_size.x);
     assert!(
         (left_gap - right_gap).abs() < 0.01,
-        "Classic board intro must center board horizontally (left gap: {}, right gap: {})",
+        "Classic board intro must center board horizontally at start (left gap: {}, right gap: {})",
         left_gap,
         right_gap
     );
     assert_eq!(
         camera.pan_offset.y, 0.0,
-        "Classic board intro must align flush vertically on 1080p"
+        "Classic board intro must align flush vertically on 1080p at start"
     );
+}
+
+#[test]
+fn test_all_variants_start_intro_animation() {
+    use fox_and_hounds::game::level::BoardVariant;
+
+    let viewport = Rect::new(0.0, 0.0, 1920.0, 1080.0);
+
+    for variant in BoardVariant::all() {
+        let mut camera = ViewportCamera::new();
+        let dims = &variant.config().dimensions;
+        let board_scale = viewport.h / dims.image_height;
+        let board_size = Vec2::new(
+            dims.image_width * board_scale,
+            dims.image_height * board_scale,
+        );
+
+        camera.start_intro(*variant, viewport, board_size, board_scale, 2.0);
+
+        assert_eq!(
+            camera.zoom, MIN_ZOOM,
+            "{:?} must start at MIN_ZOOM",
+            variant
+        );
+        assert!(
+            camera.target_zoom > MIN_ZOOM,
+            "{:?} must target zoom > MIN_ZOOM",
+            variant
+        );
+        assert!(
+            camera.anim.is_some(),
+            "{:?} must have intro animation active",
+            variant
+        );
+        let anim = camera.anim.unwrap();
+        assert_eq!(anim.start_zoom, MIN_ZOOM);
+        assert_eq!(anim.target_zoom, camera.target_zoom);
+        assert_eq!(anim.duration, 2.0);
+    }
+}
+
+#[test]
+fn test_variant_config_intro_framing_validity() {
+    use fox_and_hounds::game::level::BoardVariant;
+
+    for variant in BoardVariant::all() {
+        let config = variant.config();
+        let framing = &config.intro_framing;
+        let dims = &config.dimensions;
+
+        assert!(framing.playable_size.x > 0.0 && framing.playable_size.x <= dims.image_width);
+        assert!(framing.playable_size.y > 0.0 && framing.playable_size.y <= dims.image_height);
+        assert!(framing.playable_center.x > 0.0 && framing.playable_center.x < dims.image_width);
+        assert!(framing.playable_center.y > 0.0 && framing.playable_center.y < dims.image_height);
+        assert!(framing.max_target_zoom >= 1.2 && framing.max_target_zoom <= 2.5);
+    }
 }

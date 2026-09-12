@@ -66,6 +66,13 @@ pub enum BoardVariant {
 
 pub use BoardVariant::FoxAndDogs as FoxAndDogsSymmetric;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BoardIntroFraming {
+    pub playable_center: Vec2,
+    pub playable_size: Vec2,
+    pub max_target_zoom: f32,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct VariantConfig {
     pub id: BoardVariant,
@@ -74,6 +81,7 @@ pub struct VariantConfig {
     pub allow_hound_retreat: bool,
     pub hounds_start_first: bool,
     pub dimensions: BoardDimensions,
+    pub intro_framing: BoardIntroFraming,
     pub board_image_bytes: &'static [u8],
     pub fox_start_node: &'static str,
     pub fox_free_entry: bool,
@@ -96,6 +104,11 @@ pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
     allow_hound_retreat: false,
     hounds_start_first: false,
     dimensions: CLASSIC_DIMENSIONS,
+    intro_framing: BoardIntroFraming {
+        playable_center: Vec2::new(511.0, 510.0),
+        playable_size: Vec2::new(660.0, 520.0),
+        max_target_zoom: 1.30,
+    },
     board_image_bytes: include_bytes!("../../assets/classic_board_image.png"),
     fox_start_node: "M4",
     fox_free_entry: true,
@@ -112,6 +125,11 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
     allow_hound_retreat: true,
     hounds_start_first: false,
     dimensions: RIVER_CROSSING_DIMENSIONS,
+    intro_framing: BoardIntroFraming {
+        playable_center: Vec2::new(384.0, 600.0),
+        playable_size: Vec2::new(380.0, 1080.0),
+        max_target_zoom: 1.85,
+    },
     board_image_bytes: include_bytes!("../../assets/board_image.png"),
     fox_start_node: "M9",
     fox_free_entry: false,
@@ -128,6 +146,11 @@ pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
     allow_hound_retreat: true,
     hounds_start_first: true,
     dimensions: FOX_AND_DOGS_DIMENSIONS,
+    intro_framing: BoardIntroFraming {
+        playable_center: Vec2::new(510.0, 517.0),
+        playable_size: Vec2::new(420.0, 780.0),
+        max_target_zoom: 1.35,
+    },
     board_image_bytes: include_bytes!("../../assets/fox_and_dogs_board.png"),
     fox_start_node: "C4",
     fox_free_entry: false,
@@ -146,6 +169,11 @@ pub const THE_RED_HUNT_CONFIG: VariantConfig = VariantConfig {
     allow_hound_retreat: true,
     hounds_start_first: false,
     dimensions: RED_HUNT_DIMENSIONS,
+    intro_framing: BoardIntroFraming {
+        playable_center: Vec2::new(512.0, 514.0),
+        playable_size: Vec2::new(400.0, 720.0),
+        max_target_zoom: 1.40,
+    },
     board_image_bytes: include_bytes!("../../assets/the_red_hunt_board.png"),
     fox_start_node: "C4",
     fox_free_entry: false,
