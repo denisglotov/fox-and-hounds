@@ -453,8 +453,8 @@ fn test_arthur_dogs_start_and_rules() {
     state.switch_variant(BoardVariant::FoxAndDogs);
     state.start_game(Faction::Fox, Difficulty::Medium);
 
-    // Dogs start first
-    assert_eq!(state.current_turn, Faction::Hounds);
+    // Fox starts first in all games
+    assert_eq!(state.current_turn, Faction::Fox);
 
     let c8_idx = state.graph.find_id_by_name("C8").unwrap();
     for hound_idx in 0..3 {
@@ -471,18 +471,24 @@ fn test_arthur_direct_mission_flow() {
 
     let start_node = FOX_AND_DOGS_CONFIG.fox_start_node;
     let fox_start_idx = state.graph.find_id_by_name(start_node).unwrap();
+    let c5_idx = state.graph.find_id_by_name("C5").unwrap();
     let c7_idx = state.graph.find_id_by_name("C7").unwrap();
     let c8_idx = state.graph.find_id_by_name("C8").unwrap();
 
     assert_eq!(state.fox_pos, fox_start_idx);
     assert_eq!(state.active_target_node(), c8_idx);
+    assert_eq!(state.current_turn, Faction::Fox);
 
-    // Dogs start first
+    // Fox starts first and moves C4 -> C5
+    assert!(state.apply_fox_move(c5_idx).is_ok());
+    assert_eq!(state.current_turn, Faction::Hounds);
+
+    // Dogs turn: hounds move
     let h_moves = state.all_hound_legal_moves();
     assert!(state.apply_hound_move(h_moves[0].0, h_moves[0].1).is_ok());
+    assert_eq!(state.current_turn, Faction::Fox);
 
     // Fox moves to C8 and wins
-    state.current_turn = Faction::Fox;
     state.fox_pos = c7_idx;
     assert!(state.apply_fox_move(c8_idx).is_ok());
     assert_eq!(state.result, GameResult::FoxWon);
@@ -497,13 +503,13 @@ fn test_the_red_hunt_graph_structure_and_rules() {
     assert_eq!(state.graph.node_count(), 22);
 
     let c4_idx = state.graph.find_id_by_name("C4").unwrap();
-    let r4_idx = state.graph.find_id_by_name("R4").unwrap();
-    let c3_idx = state.graph.find_id_by_name("C3").unwrap();
-    let l4_idx = state.graph.find_id_by_name("L4").unwrap();
+    let r2_idx = state.graph.find_id_by_name("R2").unwrap();
+    let c1_idx = state.graph.find_id_by_name("C1").unwrap();
+    let l2_idx = state.graph.find_id_by_name("L2").unwrap();
     let c0_idx = state.graph.find_id_by_name("C0").unwrap();
 
     assert_eq!(state.fox_pos, c4_idx);
-    assert_eq!(state.hounds_pos, vec![r4_idx, c3_idx, l4_idx]);
+    assert_eq!(state.hounds_pos, vec![r2_idx, c1_idx, l2_idx]);
     assert_eq!(state.coop_pos, c0_idx);
     assert_eq!(state.current_turn, Faction::Fox);
     assert!(state.variant.config().allow_hound_retreat);
@@ -535,10 +541,7 @@ fn test_fox_ai_destination_seeking_across_variants() {
     let mut dogs = GameState::new();
     dogs.switch_variant(BoardVariant::FoxAndDogs);
     dogs.start_game(Faction::Hounds, Difficulty::Medium);
-    let c7 = dogs.graph.find_id_by_name("C7").unwrap();
-    let c6 = dogs.graph.find_id_by_name("C6").unwrap();
-    let dog_idx = dogs.hounds_pos.iter().position(|&p| p == c7).unwrap();
-    assert!(dogs.apply_hound_move(dog_idx, c6).is_ok());
+    assert_eq!(dogs.current_turn, Faction::Fox);
 
     if let Some(PieceMove::FoxMove { to }) = find_best_move(&dogs) {
         let to_node = dogs.graph.node(to).unwrap();

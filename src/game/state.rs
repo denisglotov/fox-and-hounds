@@ -187,11 +187,7 @@ impl GameState {
             .graph
             .find_id_by_name(config.target_coop_node)
             .unwrap_or(0);
-        self.current_turn = if config.hounds_start_first {
-            Faction::Hounds
-        } else {
-            Faction::Fox
-        };
+        self.current_turn = Faction::Fox;
         self.result = GameResult::Ongoing;
         self.selected_hound_idx = None;
         self.turn_count = 1;

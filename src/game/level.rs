@@ -79,7 +79,6 @@ pub struct VariantConfig {
     pub name: &'static str,
     pub description: &'static str,
     pub allow_hound_retreat: bool,
-    pub hounds_start_first: bool,
     pub dimensions: BoardDimensions,
     pub intro_framing: BoardIntroFraming,
     pub board_image_bytes: &'static [u8],
@@ -102,7 +101,6 @@ pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
     name: "Classic",
     description: "Traditional rules on an 11-node spearhead board where hounds cannot retreat",
     allow_hound_retreat: false,
-    hounds_start_first: false,
     dimensions: CLASSIC_DIMENSIONS,
     intro_framing: BoardIntroFraming {
         playable_center: Vec2::new(511.0, 510.0),
@@ -123,7 +121,6 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
     name: "The river crossing",
     description: "3x9 board with a river bottleneck on Row 6 and free hound movement",
     allow_hound_retreat: true,
-    hounds_start_first: false,
     dimensions: RIVER_CROSSING_DIMENSIONS,
     intro_framing: BoardIntroFraming {
         playable_center: Vec2::new(384.0, 600.0),
@@ -142,9 +139,8 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
 pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::FoxAndDogs,
     name: "fox and dogs",
-    description: "Fox and dogs board: dogs start on Row 7 and move first, fox must reach C8",
+    description: "Fox and dogs board: dogs start on Row 7, fox must reach C8",
     allow_hound_retreat: true,
-    hounds_start_first: true,
     dimensions: FOX_AND_DOGS_DIMENSIONS,
     intro_framing: BoardIntroFraming {
         playable_center: Vec2::new(510.0, 517.0),
@@ -165,9 +161,8 @@ pub const FOX_AND_DOGS_SYMMETRIC_CONFIG: VariantConfig = FOX_AND_DOGS_CONFIG;
 pub const THE_RED_HUNT_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::TheRedHunt,
     name: "The Red Hunt",
-    description: "Martian crustal fault board: fox starts at C4 and races to C0, hounds start at R4, C3, L4 and can retreat",
+    description: "Martian crustal fault board: fox starts at C4 and races to C0, hounds start at R2, C1, L2 and can retreat",
     allow_hound_retreat: true,
-    hounds_start_first: false,
     dimensions: RED_HUNT_DIMENSIONS,
     intro_framing: BoardIntroFraming {
         playable_center: Vec2::new(512.0, 514.0),
@@ -177,7 +172,7 @@ pub const THE_RED_HUNT_CONFIG: VariantConfig = VariantConfig {
     board_image_bytes: include_bytes!("../../assets/the_red_hunt_board.png"),
     fox_start_node: "C4",
     fox_free_entry: false,
-    hounds_start_nodes: &["R4", "C3", "L4"],
+    hounds_start_nodes: &["R2", "C1", "L2"],
     target_coop_node: "C0",
     move_duration: RED_HUNT_MOVE_DURATION,
     build_graph: build_the_red_hunt_graph,
