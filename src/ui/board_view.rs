@@ -3,6 +3,7 @@ use crate::game::graph::NodeType;
 use crate::game::level::BoardVariant;
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
 use crate::ui::river::{RiverPath, RiverSimulation};
+use crate::ui::rover::RoverSimulation;
 use crate::ui::train::TrainSimulation;
 use macroquad::prelude::*;
 
@@ -34,12 +35,14 @@ pub struct BoardView {
     pub martian_hound_textures: [Option<Texture2D>; 3],
     pub martian_hound_sit_textures: [Option<Texture2D>; 3],
     pub train_texture: Option<Texture2D>,
+    pub rover_texture: Option<Texture2D>,
     pub hound_angles: [f32; 3],
     pub fox_angle: f32,
     pub hover_node_id: Option<usize>,
     pub font: Option<Font>,
     pub river: RiverSimulation,
     pub train: TrainSimulation,
+    pub rover: RoverSimulation,
     pub last_waf_sound_time: f32,
     pub hound_idle_times: [f32; 3],
     pub hound_sit_thresholds: [f32; 3],
@@ -89,6 +92,7 @@ impl BoardView {
             load_texture(include_bytes!("../../assets/martian_hound3_figure_sit.png")),
         ];
         let train_texture = load_texture(include_bytes!("../../assets/train_figure.png"));
+        let rover_texture = load_texture(include_bytes!("../../assets/rover_curiosity.png"));
 
         Self {
             board_texture,
@@ -100,12 +104,14 @@ impl BoardView {
             martian_hound_textures,
             martian_hound_sit_textures,
             train_texture,
+            rover_texture,
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
             hover_node_id: None,
             font,
             river: RiverSimulation::for_variant(BoardVariant::Classic),
             train: TrainSimulation::new(),
+            rover: RoverSimulation::new(),
             last_waf_sound_time: 0.0,
             hound_idle_times: [0.0; 3],
             hound_sit_thresholds: [
@@ -164,6 +170,12 @@ impl BoardView {
         }
     }
 
+    pub fn reset_simulations(&mut self) {
+        self.train = TrainSimulation::new();
+        self.rover = RoverSimulation::new();
+        self.last_waf_sound_time = 0.0;
+    }
+
     pub fn draw_and_handle_input(&mut self, state: &mut GameState, params: &BoardViewParams) {
         let origin = params.origin;
         let scale = params.scale;
@@ -178,6 +190,9 @@ impl BoardView {
             self.current_variant = Some(state.variant);
             self.board_texture = load_texture(state.variant.config().board_image_bytes);
             self.river.set_path(RiverPath::for_variant(state.variant));
+            self.train = TrainSimulation::new();
+            self.rover = RoverSimulation::new();
+            self.last_waf_sound_time = 0.0;
         }
 
         let dims = state.variant.config().dimensions;
@@ -218,6 +233,14 @@ impl BoardView {
                 sound_manager.play(snd);
             }
             self.train.draw(origin, scale, self.train_texture.as_ref());
+        }
+
+        // 4. Update & Draw Curiosity Mars Rover (only for The Red Hunt)
+        if state.variant == BoardVariant::TheRedHunt {
+            if let Some(snd) = self.rover.update(dt) {
+                sound_manager.play(snd);
+            }
+            self.rover.draw(origin, scale, self.rover_texture.as_ref());
         }
 
         // 4. Find hovered node & Determine Legal Targets for Player
@@ -465,15 +488,21 @@ impl BoardView {
                 .as_ref()
                 .is_some_and(|anim| anim.faction == Faction::Hounds && anim.hound_idx == Some(idx));
 
-            // The white dog (idx 0) reacts to the train when it rolls on the tracks (River Crossing only)
+            // Hound 1 (idx 0) reacts to environmental hazards:
+            // - Train on tracks in River Crossing
+            // - Curiosity rover stopped near golden crater in The Red Hunt
+            let is_hazard_tracking = idx == 0
+                && ((state.variant == BoardVariant::RiverCrossing && self.train.is_active())
+                    || (state.variant == BoardVariant::TheRedHunt && self.rover.is_active()));
+
             let is_waffing = idx == 0
-                && state.variant == BoardVariant::RiverCrossing
-                && self.train.is_active()
-                && !is_moving;
+                && !is_moving
+                && ((state.variant == BoardVariant::RiverCrossing && self.train.is_active())
+                    || (state.variant == BoardVariant::TheRedHunt && self.rover.is_near_crater()));
 
             if is_waffing {
                 if self.last_waf_sound_time == 0.0 {
-                    // First enthusiastic bark shortly after train starts rolling
+                    // First enthusiastic bark shortly after hazard appears
                     self.last_waf_sound_time = t + 0.35;
                 } else if t >= self.last_waf_sound_time {
                     self.last_waf_sound_time = t + 0.75;
@@ -494,13 +523,30 @@ impl BoardView {
                 let angle = (delta.y).atan2(delta.x) - std::f32::consts::FRAC_PI_2;
                 (pos, jump, angle)
             } else if let Some(n) = hound_node {
-                // If white dog (idx 0) and train is active: Face directly towards the moving train!
-                let angle = if is_waffing {
+                // If Hound 1 (idx 0) and hazard is active: Face directly towards it!
+                let angle = if idx == 0
+                    && state.variant == BoardVariant::RiverCrossing
+                    && self.train.is_active()
+                {
                     let train_loco_y = self.train.train_locomotive_y().unwrap_or(0.0);
                     let to_train =
                         Vec2::new(crate::ui::train::TRACK_X, train_loco_y) - n.visual_pos;
                     if to_train.length_squared() > 1e-4 {
                         (to_train.y).atan2(to_train.x) - std::f32::consts::FRAC_PI_2
+                    } else {
+                        0.0
+                    }
+                } else if idx == 0
+                    && state.variant == BoardVariant::TheRedHunt
+                    && self.rover.is_active()
+                {
+                    let rover_pos = self.rover.rover_pos().unwrap_or(Vec2::new(
+                        crate::ui::rover::ROVER_X,
+                        crate::ui::rover::ROVER_CRATER_Y,
+                    ));
+                    let to_rover = rover_pos - n.visual_pos;
+                    if to_rover.length_squared() > 1e-4 {
+                        (to_rover.y).atan2(to_rover.x) - std::f32::consts::FRAC_PI_2
                     } else {
                         0.0
                     }
@@ -521,7 +567,7 @@ impl BoardView {
             // Smoothly interpolate Hound angle towards target (faster during leap for crisp orientation)
             let rot_speed = if is_moving {
                 24.0
-            } else if is_waffing {
+            } else if is_waffing || is_hazard_tracking {
                 16.0
             } else {
                 12.0
@@ -576,8 +622,8 @@ impl BoardView {
             }
 
             // Track hound idleness:
-            // When moving, selected, or waffing -> active, resets idle timer and re-rolls threshold
-            let is_active = is_moving || is_selected || is_waffing;
+            // When moving, selected, waffing, or tracking hazard -> active, resets idle timer and re-rolls threshold
+            let is_active = is_moving || is_selected || is_waffing || is_hazard_tracking;
             self.update_hound_idle(idx, is_active, dt);
             if is_moving {
                 self.hound_sit_blend[idx] = 0.0;

@@ -7,6 +7,8 @@ pub enum SoundTrigger {
     Loss,
     ButtonClick,
     Train,
+    RoverForward,
+    RoverReverse,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -22,6 +24,8 @@ mod wasm_backend {
         fn play_sound_loss();
         fn play_sound_click();
         fn play_sound_train();
+        fn play_sound_rover_forward();
+        fn play_sound_rover_reverse();
     }
 
     pub struct SoundBackend;
@@ -41,6 +45,8 @@ mod wasm_backend {
                     SoundTrigger::Loss => play_sound_loss(),
                     SoundTrigger::ButtonClick => play_sound_click(),
                     SoundTrigger::Train => play_sound_train(),
+                    SoundTrigger::RoverForward => play_sound_rover_forward(),
+                    SoundTrigger::RoverReverse => play_sound_rover_reverse(),
                 }
             }
         }
@@ -60,6 +66,8 @@ mod native_backend {
         snd_loss: Option<Sound>,
         snd_click: Option<Sound>,
         snd_train: Option<Sound>,
+        snd_rover_forward: Option<Sound>,
+        snd_rover_reverse: Option<Sound>,
     }
 
     impl SoundBackend {
@@ -86,6 +94,16 @@ mod native_backend {
                 snd_train: load_sound_from_bytes(include_bytes!("../assets/train.wav"))
                     .await
                     .ok(),
+                snd_rover_forward: load_sound_from_bytes(include_bytes!(
+                    "../assets/rover_forward.wav"
+                ))
+                .await
+                .ok(),
+                snd_rover_reverse: load_sound_from_bytes(include_bytes!(
+                    "../assets/rover_reverse.wav"
+                ))
+                .await
+                .ok(),
             }
         }
 
@@ -98,6 +116,8 @@ mod native_backend {
                 SoundTrigger::Loss => &self.snd_loss,
                 SoundTrigger::ButtonClick => &self.snd_click,
                 SoundTrigger::Train => &self.snd_train,
+                SoundTrigger::RoverForward => &self.snd_rover_forward,
+                SoundTrigger::RoverReverse => &self.snd_rover_reverse,
             };
 
             if let Some(snd) = sound {

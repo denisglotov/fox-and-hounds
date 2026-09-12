@@ -109,6 +109,7 @@ async fn main() {
                     sound_manager.play(snd);
                 }
                 if state.phase == GamePhase::Playing {
+                    board_view.reset_simulations();
                     let (viewport_rect, board_scale, board_size) = compute_board_layout(
                         screen_w,
                         screen_h,
@@ -194,6 +195,7 @@ async fn main() {
                     if let Some(snd) = modal_sound {
                         sound_manager.play(snd);
                         if state.phase == GamePhase::Playing {
+                            board_view.reset_simulations();
                             camera.start_intro(
                                 state.variant,
                                 viewport_rect,

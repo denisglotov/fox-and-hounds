@@ -252,7 +252,17 @@
       }
 
       (function preloadBytes() {
-        const files = ['move', 'select', 'invalid', 'win', 'loss', 'click', 'train'];
+        const files = [
+          'move',
+          'select',
+          'invalid',
+          'win',
+          'loss',
+          'click',
+          'train',
+          'rover_forward',
+          'rover_reverse',
+        ];
         for (const file of files) {
           fetch(`assets/${file}.wav`)
             .then((r) => {
@@ -375,6 +385,12 @@
             };
             env_obj.env.play_sound_train = function () {
               if (window.gamePlaySound) window.gamePlaySound('train');
+            };
+            env_obj.env.play_sound_rover_forward = function () {
+              if (window.gamePlaySound) window.gamePlaySound('rover_forward');
+            };
+            env_obj.env.play_sound_rover_reverse = function () {
+              if (window.gamePlaySound) window.gamePlaySound('rover_reverse');
             };
           },
           version: 1,

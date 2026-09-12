@@ -2,6 +2,7 @@ pub mod board_view;
 pub mod camera;
 pub mod fx;
 pub mod river;
+pub mod rover;
 pub mod screens;
 pub mod train;
 
