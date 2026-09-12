@@ -11,19 +11,9 @@ pub struct TitleScreenStrings {
     pub variant_classic_sub: String,
     pub variant_river_crossing: String,
     pub variant_river_crossing_sub: String,
-    #[serde(
-        alias = "variant_fox_and_dogs_symmetric",
-        default = "default_variant_fox_and_dogs"
-    )]
     pub variant_fox_and_dogs: String,
-    #[serde(
-        alias = "variant_fox_and_dogs_symmetric_sub",
-        default = "default_variant_fox_and_dogs_sub"
-    )]
     pub variant_fox_and_dogs_sub: String,
-    #[serde(default = "default_variant_the_red_hunt")]
     pub variant_the_red_hunt: String,
-    #[serde(default = "default_variant_the_red_hunt_sub")]
     pub variant_the_red_hunt_sub: String,
     pub choose_faction: String,
     pub fox_title: String,
@@ -35,19 +25,6 @@ pub struct TitleScreenStrings {
     pub difficulty_medium: String,
     pub difficulty_hard: String,
     pub start_match: String,
-}
-
-fn default_variant_fox_and_dogs() -> String {
-    "Fox and dogs".to_string()
-}
-fn default_variant_fox_and_dogs_sub() -> String {
-    "dogs start first".to_string()
-}
-fn default_variant_the_red_hunt() -> String {
-    "The Red Hunt".to_string()
-}
-fn default_variant_the_red_hunt_sub() -> String {
-    "into golden crater".to_string()
 }
 
 impl TitleScreenStrings {
@@ -449,6 +426,7 @@ mod tests {
             assert!(!loc.title_screen.variant_river_crossing.is_empty());
             assert!(!loc.title_screen.variant_river_crossing_sub.is_empty());
             assert!(!loc.title_screen.variant_fox_and_dogs.is_empty());
+            assert!(!loc.title_screen.variant_fox_and_dogs_sub.is_empty());
             assert!(!loc.title_screen.variant_the_red_hunt.is_empty());
             assert!(!loc.title_screen.variant_the_red_hunt_sub.is_empty());
             assert!(!loc.title_screen.choose_faction.is_empty());
@@ -502,29 +480,8 @@ mod tests {
     }
 
     #[test]
-    fn test_missing_variant_strings_fallback_to_en() {
-        let ru = resolve_locale("ru-RU");
-        let en = resolve_locale("en-US");
-
-        // ru-RU.json does not contain the_red_hunt or fox_and_dogs translations
-        assert_eq!(
-            ru.variant_name(crate::game::level::BoardVariant::TheRedHunt),
-            en.variant_name(crate::game::level::BoardVariant::TheRedHunt)
-        );
-        assert_eq!(
-            ru.variant_sub(crate::game::level::BoardVariant::TheRedHunt),
-            en.variant_sub(crate::game::level::BoardVariant::TheRedHunt)
-        );
-        assert_eq!(
-            ru.variant_name(crate::game::level::BoardVariant::FoxAndDogs),
-            en.variant_name(crate::game::level::BoardVariant::FoxAndDogs)
-        );
-        assert_eq!(
-            ru.variant_sub(crate::game::level::BoardVariant::FoxAndDogs),
-            en.variant_sub(crate::game::level::BoardVariant::FoxAndDogs)
-        );
-
-        // Deserializing partial TitleScreenStrings directly also defaults from en-US
+    fn test_missing_field_fails_deserialization() {
+        // Deserializing partial TitleScreenStrings missing required board variants must fail
         let partial_json = r#"{
             "title":"T","subtitle":"S","board_variant":"B",
             "variant_classic":"Classic","variant_classic_sub":"Sub",
@@ -534,20 +491,8 @@ mod tests {
             "ai_difficulty":"A","difficulty_easy":"E","difficulty_medium":"M",
             "difficulty_hard":"HD","start_match":"SM"
         }"#;
-        let partial: TitleScreenStrings =
-            serde_json::from_str(partial_json).expect("deserialize partial");
-        assert_eq!(
-            partial.variant_the_red_hunt,
-            en.title_screen.variant_the_red_hunt
-        );
-        assert_eq!(
-            partial.variant_the_red_hunt_sub,
-            en.title_screen.variant_the_red_hunt_sub
-        );
-        assert_eq!(
-            partial.variant_fox_and_dogs,
-            en.title_screen.variant_fox_and_dogs
-        );
+        let res: Result<TitleScreenStrings, _> = serde_json::from_str(partial_json);
+        assert!(res.is_err());
     }
 
     #[test]
