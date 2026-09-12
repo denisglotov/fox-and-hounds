@@ -87,6 +87,7 @@ pub struct VariantConfig {
     pub hounds_start_nodes: &'static [&'static str],
     pub target_coop_node: &'static str,
     pub move_duration: f32,
+    pub piece_base_size: f32,
     pub build_graph: fn() -> Graph,
 }
 
@@ -95,6 +96,8 @@ pub type LevelConfig = VariantConfig;
 pub const DEFAULT_MOVE_DURATION: f32 = 0.26;
 pub const RED_HUNT_MOVE_SLOWNESS: f32 = 1.5;
 pub const RED_HUNT_MOVE_DURATION: f32 = DEFAULT_MOVE_DURATION * RED_HUNT_MOVE_SLOWNESS;
+pub const DEFAULT_PIECE_BASE_SIZE: f32 = 76.0;
+pub const RED_HUNT_PIECE_BASE_SIZE: f32 = 58.0;
 
 pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::Classic,
@@ -113,6 +116,7 @@ pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
     hounds_start_nodes: &["M0", "T1", "B1"],
     target_coop_node: "M0",
     move_duration: DEFAULT_MOVE_DURATION,
+    piece_base_size: DEFAULT_PIECE_BASE_SIZE,
     build_graph: build_classic_graph,
 };
 
@@ -133,6 +137,7 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
     hounds_start_nodes: &["L1", "M1", "R1"],
     target_coop_node: "M0",
     move_duration: DEFAULT_MOVE_DURATION,
+    piece_base_size: DEFAULT_PIECE_BASE_SIZE,
     build_graph: build_river_crossing_graph,
 };
 
@@ -153,6 +158,7 @@ pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
     hounds_start_nodes: &["R7", "C7", "L7"],
     target_coop_node: "C8",
     move_duration: DEFAULT_MOVE_DURATION,
+    piece_base_size: DEFAULT_PIECE_BASE_SIZE,
     build_graph: build_fox_and_dogs_graph,
 };
 
@@ -175,12 +181,16 @@ pub const THE_RED_HUNT_CONFIG: VariantConfig = VariantConfig {
     hounds_start_nodes: &["R2", "C1", "L2"],
     target_coop_node: "C0",
     move_duration: RED_HUNT_MOVE_DURATION,
+    piece_base_size: RED_HUNT_PIECE_BASE_SIZE,
     build_graph: build_the_red_hunt_graph,
 };
 
 impl BoardVariant {
     pub const fn move_duration(self) -> f32 {
         self.config().move_duration
+    }
+    pub const fn piece_base_size(self) -> f32 {
+        self.config().piece_base_size
     }
     pub const fn config(self) -> &'static VariantConfig {
         match self {

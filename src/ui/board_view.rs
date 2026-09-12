@@ -8,6 +8,7 @@ use macroquad::prelude::*;
 
 pub use crate::game::level::{
     BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH, BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH, BOARD_TOTAL_WIDTH,
+    DEFAULT_PIECE_BASE_SIZE,
 };
 
 pub const MIN_IDLE_SIT_SECONDS: f32 = 10.0;
@@ -29,6 +30,9 @@ pub struct BoardView {
     pub fox_texture: Option<Texture2D>,
     pub hound_textures: [Option<Texture2D>; 3],
     pub hound_sit_textures: [Option<Texture2D>; 3],
+    pub martian_fox_texture: Option<Texture2D>,
+    pub martian_hound_textures: [Option<Texture2D>; 3],
+    pub martian_hound_sit_textures: [Option<Texture2D>; 3],
     pub train_texture: Option<Texture2D>,
     pub hound_angles: [f32; 3],
     pub fox_angle: f32,
@@ -72,6 +76,18 @@ impl BoardView {
             load_texture(include_bytes!("../../assets/hound2_figure_sit.png")),
             load_texture(include_bytes!("../../assets/hound3_figure_sit.png")),
         ];
+        let martian_fox_texture =
+            load_texture(include_bytes!("../../assets/martian_fox_figure.png"));
+        let martian_hound_textures = [
+            load_texture(include_bytes!("../../assets/martian_hound1_figure.png")),
+            load_texture(include_bytes!("../../assets/martian_hound2_figure.png")),
+            load_texture(include_bytes!("../../assets/martian_hound3_figure.png")),
+        ];
+        let martian_hound_sit_textures = [
+            load_texture(include_bytes!("../../assets/martian_hound1_figure_sit.png")),
+            load_texture(include_bytes!("../../assets/martian_hound2_figure_sit.png")),
+            load_texture(include_bytes!("../../assets/martian_hound3_figure_sit.png")),
+        ];
         let train_texture = load_texture(include_bytes!("../../assets/train_figure.png"));
 
         Self {
@@ -80,6 +96,9 @@ impl BoardView {
             fox_texture,
             hound_textures,
             hound_sit_textures,
+            martian_fox_texture,
+            martian_hound_textures,
+            martian_hound_sit_textures,
             train_texture,
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
@@ -100,6 +119,37 @@ impl BoardView {
 
     pub fn is_hound_sitting(&self, hound_idx: usize) -> bool {
         hound_idx < 3 && self.hound_idle_times[hound_idx] >= self.hound_sit_thresholds[hound_idx]
+    }
+
+    pub fn active_hound_texture(
+        &self,
+        variant: BoardVariant,
+        idx: usize,
+        is_sitting: bool,
+    ) -> Option<&Texture2D> {
+        if variant.is_red_hunt() {
+            if is_sitting {
+                self.martian_hound_sit_textures
+                    .get(idx)
+                    .and_then(|t| t.as_ref())
+            } else {
+                self.martian_hound_textures
+                    .get(idx)
+                    .and_then(|t| t.as_ref())
+            }
+        } else if is_sitting {
+            self.hound_sit_textures.get(idx).and_then(|t| t.as_ref())
+        } else {
+            self.hound_textures.get(idx).and_then(|t| t.as_ref())
+        }
+    }
+
+    pub fn active_fox_texture(&self, variant: BoardVariant) -> Option<&Texture2D> {
+        if variant.is_red_hunt() {
+            self.martian_fox_texture.as_ref()
+        } else {
+            self.fox_texture.as_ref()
+        }
     }
 
     pub fn update_hound_idle(&mut self, hound_idx: usize, is_active: bool, dt: f32) {
@@ -539,15 +589,8 @@ impl BoardView {
             self.hound_sit_blend[idx] +=
                 (target_sit - self.hound_sit_blend[idx]) * (1.0 - (-10.0 * dt).exp());
 
-            // Select Hound Texture (standing vs sitting):
-            // idx 0 -> Terrier (user's white dog)
-            // idx 1 -> Beagle
-            // idx 2 -> Golden Hound
-            let hound_tex = if is_sitting {
-                self.hound_sit_textures.get(idx).and_then(|t| t.as_ref())
-            } else {
-                self.hound_textures.get(idx).and_then(|t| t.as_ref())
-            };
+            // Select Hound Texture (standing vs sitting, terrestrial vs martian)
+            let hound_tex = self.active_hound_texture(state.variant, idx, is_sitting);
 
             if let Some(tex) = hound_tex {
                 // Subtle breathing / idle micro-sway (calmer when sitting)
@@ -571,8 +614,15 @@ impl BoardView {
                 };
 
                 // When sitting, the dog visibly compacts in length on the board
-                let base_h = 76.0 - self.hound_sit_blend[idx] * 12.0;
-                let target_h = (base_h + idle_breathe * 15.0) * scale;
+                let piece_size = state.variant.piece_base_size();
+                let sit_compression = if state.variant.is_red_hunt() {
+                    8.0
+                } else {
+                    12.0
+                };
+                let base_h = piece_size - self.hound_sit_blend[idx] * sit_compression;
+                let breathe_amp = (piece_size / DEFAULT_PIECE_BASE_SIZE) * 15.0;
+                let target_h = (base_h + idle_breathe * breathe_amp) * scale;
                 let aspect = tex.width() / tex.height();
                 let target_w = target_h * aspect;
 
@@ -630,7 +680,8 @@ impl BoardView {
             );
         }
 
-        if let Some(tex) = &self.fox_texture {
+        let fox_tex = self.active_fox_texture(state.variant);
+        if let Some(tex) = fox_tex {
             let idle_breathe = if !is_fox_moving {
                 (t * 3.2).sin() * 0.02
             } else {
@@ -642,7 +693,9 @@ impl BoardView {
                 0.0
             };
 
-            let target_h = (76.0 + idle_breathe * 15.0) * scale;
+            let piece_size = state.variant.piece_base_size();
+            let breathe_amp = (piece_size / DEFAULT_PIECE_BASE_SIZE) * 15.0;
+            let target_h = (piece_size + idle_breathe * breathe_amp) * scale;
             let aspect = tex.width() / tex.height();
             let target_w = target_h * aspect;
 

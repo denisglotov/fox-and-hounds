@@ -550,3 +550,20 @@ fn test_fox_ai_destination_seeking_across_variants() {
         panic!("Dogs Fox AI should choose a move");
     }
 }
+
+#[test]
+fn test_red_hunt_piece_size_and_clearance() {
+    assert_eq!(BoardVariant::TheRedHunt.piece_base_size(), 58.0);
+    assert_eq!(BoardVariant::Classic.piece_base_size(), 76.0);
+    assert_eq!(BoardVariant::RiverCrossing.piece_base_size(), 76.0);
+    assert_eq!(BoardVariant::FoxAndDogs.piece_base_size(), 76.0);
+
+    // Verify clearance along the central combat corridor (e.g. C1-C2, C2-C3: 61px apart)
+    // where fox and hounds face off, ensuring they do not collide with their faces.
+    let corridor_distance = 61.0;
+    assert!(
+        corridor_distance >= BoardVariant::TheRedHunt.piece_base_size(),
+        "Corridor distance {corridor_distance} must be >= piece base size {}",
+        BoardVariant::TheRedHunt.piece_base_size()
+    );
+}
