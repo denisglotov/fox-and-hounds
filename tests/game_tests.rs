@@ -40,7 +40,7 @@ fn test_graph_structures() {
     assert_eq!(arthur_g.node_count(), 19);
     let c8 = arthur_g.find_id_by_name("C8").unwrap();
     let c2 = arthur_g.find_id_by_name("C2").unwrap();
-    assert_eq!(arthur_g.node(c8).unwrap().node_type, NodeType::TargetCoop);
+    assert_eq!(arthur_g.node(c8).unwrap().node_type, NodeType::FoxStart);
     assert_eq!(arthur_g.node(c2).unwrap().node_type, NodeType::Bottleneck);
 }
 
@@ -453,14 +453,37 @@ fn test_arthur_dogs_start_and_rules() {
     state.switch_variant(BoardVariant::FoxAndDogs);
     state.start_game(Faction::Fox, Difficulty::Medium);
 
-    // Fox starts first in all games
-    assert_eq!(state.current_turn, Faction::Fox);
+    // Dogs start first
+    assert_eq!(state.current_turn, Faction::Hounds);
 
     let c8_idx = state.graph.find_id_by_name("C8").unwrap();
+    // Dogs cannot enter C8 while Fox is on C8
     for hound_idx in 0..3 {
         let moves = state.hound_legal_moves(hound_idx);
         assert!(!moves.contains(&c8_idx));
     }
+
+    // Move a dog, e.g. hound at C7 to C6
+    let c7_idx = state.graph.find_id_by_name("C7").unwrap();
+    let c6_idx = state.graph.find_id_by_name("C6").unwrap();
+    let c7_dog_idx = state.hounds_pos.iter().position(|&p| p == c7_idx).unwrap();
+    assert!(state.apply_hound_move(c7_dog_idx, c6_idx).is_ok());
+
+    // Fox turn 1: Fox moves C8 -> C7
+    assert_eq!(state.current_turn, Faction::Fox);
+    assert!(state.apply_fox_move(c7_idx).is_ok());
+    assert_eq!(state.fox_pos, c7_idx);
+    assert!(state.fox_has_left_start);
+
+    // Dogs turn 2: C8 is now empty, so adjacent dogs CAN jump to C8
+    assert_eq!(state.current_turn, Faction::Hounds);
+    let l7_idx = state.graph.find_id_by_name("L7").unwrap();
+    let l7_dog_idx = state.hounds_pos.iter().position(|&p| p == l7_idx).unwrap();
+    let l7_moves = state.hound_legal_moves(l7_dog_idx);
+    assert!(
+        l7_moves.contains(&c8_idx),
+        "Dog at L7 must be able to jump to empty C8"
+    );
 }
 
 #[test]
@@ -471,25 +494,30 @@ fn test_arthur_direct_mission_flow() {
 
     let start_node = FOX_AND_DOGS_CONFIG.fox_start_node;
     let fox_start_idx = state.graph.find_id_by_name(start_node).unwrap();
-    let c5_idx = state.graph.find_id_by_name("C5").unwrap();
     let c7_idx = state.graph.find_id_by_name("C7").unwrap();
+    let c6_idx = state.graph.find_id_by_name("C6").unwrap();
+    let c5_idx = state.graph.find_id_by_name("C5").unwrap();
     let c8_idx = state.graph.find_id_by_name("C8").unwrap();
 
     assert_eq!(state.fox_pos, fox_start_idx);
     assert_eq!(state.active_target_node(), c8_idx);
-    assert_eq!(state.current_turn, Faction::Fox);
-
-    // Fox starts first and moves C4 -> C5
-    assert!(state.apply_fox_move(c5_idx).is_ok());
     assert_eq!(state.current_turn, Faction::Hounds);
 
-    // Dogs turn: hounds move
-    let h_moves = state.all_hound_legal_moves();
-    assert!(state.apply_hound_move(h_moves[0].0, h_moves[0].1).is_ok());
+    // Dogs turn 1: move C7 dog to C6
+    let c7_dog_idx = state.hounds_pos.iter().position(|&p| p == c7_idx).unwrap();
+    assert!(state.apply_hound_move(c7_dog_idx, c6_idx).is_ok());
     assert_eq!(state.current_turn, Faction::Fox);
 
-    // Fox moves to C8 and wins
-    state.fox_pos = c7_idx;
+    // Fox turn 1: Fox moves C8 -> C7
+    assert!(state.apply_fox_move(c7_idx).is_ok());
+    assert_eq!(state.current_turn, Faction::Hounds);
+    assert!(state.fox_has_left_start);
+
+    // Dogs turn 2: dog moves C6 -> C5 (leaving C8 empty)
+    assert!(state.apply_hound_move(c7_dog_idx, c5_idx).is_ok());
+    assert_eq!(state.current_turn, Faction::Fox);
+
+    // Fox turn 2: Fox moves C7 -> C8 and wins!
     assert!(state.apply_fox_move(c8_idx).is_ok());
     assert_eq!(state.result, GameResult::FoxWon);
     assert_eq!(state.phase, GamePhase::GameOver);
@@ -537,15 +565,20 @@ fn test_fox_ai_destination_seeking_across_variants() {
         panic!("River Fox AI should advance toward coop");
     }
 
-    // 3. Fox and Dogs: Fox advances or maneuvers toward C8 (row >= 4)
+    // 3. Fox and Dogs: Dogs move first, then Fox chooses its opening move
     let mut dogs = GameState::new();
     dogs.switch_variant(BoardVariant::FoxAndDogs);
     dogs.start_game(Faction::Hounds, Difficulty::Medium);
-    assert_eq!(dogs.current_turn, Faction::Fox);
+    assert_eq!(dogs.current_turn, Faction::Hounds);
 
+    let c7 = dogs.graph.find_id_by_name("C7").unwrap();
+    let c6 = dogs.graph.find_id_by_name("C6").unwrap();
+    let dog_idx = dogs.hounds_pos.iter().position(|&p| p == c7).unwrap();
+    assert!(dogs.apply_hound_move(dog_idx, c6).is_ok());
+
+    assert_eq!(dogs.current_turn, Faction::Fox);
     if let Some(PieceMove::FoxMove { to }) = find_best_move(&dogs) {
-        let to_node = dogs.graph.node(to).unwrap();
-        assert!(to_node.row >= 4, "Fox should advance toward C8");
+        assert_eq!(to, c7, "Fox AI should take the vacated C7 node");
     } else {
         panic!("Dogs Fox AI should choose a move");
     }
