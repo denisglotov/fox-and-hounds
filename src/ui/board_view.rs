@@ -2,6 +2,7 @@ use crate::audio::{SoundManager, SoundTrigger};
 use crate::game::graph::NodeType;
 use crate::game::level::BoardVariant;
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
+use crate::ui::boat::BoatSimulation;
 use crate::ui::river::{RiverPath, RiverSimulation};
 use crate::ui::rover::RoverSimulation;
 use crate::ui::train::TrainSimulation;
@@ -36,6 +37,8 @@ pub struct BoardView {
     pub martian_hound_sit_textures: [Option<Texture2D>; 3],
     pub train_texture: Option<Texture2D>,
     pub rover_texture: Option<Texture2D>,
+    pub boat_texture: Option<Texture2D>,
+    pub bridge_texture: Option<Texture2D>,
     pub hound_angles: [f32; 3],
     pub fox_angle: f32,
     pub hover_node_id: Option<usize>,
@@ -43,6 +46,7 @@ pub struct BoardView {
     pub river: RiverSimulation,
     pub train: TrainSimulation,
     pub rover: RoverSimulation,
+    pub boat: BoatSimulation,
     pub last_waf_sound_time: f32,
     pub hound_idle_times: [f32; 3],
     pub hound_sit_thresholds: [f32; 3],
@@ -93,6 +97,8 @@ impl BoardView {
         ];
         let train_texture = load_texture(include_bytes!("../../assets/train_figure.png"));
         let rover_texture = load_texture(include_bytes!("../../assets/rover_curiosity.png"));
+        let boat_texture = load_texture(include_bytes!("../../assets/paper_boat.png"));
+        let bridge_texture = load_texture(include_bytes!("../../assets/fox_and_dogs_bridge.png"));
 
         Self {
             board_texture,
@@ -105,6 +111,8 @@ impl BoardView {
             martian_hound_sit_textures,
             train_texture,
             rover_texture,
+            boat_texture,
+            bridge_texture,
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
             hover_node_id: None,
@@ -112,6 +120,7 @@ impl BoardView {
             river: RiverSimulation::for_variant(BoardVariant::Classic),
             train: TrainSimulation::new(),
             rover: RoverSimulation::new(),
+            boat: BoatSimulation::new(),
             last_waf_sound_time: 0.0,
             hound_idle_times: [0.0; 3],
             hound_sit_thresholds: [
@@ -173,6 +182,7 @@ impl BoardView {
     pub fn reset_simulations(&mut self) {
         self.train = TrainSimulation::new();
         self.rover = RoverSimulation::new();
+        self.boat = BoatSimulation::new();
         self.last_waf_sound_time = 0.0;
     }
 
@@ -192,6 +202,7 @@ impl BoardView {
             self.river.set_path(RiverPath::for_variant(state.variant));
             self.train = TrainSimulation::new();
             self.rover = RoverSimulation::new();
+            self.boat = BoatSimulation::new();
             self.last_waf_sound_time = 0.0;
         }
 
@@ -241,6 +252,27 @@ impl BoardView {
                 sound_manager.play(snd);
             }
             self.rover.draw(origin, scale, self.rover_texture.as_ref());
+        }
+
+        // 5. Update & Draw Paper Boat (only for Fox and Dogs)
+        if state.variant == BoardVariant::FoxAndDogs {
+            self.boat.update(dt);
+            self.boat
+                .draw(origin, scale, &self.river.path, self.boat_texture.as_ref());
+
+            // 6. Draw wooden bridge overlay on top of river and boat so it slides realistically beneath it
+            if let Some(bridge_tex) = &self.bridge_texture {
+                draw_texture_ex(
+                    bridge_tex,
+                    origin.x + 464.0 * scale,
+                    origin.y + 336.0 * scale,
+                    WHITE,
+                    DrawTextureParams {
+                        dest_size: Some(Vec2::new(88.0 * scale, 144.0 * scale)),
+                        ..Default::default()
+                    },
+                );
+            }
         }
 
         // 4. Find hovered node & Determine Legal Targets for Player
