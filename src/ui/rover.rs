@@ -128,9 +128,8 @@ impl RoverSimulation {
     }
 
     pub fn draw(&self, origin: Vec2, scale: f32, texture: Option<&Texture2D>) {
-        let pos = match self.rover_pos() {
-            Some(p) => p,
-            None => return,
+        let Some(pos) = self.rover_pos() else {
+            return;
         };
 
         let t = self.elapsed_time;

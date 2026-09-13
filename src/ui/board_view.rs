@@ -41,7 +41,7 @@ pub struct BoardView {
     pub bridge_texture: Option<Texture2D>,
     pub hound_angles: [f32; 3],
     pub fox_angle: f32,
-    pub hover_node_id: Option<usize>,
+    pub hover_node_id: Option<u8>,
     pub font: Option<Font>,
     pub river: RiverSimulation,
     pub train: TrainSimulation,
@@ -324,7 +324,7 @@ impl BoardView {
     fn handle_node_click(
         &mut self,
         state: &mut GameState,
-        clicked_node: usize,
+        clicked_node: u8,
     ) -> Option<SoundTrigger> {
         match state.player_faction {
             Faction::Fox => {
@@ -348,7 +348,7 @@ impl BoardView {
             Faction::Hounds => {
                 // Check if user clicked on one of their Hounds
                 if let Some(hound_idx) = state.hounds_pos.iter().position(|&p| p == clicked_node) {
-                    state.selected_hound_idx = Some(hound_idx);
+                    state.selected_hound_idx = Some(hound_idx as u8);
                     Some(SoundTrigger::Select)
                 } else if let Some(hound_idx) = state.selected_hound_idx {
                     // Try to move selected Hound to clicked node
@@ -378,7 +378,7 @@ impl BoardView {
         state: &GameState,
         origin: Vec2,
         scale: f32,
-        legal_destinations: &[usize],
+        legal_destinations: &[u8],
         t: f32,
     ) {
         let pulse = (t * 4.0).sin() * 0.5 + 0.5;
@@ -512,13 +512,12 @@ impl BoardView {
 
         // 2. Draw Hounds (Left: Terrier/User's white dog, Mid: Beagle, Right: Golden)
         for (idx, &hound_pos) in state.hounds_pos.iter().enumerate() {
-            let is_selected = state.selected_hound_idx == Some(idx);
+            let is_selected = state.selected_hound_idx == Some(idx as u8);
             let hound_node = state.graph.node(hound_pos);
 
-            let is_moving = state
-                .active_anim
-                .as_ref()
-                .is_some_and(|anim| anim.faction == Faction::Hounds && anim.hound_idx == Some(idx));
+            let is_moving = state.active_anim.as_ref().is_some_and(|anim| {
+                anim.faction == Faction::Hounds && anim.hound_idx == Some(idx as u8)
+            });
 
             // Hound 1 (idx 0) reacts to environmental hazards:
             // - Train on tracks in River Crossing

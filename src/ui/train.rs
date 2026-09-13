@@ -83,9 +83,8 @@ impl TrainSimulation {
     }
 
     pub fn draw(&self, origin: Vec2, scale: f32, texture: Option<&Texture2D>) {
-        let loco_y = match self.train_locomotive_y() {
-            Some(y) => y,
-            None => return,
+        let Some(loco_y) = self.train_locomotive_y() else {
+            return;
         };
 
         let t = self.elapsed_time;

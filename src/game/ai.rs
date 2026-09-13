@@ -1,17 +1,27 @@
 use super::graph::Graph;
 use super::state::{Difficulty, Faction, GameState, PieceMove};
 
+/// Maximum number of hounds supported in inline stack snapshots.
+pub const MAX_HOUNDS: usize = 4;
+const UNREACHABLE_DIST: usize = 20;
 const WIN_SCORE: i32 = 100_000;
 const INF: i32 = 1_000_000;
 
-#[derive(Debug, Clone, Copy)]
+/// A compact, stack-allocated board state representation for minimax search.
+///
+/// Uses compact `u8` coordinates and inline fixed-size storage (`[u8; MAX_HOUNDS]`)
+/// with `hounds_count: u8` to maintain `Copy` semantics, fit into a tiny ~12-byte
+/// memory footprint, and eliminate heap allocations (`Vec` malloc/free churn) inside
+/// recursive minimax search loops.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BoardSnapshot {
-    pub fox_pos: usize,
+    pub fox_pos: u8,
     pub fox_pending: bool,
     pub fox_has_left_start: bool,
     pub is_coop_start: bool,
-    pub hounds_pos: [usize; 3],
-    pub coop_pos: usize,
+    pub hounds_pos: [u8; MAX_HOUNDS],
+    pub hounds_count: u8,
+    pub coop_pos: u8,
     pub current_turn: Faction,
     pub allow_hound_retreat: bool,
     pub allow_hounds_in_coop: bool,
@@ -31,13 +41,13 @@ pub enum FoxMovesIter<A, B> {
 
 impl<A, B> Iterator for FoxMovesIter<A, B>
 where
-    A: Iterator<Item = usize>,
-    B: Iterator<Item = usize>,
+    A: Iterator<Item = u8>,
+    B: Iterator<Item = u8>,
 {
-    type Item = usize;
+    type Item = u8;
 
     #[inline]
-    fn next(&mut self) -> Option<usize> {
+    fn next(&mut self) -> Option<u8> {
         match self {
             Self::Entry(it) => it.next(),
             Self::Normal(it) => it.next(),
@@ -55,10 +65,9 @@ where
 
 impl BoardSnapshot {
     pub fn from_state(state: &GameState) -> Self {
-        let mut hounds = [0; 3];
-        for (i, &pos) in state.hounds_pos.iter().take(3).enumerate() {
-            hounds[i] = pos;
-        }
+        let count = state.hounds_pos.len().min(MAX_HOUNDS);
+        let mut hounds = [0u8; MAX_HOUNDS];
+        hounds[..count].copy_from_slice(&state.hounds_pos[..count]);
         Self {
             fox_pos: state.fox_pos,
             fox_pending: state.fox_pending,
@@ -66,6 +75,7 @@ impl BoardSnapshot {
             is_coop_start: state.variant.config().fox_start_node
                 == state.variant.config().target_coop_node,
             hounds_pos: hounds,
+            hounds_count: count as u8,
             coop_pos: state.coop_pos,
             current_turn: state.current_turn,
             allow_hound_retreat: state.variant.config().allow_hound_retreat,
@@ -73,7 +83,12 @@ impl BoardSnapshot {
         }
     }
 
-    pub const fn active_target(&self) -> usize {
+    #[inline]
+    pub fn hounds(&self) -> &[u8] {
+        &self.hounds_pos[..self.hounds_count as usize]
+    }
+
+    pub const fn active_target(&self) -> u8 {
         self.coop_pos
     }
 
@@ -89,41 +104,38 @@ impl BoardSnapshot {
         }
     }
 
-    pub fn fox_legal_moves<'a>(&'a self, graph: &'a Graph) -> impl Iterator<Item = usize> + 'a {
+    pub fn fox_legal_moves<'a>(&'a self, graph: &'a Graph) -> impl Iterator<Item = u8> + 'a {
         if self.fox_pending {
-            FoxMovesIter::Entry(graph.fox_entry_moves(&self.hounds_pos, self.coop_pos))
+            FoxMovesIter::Entry(graph.fox_entry_moves(self.hounds(), self.coop_pos))
         } else {
-            FoxMovesIter::Normal(graph.fox_legal_moves(self.fox_pos, &self.hounds_pos))
+            FoxMovesIter::Normal(graph.fox_legal_moves(self.fox_pos, self.hounds()))
         }
     }
 
     pub fn hound_legal_moves<'a>(
         &'a self,
         graph: &'a Graph,
-        hound_idx: usize,
-    ) -> impl Iterator<Item = usize> + 'a {
-        let pos = self.hounds_pos[hound_idx];
+        hound_idx: u8,
+    ) -> impl Iterator<Item = u8> + 'a {
+        let pos = self.hounds_pos[hound_idx as usize];
         graph.hound_legal_moves(
             pos,
             self.fox_pos,
             self.coop_pos,
-            &self.hounds_pos,
+            self.hounds(),
             self.allow_hound_retreat,
             self.allow_hounds_in_coop,
         )
     }
 
-    pub fn all_hound_moves<'a>(
-        &'a self,
-        graph: &'a Graph,
-    ) -> impl Iterator<Item = (usize, usize)> + 'a {
-        (0..self.hounds_pos.len()).flat_map(move |idx| {
+    pub fn all_hound_moves<'a>(&'a self, graph: &'a Graph) -> impl Iterator<Item = (u8, u8)> + 'a {
+        (0..self.hounds_count).flat_map(move |idx| {
             self.hound_legal_moves(graph, idx)
                 .map(move |target| (idx, target))
         })
     }
 
-    pub fn apply_fox_move(&self, to: usize) -> Self {
+    pub fn apply_fox_move(&self, to: u8) -> Self {
         let fox_has_left_start = self.fox_has_left_start || (to != self.coop_pos);
         Self {
             fox_pos: to,
@@ -131,6 +143,7 @@ impl BoardSnapshot {
             fox_has_left_start,
             is_coop_start: self.is_coop_start,
             hounds_pos: self.hounds_pos,
+            hounds_count: self.hounds_count,
             coop_pos: self.coop_pos,
             current_turn: Faction::Hounds,
             allow_hound_retreat: self.allow_hound_retreat,
@@ -138,15 +151,16 @@ impl BoardSnapshot {
         }
     }
 
-    pub fn apply_hound_move(&self, hound_idx: usize, to: usize) -> Self {
+    pub fn apply_hound_move(&self, hound_idx: u8, to: u8) -> Self {
         let mut new_hounds = self.hounds_pos;
-        new_hounds[hound_idx] = to;
+        new_hounds[hound_idx as usize] = to;
         Self {
             fox_pos: self.fox_pos,
             fox_pending: self.fox_pending,
             fox_has_left_start: self.fox_has_left_start,
             is_coop_start: self.is_coop_start,
             hounds_pos: new_hounds,
+            hounds_count: self.hounds_count,
             coop_pos: self.coop_pos,
             current_turn: Faction::Fox,
             allow_hound_retreat: self.allow_hound_retreat,
@@ -192,7 +206,7 @@ fn find_best_fox_move(
     max_depth: usize,
     difficulty: Difficulty,
 ) -> Option<PieceMove> {
-    let moves: Vec<usize> = board.fox_legal_moves(graph).collect();
+    let moves: Vec<u8> = board.fox_legal_moves(graph).collect();
     if moves.is_empty() {
         return None;
     }
@@ -224,7 +238,9 @@ fn find_best_fox_move(
     let chosen = select_best_candidate(&candidate_moves, difficulty, |to| {
         let next_b = board.apply_fox_move(to);
         let eval = evaluate_board(&next_b, graph);
-        let dist = graph.distance(to, next_b.active_target()).unwrap_or(20);
+        let dist = graph
+            .distance(to, next_b.active_target())
+            .unwrap_or(UNREACHABLE_DIST);
         (eval, -(dist as i32))
     });
 
@@ -237,7 +253,7 @@ fn find_best_hound_move(
     max_depth: usize,
     difficulty: Difficulty,
 ) -> Option<PieceMove> {
-    let moves: Vec<(usize, usize)> = board.all_hound_moves(graph).collect();
+    let moves: Vec<(u8, u8)> = board.all_hound_moves(graph).collect();
     if moves.is_empty() {
         return None;
     }
@@ -250,7 +266,7 @@ fn find_best_hound_move(
     }) {
         return Some(PieceMove::HoundMove {
             hound_idx,
-            from: board.hounds_pos[hound_idx],
+            from: board.hounds_pos[hound_idx as usize],
             to,
         });
     }
@@ -274,13 +290,15 @@ fn find_best_hound_move(
     let chosen = select_best_candidate(&candidate_moves, difficulty, |(hound_idx, to)| {
         let next_b = board.apply_hound_move(hound_idx, to);
         let eval = evaluate_board(&next_b, graph);
-        let dist_to_fox = graph.distance(to, board.fox_pos).unwrap_or(20);
+        let dist_to_fox = graph
+            .distance(to, board.fox_pos)
+            .unwrap_or(UNREACHABLE_DIST);
         (-eval, -(dist_to_fox as i32))
     });
 
     Some(PieceMove::HoundMove {
         hound_idx: chosen.0,
-        from: board.hounds_pos[chosen.0],
+        from: board.hounds_pos[chosen.0 as usize],
         to: chosen.1,
     })
 }
@@ -299,7 +317,7 @@ pub fn minimax(
     }
 
     if is_fox_turn {
-        let mut fox_moves: Vec<usize> = board.fox_legal_moves(graph).collect();
+        let mut fox_moves: Vec<u8> = board.fox_legal_moves(graph).collect();
         if fox_moves.is_empty() {
             return -WIN_SCORE - (depth as i32 * 100);
         }
@@ -314,7 +332,7 @@ pub fn minimax(
             if to == coop {
                 0
             } else {
-                graph.distance(to, coop).unwrap_or(20) + 1
+                graph.distance(to, coop).unwrap_or(UNREACHABLE_DIST) + 1
             }
         });
 
@@ -330,7 +348,7 @@ pub fn minimax(
         }
         max_eval
     } else {
-        let mut hound_moves: Vec<(usize, usize)> = board.all_hound_moves(graph).collect();
+        let mut hound_moves: Vec<(u8, u8)> = board.all_hound_moves(graph).collect();
         if hound_moves.is_empty() {
             // Hounds have no moves on their turn: Fox wins immediately
             return WIN_SCORE + (depth as i32 * 100);
@@ -342,7 +360,9 @@ pub fn minimax(
 
         // Move ordering for Hounds: evaluate moves that close distance to Fox first
         let fox_pos = board.fox_pos;
-        hound_moves.sort_unstable_by_key(|&(_, to)| graph.distance(to, fox_pos).unwrap_or(20));
+        hound_moves.sort_unstable_by_key(|&(_, to)| {
+            graph.distance(to, fox_pos).unwrap_or(UNREACHABLE_DIST)
+        });
 
         let mut min_eval = INF;
         for (hound_idx, to) in hound_moves {
@@ -369,18 +389,18 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph) -> i32 {
     let dist_to_target_score = (18 - static_dist as i32) * 350;
 
     // Direct unblocked lane bonus: if the hounds leave a clear route to the coop
-    let unblocked_lane_score =
-        match graph.shortest_distance(board.fox_pos, target, &board.hounds_pos) {
-            Some(1) => 15_000,
-            Some(2) => 6_000,
-            Some(3) => 2_500,
-            Some(d) if d <= 5 => (8 - d as i32) * 300,
-            _ => 0,
-        };
+    let unblocked_lane_score = match graph.shortest_distance(board.fox_pos, target, board.hounds())
+    {
+        Some(1) => 15_000,
+        Some(2) => 6_000,
+        Some(3) => 2_500,
+        Some(d) if d <= 5 => (8 - d as i32) * 300,
+        _ => 0,
+    };
 
     // Breakthrough bonus: Fox is closer to target than any hound
     let min_hound_dist_to_target = board
-        .hounds_pos
+        .hounds()
         .iter()
         .filter_map(|&h_pos| graph.distance(h_pos, target))
         .min()
@@ -396,7 +416,7 @@ pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph) -> i32 {
     // while kept low (30) so that 1 step toward target (+350) strictly dominates approaching 3 hounds (-90).
     let (pursuit_score, hound_threat_penalty) =
         board
-            .hounds_pos
+            .hounds()
             .iter()
             .fold((0, 0), |(pursuit, threat), &h_pos| {
                 let dist = graph.distance(h_pos, board.fox_pos).unwrap_or(10);

@@ -375,7 +375,6 @@ impl Screens {
         font: Option<&Font>,
         hero_texture: Option<&Texture2D>,
     ) -> Option<SoundTrigger> {
-        let mut sound_trigger = None;
         let t = get_time() as f32;
 
         // Dark Atmospheric Background Plate
@@ -522,122 +521,9 @@ impl Screens {
                 Color::from_rgba(255, 255, 255, 25),
             );
 
-            // 3. Right Column: Board Variant Selection
-            let variant_label = &state.locales.title_screen.board_variant;
-            let label_size = (12.0 * scale) as u16;
-            let variant_dims = measure_text_styled(variant_label, label_size, font);
-            draw_text_styled(
-                variant_label,
-                right.x + (right.w - variant_dims.width) / 2.0,
-                layout.variant_btn_bounds[0].y - 6.0 * scale,
-                label_size,
-                Color::from_rgba(144, 164, 174, 255),
-                font,
-            );
-
-            let variants = BoardVariant::all();
-            for (idx, &v) in variants.iter().enumerate() {
-                let is_sel = state.variant == v;
-                let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-                    bounds: layout.variant_btn_bounds[idx],
-                    title: v.localized_name(state.locales),
-                    subtitle: v.localized_sub(state.locales),
-                    is_selected: is_sel,
-                    accent_color: Color::from_rgba(69, 90, 100, 255),
-                    scale,
-                    font,
-                });
-                if clicked {
-                    state.switch_variant(v);
-                    sound_trigger = Some(SoundTrigger::ButtonClick);
-                }
-            }
-
-            // 4. Right Column: Faction Selection
-            let role_label = &state.locales.title_screen.choose_faction;
-            let label_dims = measure_text_styled(role_label, label_size, font);
-            draw_text_styled(
-                role_label,
-                right.x + (right.w - label_dims.width) / 2.0,
-                layout.fox_btn_bounds.y - 6.0 * scale,
-                label_size,
-                Color::from_rgba(144, 164, 174, 255),
-                font,
-            );
-
-            let is_fox = state.player_faction == Faction::Fox;
-            let fox_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-                bounds: layout.fox_btn_bounds,
-                title: &state.locales.title_screen.fox_title,
-                subtitle: &state.locales.title_screen.fox_subtitle,
-                is_selected: is_fox,
-                accent_color: Color::from_rgba(230, 81, 0, 255),
-                scale,
-                font,
-            });
-            if fox_clicked {
-                state.player_faction = Faction::Fox;
-                sound_trigger = Some(SoundTrigger::ButtonClick);
-            }
-
-            let is_hound = state.player_faction == Faction::Hounds;
-            let hound_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-                bounds: layout.hounds_btn_bounds,
-                title: &state.locales.title_screen.hounds_title,
-                subtitle: &state.locales.title_screen.hounds_subtitle,
-                is_selected: is_hound,
-                accent_color: Color::from_rgba(25, 118, 210, 255),
-                scale,
-                font,
-            });
-            if hound_clicked {
-                state.player_faction = Faction::Hounds;
-                sound_trigger = Some(SoundTrigger::ButtonClick);
-            }
-
-            // 4. Right Column: AI Difficulty
-            let diff_label = &state.locales.title_screen.ai_difficulty;
-            let diff_dims = measure_text_styled(diff_label, label_size, font);
-            draw_text_styled(
-                diff_label,
-                right.x + (right.w - diff_dims.width) / 2.0,
-                layout.difficulty_btn_bounds[0].y - 6.0 * scale,
-                label_size,
-                Color::from_rgba(144, 164, 174, 255),
-                font,
-            );
-
-            let difficulties = [Difficulty::Easy, Difficulty::Medium, Difficulty::Hard];
-            for (idx, &diff) in difficulties.iter().enumerate() {
-                let is_sel = state.difficulty == diff;
-                let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-                    bounds: layout.difficulty_btn_bounds[idx],
-                    title: diff.localized_name(state.locales),
-                    subtitle: "",
-                    is_selected: is_sel,
-                    accent_color: Color::from_rgba(78, 52, 46, 255),
-                    scale,
-                    font,
-                });
-                if clicked {
-                    state.difficulty = diff;
-                    sound_trigger = Some(SoundTrigger::ButtonClick);
-                }
-            }
-
-            // 5. Right Column: Start Match Button
-            let start_clicked = Self::draw_action_button(&ActionButtonConfig {
-                bounds: layout.start_btn_bounds,
-                text: &state.locales.title_screen.start_match,
-                normal_color: Color::from_rgba(46, 125, 50, 255),
-                hover_color: Color::from_rgba(76, 175, 80, 255),
-                scale,
-                font,
-            });
-            if start_clicked {
-                state.start_game(state.player_faction, state.difficulty);
-                sound_trigger = Some(SoundTrigger::ButtonClick);
-            }
+            // 3-5. Right Column: Variant, Faction, Difficulty, and Start Controls
+            let right_center_x = right.x + right.w / 2.0;
+            Self::draw_title_controls(state, &layout, right_center_x, scale, font)
         } else {
             let card_x = layout.card_bounds.x;
             let card_y = layout.card_bounds.y;
@@ -731,122 +617,135 @@ impl Screens {
                 );
             }
 
-            // 3. Select Board Variant Header
-            let variant_label = &state.locales.title_screen.board_variant;
-            let label_size = (12.0 * scale) as u16;
-            let variant_dims = measure_text_styled(variant_label, label_size, font);
-            draw_text_styled(
-                variant_label,
-                center_x - variant_dims.width / 2.0,
-                layout.variant_btn_bounds[0].y - 6.0 * scale,
-                label_size,
-                Color::from_rgba(144, 164, 174, 255),
-                font,
-            );
+            // 3-5. Variant, Faction, Difficulty, and Start Controls
+            Self::draw_title_controls(state, &layout, center_x, scale, font)
+        }
+    }
 
-            let variants = BoardVariant::all();
-            for (idx, &v) in variants.iter().enumerate() {
-                let is_sel = state.variant == v;
-                let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-                    bounds: layout.variant_btn_bounds[idx],
-                    title: v.localized_name(state.locales),
-                    subtitle: v.localized_sub(state.locales),
-                    is_selected: is_sel,
-                    accent_color: Color::from_rgba(69, 90, 100, 255),
-                    scale,
-                    font,
-                });
-                if clicked {
-                    state.switch_variant(v);
-                    sound_trigger = Some(SoundTrigger::ButtonClick);
-                }
-            }
+    fn draw_title_controls(
+        state: &mut GameState,
+        layout: &TitleScreenLayout,
+        header_center_x: f32,
+        scale: f32,
+        font: Option<&Font>,
+    ) -> Option<SoundTrigger> {
+        let mut sound_trigger = None;
+        let label_size = (12.0 * scale) as u16;
 
-            // 4. Select Faction Header
-            let role_label = &state.locales.title_screen.choose_faction;
-            let label_dims = measure_text_styled(role_label, label_size, font);
-            draw_text_styled(
-                role_label,
-                center_x - label_dims.width / 2.0,
-                layout.fox_btn_bounds.y - 6.0 * scale,
-                label_size,
-                Color::from_rgba(144, 164, 174, 255),
-                font,
-            );
+        // Board Variant Selection
+        let variant_label = &state.locales.title_screen.board_variant;
+        let variant_dims = measure_text_styled(variant_label, label_size, font);
+        draw_text_styled(
+            variant_label,
+            header_center_x - variant_dims.width / 2.0,
+            layout.variant_btn_bounds[0].y - 6.0 * scale,
+            label_size,
+            Color::from_rgba(144, 164, 174, 255),
+            font,
+        );
 
-            let is_fox = state.player_faction == Faction::Fox;
-            let fox_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-                bounds: layout.fox_btn_bounds,
-                title: &state.locales.title_screen.fox_title,
-                subtitle: &state.locales.title_screen.fox_subtitle,
-                is_selected: is_fox,
-                accent_color: Color::from_rgba(230, 81, 0, 255),
+        let variants = BoardVariant::all();
+        for (idx, &v) in variants.iter().enumerate() {
+            let is_sel = state.variant == v;
+            let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
+                bounds: layout.variant_btn_bounds[idx],
+                title: v.localized_name(state.locales),
+                subtitle: v.localized_sub(state.locales),
+                is_selected: is_sel,
+                accent_color: Color::from_rgba(69, 90, 100, 255),
                 scale,
                 font,
             });
-            if fox_clicked {
-                state.player_faction = Faction::Fox;
+            if clicked {
+                state.switch_variant(v);
                 sound_trigger = Some(SoundTrigger::ButtonClick);
             }
+        }
 
-            let is_hound = state.player_faction == Faction::Hounds;
-            let hound_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-                bounds: layout.hounds_btn_bounds,
-                title: &state.locales.title_screen.hounds_title,
-                subtitle: &state.locales.title_screen.hounds_subtitle,
-                is_selected: is_hound,
-                accent_color: Color::from_rgba(25, 118, 210, 255),
+        // Faction Selection
+        let role_label = &state.locales.title_screen.choose_faction;
+        let label_dims = measure_text_styled(role_label, label_size, font);
+        draw_text_styled(
+            role_label,
+            header_center_x - label_dims.width / 2.0,
+            layout.fox_btn_bounds.y - 6.0 * scale,
+            label_size,
+            Color::from_rgba(144, 164, 174, 255),
+            font,
+        );
+
+        let is_fox = state.player_faction == Faction::Fox;
+        let fox_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
+            bounds: layout.fox_btn_bounds,
+            title: &state.locales.title_screen.fox_title,
+            subtitle: &state.locales.title_screen.fox_subtitle,
+            is_selected: is_fox,
+            accent_color: Color::from_rgba(230, 81, 0, 255),
+            scale,
+            font,
+        });
+        if fox_clicked {
+            state.player_faction = Faction::Fox;
+            sound_trigger = Some(SoundTrigger::ButtonClick);
+        }
+
+        let is_hound = state.player_faction == Faction::Hounds;
+        let hound_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
+            bounds: layout.hounds_btn_bounds,
+            title: &state.locales.title_screen.hounds_title,
+            subtitle: &state.locales.title_screen.hounds_subtitle,
+            is_selected: is_hound,
+            accent_color: Color::from_rgba(25, 118, 210, 255),
+            scale,
+            font,
+        });
+        if hound_clicked {
+            state.player_faction = Faction::Hounds;
+            sound_trigger = Some(SoundTrigger::ButtonClick);
+        }
+
+        // AI Difficulty Selector
+        let diff_label = &state.locales.title_screen.ai_difficulty;
+        let diff_label_dims = measure_text_styled(diff_label, label_size, font);
+        draw_text_styled(
+            diff_label,
+            header_center_x - diff_label_dims.width / 2.0,
+            layout.difficulty_btn_bounds[0].y - 6.0 * scale,
+            label_size,
+            Color::from_rgba(144, 164, 174, 255),
+            font,
+        );
+
+        let difficulties = [Difficulty::Easy, Difficulty::Medium, Difficulty::Hard];
+        for (idx, &diff) in difficulties.iter().enumerate() {
+            let is_sel = state.difficulty == diff;
+            let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
+                bounds: layout.difficulty_btn_bounds[idx],
+                title: diff.localized_name(state.locales),
+                subtitle: "",
+                is_selected: is_sel,
+                accent_color: Color::from_rgba(78, 52, 46, 255),
                 scale,
                 font,
             });
-            if hound_clicked {
-                state.player_faction = Faction::Hounds;
+            if clicked {
+                state.difficulty = diff;
                 sound_trigger = Some(SoundTrigger::ButtonClick);
             }
+        }
 
-            // 4. AI Difficulty Selector
-            let diff_label = &state.locales.title_screen.ai_difficulty;
-            let diff_label_dims = measure_text_styled(diff_label, label_size, font);
-            draw_text_styled(
-                diff_label,
-                center_x - diff_label_dims.width / 2.0,
-                layout.difficulty_btn_bounds[0].y - 6.0 * scale,
-                label_size,
-                Color::from_rgba(144, 164, 174, 255),
-                font,
-            );
-
-            let difficulties = [Difficulty::Easy, Difficulty::Medium, Difficulty::Hard];
-            for (idx, &diff) in difficulties.iter().enumerate() {
-                let is_sel = state.difficulty == diff;
-                let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-                    bounds: layout.difficulty_btn_bounds[idx],
-                    title: diff.localized_name(state.locales),
-                    subtitle: "",
-                    is_selected: is_sel,
-                    accent_color: Color::from_rgba(78, 52, 46, 255),
-                    scale,
-                    font,
-                });
-                if clicked {
-                    state.difficulty = diff;
-                    sound_trigger = Some(SoundTrigger::ButtonClick);
-                }
-            }
-
-            // 5. Start Match Button
-            let start_clicked = Self::draw_action_button(&ActionButtonConfig {
-                bounds: layout.start_btn_bounds,
-                text: &state.locales.title_screen.start_match,
-                normal_color: Color::from_rgba(46, 125, 50, 255),
-                hover_color: Color::from_rgba(76, 175, 80, 255),
-                scale,
-                font,
-            });
-            if start_clicked {
-                state.start_game(state.player_faction, state.difficulty);
-                sound_trigger = Some(SoundTrigger::ButtonClick);
-            }
+        // Start Match Button
+        let start_clicked = Self::draw_action_button(&ActionButtonConfig {
+            bounds: layout.start_btn_bounds,
+            text: &state.locales.title_screen.start_match,
+            normal_color: Color::from_rgba(46, 125, 50, 255),
+            hover_color: Color::from_rgba(76, 175, 80, 255),
+            scale,
+            font,
+        });
+        if start_clicked {
+            state.start_game(state.player_faction, state.difficulty);
+            sound_trigger = Some(SoundTrigger::ButtonClick);
         }
 
         sound_trigger

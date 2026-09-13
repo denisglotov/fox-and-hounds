@@ -5,85 +5,33 @@ use fox_and_hounds::ui::board_view::{BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH};
 use fox_and_hounds::ui::river::RiverPath;
 use macroquad::prelude::Vec2;
 
-#[test]
-fn test_river_path_continuity_and_board_bounds() {
-    let path = RiverPath::new();
-    assert!(
-        path.total_length > 1300.0 && path.total_length < 1800.0,
-        "River total length {} is out of expected span",
-        path.total_length
-    );
+use std::ops::RangeInclusive;
 
-    let num_checks = 100;
+fn assert_river_path_continuity(
+    path: &RiverPath,
+    num_checks: usize,
+    x_bounds: RangeInclusive<f32>,
+    y_bounds: RangeInclusive<f32>,
+    half_width_bounds: RangeInclusive<f32>,
+) {
     for i in 0..=num_checks {
         let dist = (i as f32 / num_checks as f32) * path.total_length;
         for &v in &[-1.0, -0.5, 0.0, 0.5, 1.0] {
             let (pos, tangent, normal, half_width) = path.sample_at(dist, v);
 
             assert!(
-                pos.x >= -BOARD_LEFT_WIDTH - 50.0
-                    && pos.x <= BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH + 50.0,
-                "River pos.x {} out of background bounds at dist {}, v {}",
+                x_bounds.contains(&pos.x),
+                "River pos.x {} out of bounds ({:?}) at dist {}, v {}",
                 pos.x,
+                x_bounds,
                 dist,
                 v
             );
             assert!(
-                pos.y >= 500.0 && pos.y <= BOARD_IMAGE_HEIGHT,
-                "River pos.y {} out of river corridor at dist {}, v {}",
+                y_bounds.contains(&pos.y),
+                "River pos.y {} out of bounds ({:?}) at dist {}, v {}",
                 pos.y,
-                dist,
-                v
-            );
-
-            assert!(
-                (tangent.length() - 1.0).abs() < 1e-3,
-                "Tangent should be normalized"
-            );
-            assert!(
-                (normal.length() - 1.0).abs() < 1e-3,
-                "Normal should be normalized"
-            );
-            assert!(
-                tangent.dot(normal).abs() < 1e-3,
-                "Normal must be orthogonal to tangent"
-            );
-            assert!(
-                (18.0..=35.0).contains(&half_width),
-                "Half width {} out of bounds",
-                half_width
-            );
-        }
-    }
-}
-
-#[test]
-fn test_classic_river_path_continuity_and_bounds() {
-    let path = RiverPath::classic();
-    assert_eq!(path.variant, BoardVariant::Classic);
-    assert!(
-        path.total_length > 1300.0 && path.total_length < 1600.0,
-        "Classic river total length {} is out of expected span",
-        path.total_length
-    );
-
-    let num_checks = 120;
-    for i in 0..=num_checks {
-        let dist = (i as f32 / num_checks as f32) * path.total_length;
-        for &v in &[-1.0, -0.5, 0.0, 0.5, 1.0] {
-            let (pos, tangent, normal, half_width) = path.sample_at(dist, v);
-
-            assert!(
-                pos.x >= -30.0 && pos.x <= CLASSIC_DIMENSIONS.image_width + 30.0,
-                "Classic river pos.x {} out of bounds at dist {}, v {}",
-                pos.x,
-                dist,
-                v
-            );
-            assert!(
-                pos.y >= -30.0 && pos.y <= CLASSIC_DIMENSIONS.image_height + 30.0,
-                "Classic river pos.y {} out of bounds at dist {}, v {}",
-                pos.y,
+                y_bounds,
                 dist,
                 v
             );
@@ -104,13 +52,51 @@ fn test_classic_river_path_continuity_and_bounds() {
                 dist
             );
             assert!(
-                (12.0..=26.0).contains(&half_width),
-                "Half width {} out of bounds at dist {}",
+                half_width_bounds.contains(&half_width),
+                "Half width {} out of bounds ({:?}) at dist {}",
                 half_width,
+                half_width_bounds,
                 dist
             );
         }
     }
+}
+
+#[test]
+fn test_river_path_continuity_and_board_bounds() {
+    let path = RiverPath::new();
+    assert!(
+        path.total_length > 1300.0 && path.total_length < 1800.0,
+        "River total length {} is out of expected span",
+        path.total_length
+    );
+
+    assert_river_path_continuity(
+        &path,
+        100,
+        (-BOARD_LEFT_WIDTH - 50.0)..=(BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH + 50.0),
+        500.0..=BOARD_IMAGE_HEIGHT,
+        18.0..=35.0,
+    );
+}
+
+#[test]
+fn test_classic_river_path_continuity_and_bounds() {
+    let path = RiverPath::classic();
+    assert_eq!(path.variant, BoardVariant::Classic);
+    assert!(
+        path.total_length > 1300.0 && path.total_length < 1600.0,
+        "Classic river total length {} is out of expected span",
+        path.total_length
+    );
+
+    assert_river_path_continuity(
+        &path,
+        120,
+        -30.0..=(CLASSIC_DIMENSIONS.image_width + 30.0),
+        -30.0..=(CLASSIC_DIMENSIONS.image_height + 30.0),
+        12.0..=26.0,
+    );
 }
 
 #[test]

@@ -2,6 +2,8 @@ use fox_and_hounds::ui::screens::{GameOverModalLayout, TitleScreenLayout};
 use macroquad::prelude::Rect;
 
 fn assert_rect_inside(inner: Rect, outer: Rect, name: &str) {
+    assert!(inner.w > 0.0, "{}: inner.w ({}) <= 0", name, inner.w);
+    assert!(inner.h > 0.0, "{}: inner.h ({}) <= 0", name, inner.h);
     assert!(
         inner.x >= outer.x - 0.1,
         "{}: inner.x ({}) < outer.x ({})",
@@ -74,6 +76,16 @@ fn test_title_screen_landscape_fit() {
             layout.fox_btn_bounds.x + layout.fox_btn_bounds.w <= layout.hounds_btn_bounds.x + 0.1,
             "Fox and Hounds buttons must not overlap horizontally"
         );
+        for (idx, &db) in layout.difficulty_btn_bounds.iter().enumerate() {
+            assert_rect_inside(db, layout.card_bounds, &format!("difficulty_btn_{}", idx));
+        }
+        for i in 0..2 {
+            assert!(
+                layout.difficulty_btn_bounds[i].x + layout.difficulty_btn_bounds[i].w
+                    <= layout.difficulty_btn_bounds[i + 1].x + 0.1,
+                "Difficulty buttons must not overlap horizontally"
+            );
+        }
     }
 }
 
@@ -176,4 +188,23 @@ fn test_game_over_modal_layout_fit() {
             "Rematch button must be above Menu button without overlap"
         );
     }
+}
+
+#[test]
+fn test_title_screen_without_hero_texture() {
+    let layout_landscape = TitleScreenLayout::compute(1920.0, 1080.0, 2.0, false, 16.0 / 9.0);
+    assert!(layout_landscape.hero_bounds.is_none());
+    assert_rect_inside(
+        layout_landscape.card_bounds,
+        Rect::new(0.0, 0.0, 1920.0, 1080.0),
+        "card_bounds_landscape_no_hero",
+    );
+
+    let layout_portrait = TitleScreenLayout::compute(1080.0, 2400.0, 2.842, false, 16.0 / 9.0);
+    assert!(layout_portrait.hero_bounds.is_none());
+    assert_rect_inside(
+        layout_portrait.card_bounds,
+        Rect::new(0.0, 0.0, 1080.0, 2400.0),
+        "card_bounds_portrait_no_hero",
+    );
 }

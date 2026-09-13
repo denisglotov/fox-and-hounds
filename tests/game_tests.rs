@@ -233,7 +233,7 @@ fn test_hounds_cannot_occupy_chicken_coop() {
     assert_eq!(state.hounds_pos, vec![l1_idx, m1_idx, r1_idx]);
     assert_eq!(state.coop_pos, m0_idx);
 
-    for hound_idx in 0..state.hounds_pos.len() {
+    for hound_idx in 0..state.hounds_pos.len() as u8 {
         let legal = state.hound_legal_moves(hound_idx);
         assert!(
             !legal.contains(&m0_idx),
@@ -370,6 +370,12 @@ fn test_piece_collision_and_turn_order() {
         state.apply_hound_move(0, m3_idx),
         Err(MoveError::IllegalMove)
     );
+
+    // Out-of-bounds hound index must return InvalidHound
+    assert_eq!(
+        state.apply_hound_move(99, m2_idx),
+        Err(MoveError::InvalidHound)
+    );
 }
 
 #[test]
@@ -466,7 +472,7 @@ fn test_arthur_dogs_start_and_rules() {
     // Move a dog, e.g. hound at C7 to C6
     let c7_idx = state.graph.find_id_by_name("C7").unwrap();
     let c6_idx = state.graph.find_id_by_name("C6").unwrap();
-    let c7_dog_idx = state.hounds_pos.iter().position(|&p| p == c7_idx).unwrap();
+    let c7_dog_idx = state.hounds_pos.iter().position(|&p| p == c7_idx).unwrap() as u8;
     assert!(state.apply_hound_move(c7_dog_idx, c6_idx).is_ok());
 
     // Fox turn 1: Fox moves C8 -> C7
@@ -478,7 +484,7 @@ fn test_arthur_dogs_start_and_rules() {
     // Dogs turn 2: C8 is now empty, so adjacent dogs CAN jump to C8
     assert_eq!(state.current_turn, Faction::Hounds);
     let l7_idx = state.graph.find_id_by_name("L7").unwrap();
-    let l7_dog_idx = state.hounds_pos.iter().position(|&p| p == l7_idx).unwrap();
+    let l7_dog_idx = state.hounds_pos.iter().position(|&p| p == l7_idx).unwrap() as u8;
     let l7_moves = state.hound_legal_moves(l7_dog_idx);
     assert!(
         l7_moves.contains(&c8_idx),
@@ -504,7 +510,7 @@ fn test_arthur_direct_mission_flow() {
     assert_eq!(state.current_turn, Faction::Hounds);
 
     // Dogs turn 1: move C7 dog to C6
-    let c7_dog_idx = state.hounds_pos.iter().position(|&p| p == c7_idx).unwrap();
+    let c7_dog_idx = state.hounds_pos.iter().position(|&p| p == c7_idx).unwrap() as u8;
     assert!(state.apply_hound_move(c7_dog_idx, c6_idx).is_ok());
     assert_eq!(state.current_turn, Faction::Fox);
 
@@ -573,7 +579,7 @@ fn test_fox_ai_destination_seeking_across_variants() {
 
     let c7 = dogs.graph.find_id_by_name("C7").unwrap();
     let c6 = dogs.graph.find_id_by_name("C6").unwrap();
-    let dog_idx = dogs.hounds_pos.iter().position(|&p| p == c7).unwrap();
+    let dog_idx = dogs.hounds_pos.iter().position(|&p| p == c7).unwrap() as u8;
     assert!(dogs.apply_hound_move(dog_idx, c6).is_ok());
 
     assert_eq!(dogs.current_turn, Faction::Fox);
@@ -591,12 +597,40 @@ fn test_red_hunt_piece_size_and_clearance() {
     assert_eq!(BoardVariant::RiverCrossing.piece_base_size(), 76.0);
     assert_eq!(BoardVariant::FoxAndDogs.piece_base_size(), 76.0);
 
-    // Verify clearance along the central combat corridor (e.g. C1-C2, C2-C3: 61px apart)
+    // Verify clearance along the central combat corridor (e.g. C1-C2: 61px apart)
     // where fox and hounds face off, ensuring they do not collide with their faces.
-    let corridor_distance = 61.0;
+    let graph = (BoardVariant::TheRedHunt.config().build_graph)();
+    let c1_idx = graph.find_id_by_name("C1").expect("C1 node exists");
+    let c2_idx = graph.find_id_by_name("C2").expect("C2 node exists");
+    let corridor_distance =
+        (graph.node(c1_idx).unwrap().visual_pos - graph.node(c2_idx).unwrap().visual_pos).length();
     assert!(
         corridor_distance >= BoardVariant::TheRedHunt.piece_base_size(),
         "Corridor distance {corridor_distance} must be >= piece base size {}",
         BoardVariant::TheRedHunt.piece_base_size()
+    );
+}
+
+#[test]
+fn test_the_red_hunt_gameplay_and_ai() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::TheRedHunt);
+    state.start_game(Faction::Fox, Difficulty::Hard);
+
+    assert_eq!(state.phase, GamePhase::Playing);
+    assert_eq!(state.current_turn, Faction::Fox);
+
+    // Fox starts at C4, should have legal moves
+    let fox_moves = state.fox_legal_moves();
+    assert!(
+        !fox_moves.is_empty(),
+        "Fox should have legal opening moves in TheRedHunt"
+    );
+
+    // AI Fox move selection
+    let best_move = find_best_move(&state);
+    assert!(
+        best_move.is_some(),
+        "Fox AI should find an opening move in TheRedHunt"
     );
 }

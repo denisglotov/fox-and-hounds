@@ -66,14 +66,8 @@ pub enum GameResult {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PieceMove {
-    FoxMove {
-        to: usize,
-    },
-    HoundMove {
-        hound_idx: usize,
-        from: usize,
-        to: usize,
-    },
+    FoxMove { to: u8 },
+    HoundMove { hound_idx: u8, from: u8, to: u8 },
 }
 
 #[derive(Debug, Clone)]
@@ -83,24 +77,24 @@ pub struct MoveAnimation {
     pub progress: f32,
     pub duration: f32,
     pub faction: Faction,
-    pub hound_idx: Option<usize>,
+    pub hound_idx: Option<u8>,
 }
 
 #[derive(Debug, Clone)]
 pub struct GameState {
     pub graph: Graph,
     pub variant: BoardVariant,
-    pub fox_pos: usize,
+    pub fox_pos: u8,
     pub fox_pending: bool,
     pub fox_has_left_start: bool,
-    pub hounds_pos: Vec<usize>,
-    pub coop_pos: usize,
+    pub hounds_pos: Vec<u8>,
+    pub coop_pos: u8,
     pub current_turn: Faction,
     pub player_faction: Faction,
     pub difficulty: Difficulty,
     pub phase: GamePhase,
     pub result: GameResult,
-    pub selected_hound_idx: Option<usize>,
+    pub selected_hound_idx: Option<u8>,
     pub turn_count: usize,
     pub move_history: Vec<PieceMove>,
     pub ai_think_delay: f32,
@@ -178,7 +172,7 @@ impl GameState {
         self.fox_pos = self
             .graph
             .find_id_by_name(config.fox_start_node)
-            .unwrap_or_else(|| self.graph.nodes.len().saturating_sub(1));
+            .unwrap_or_else(|| self.graph.nodes.len().saturating_sub(1) as u8);
         self.fox_pending = config.fox_free_entry;
         self.fox_has_left_start = false;
         self.hounds_pos = config
@@ -215,11 +209,11 @@ impl GameState {
             && self.current_turn != self.player_faction
     }
 
-    pub const fn active_target_node(&self) -> usize {
+    pub const fn active_target_node(&self) -> u8 {
         self.coop_pos
     }
 
-    pub fn fox_legal_moves(&self) -> Vec<usize> {
+    pub fn fox_legal_moves(&self) -> Vec<u8> {
         if self.fox_pending {
             self.graph
                 .fox_entry_moves(&self.hounds_pos, self.coop_pos)
@@ -231,11 +225,11 @@ impl GameState {
         }
     }
 
-    pub fn hound_legal_moves(&self, hound_idx: usize) -> Vec<usize> {
+    pub fn hound_legal_moves(&self, hound_idx: u8) -> Vec<u8> {
         let allow_retreat = self.variant.config().allow_hound_retreat;
         let allow_coop = self.variant.config().allow_hounds_in_coop;
         self.hounds_pos
-            .get(hound_idx)
+            .get(hound_idx as usize)
             .map_or_else(Vec::new, |&pos| {
                 self.graph
                     .hound_legal_moves(
@@ -250,28 +244,17 @@ impl GameState {
             })
     }
 
-    pub fn all_hound_legal_moves(&self) -> Vec<(usize, usize)> {
-        let allow_retreat = self.variant.config().allow_hound_retreat;
-        let allow_coop = self.variant.config().allow_hounds_in_coop;
-        self.hounds_pos
-            .iter()
-            .enumerate()
-            .flat_map(|(idx, &pos)| {
-                self.graph
-                    .hound_legal_moves(
-                        pos,
-                        self.fox_pos,
-                        self.coop_pos,
-                        &self.hounds_pos,
-                        allow_retreat,
-                        allow_coop,
-                    )
+    pub fn all_hound_legal_moves(&self) -> Vec<(u8, u8)> {
+        (0..self.hounds_pos.len() as u8)
+            .flat_map(|idx| {
+                self.hound_legal_moves(idx)
+                    .into_iter()
                     .map(move |target| (idx, target))
             })
             .collect()
     }
 
-    pub fn apply_fox_move(&mut self, to: usize) -> Result<(), MoveError> {
+    pub fn apply_fox_move(&mut self, to: u8) -> Result<(), MoveError> {
         if self.current_turn != Faction::Fox {
             return Err(MoveError::NotYourTurn);
         }
@@ -314,11 +297,11 @@ impl GameState {
         Ok(())
     }
 
-    pub fn apply_hound_move(&mut self, hound_idx: usize, to: usize) -> Result<(), MoveError> {
+    pub fn apply_hound_move(&mut self, hound_idx: u8, to: u8) -> Result<(), MoveError> {
         if self.current_turn != Faction::Hounds {
             return Err(MoveError::NotYourTurn);
         }
-        if hound_idx >= self.hounds_pos.len() {
+        if hound_idx as usize >= self.hounds_pos.len() {
             return Err(MoveError::InvalidHound);
         }
         let legal = self.hound_legal_moves(hound_idx);
@@ -326,14 +309,14 @@ impl GameState {
             return Err(MoveError::IllegalMove);
         }
 
-        let from_pos = self.hounds_pos[hound_idx];
+        let from_pos = self.hounds_pos[hound_idx as usize];
         let from_visual = self
             .graph
             .node(from_pos)
             .map_or(Vec2::ZERO, |n| n.visual_pos);
         let to_visual = self.graph.node(to).map_or(Vec2::ZERO, |n| n.visual_pos);
 
-        self.hounds_pos[hound_idx] = to;
+        self.hounds_pos[hound_idx as usize] = to;
         self.move_history.push(PieceMove::HoundMove {
             hound_idx,
             from: from_pos,
@@ -361,6 +344,16 @@ impl GameState {
         Ok(())
     }
 
+    fn finish_game(&mut self, result: GameResult) {
+        self.result = result;
+        self.phase = GamePhase::GameOver;
+        self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
+            self.turn_count,
+            self.difficulty.localized_name(self.locales),
+            self.variant.localized_name(self.locales),
+        ));
+    }
+
     pub fn evaluate_game_result(&mut self) {
         let is_coop_start =
             self.variant.config().fox_start_node == self.variant.config().target_coop_node;
@@ -374,35 +367,17 @@ impl GameState {
             false
         };
         if fox_won {
-            self.result = GameResult::FoxWon;
-            self.phase = GamePhase::GameOver;
-            self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
-                self.turn_count,
-                self.difficulty.localized_name(self.locales),
-                self.variant.localized_name(self.locales),
-            ));
+            self.finish_game(GameResult::FoxWon);
             return;
         }
 
         if self.current_turn == Faction::Fox && self.fox_legal_moves().is_empty() {
-            self.result = GameResult::HoundsWon;
-            self.phase = GamePhase::GameOver;
-            self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
-                self.turn_count,
-                self.difficulty.localized_name(self.locales),
-                self.variant.localized_name(self.locales),
-            ));
+            self.finish_game(GameResult::HoundsWon);
             return;
         }
 
         if self.current_turn == Faction::Hounds && self.all_hound_legal_moves().is_empty() {
-            self.result = GameResult::FoxWon;
-            self.phase = GamePhase::GameOver;
-            self.cached_game_over_stats = Some(self.locales.game_over.format_stats(
-                self.turn_count,
-                self.difficulty.localized_name(self.locales),
-                self.variant.localized_name(self.locales),
-            ));
+            self.finish_game(GameResult::FoxWon);
             return;
         }
 
@@ -441,8 +416,8 @@ impl GameState {
 
         let best_move = find_best_move(self);
         match best_move {
-            Some(PieceMove::FoxMove { to }) => {
-                if self.apply_fox_move(to).is_ok() {
+            Some(PieceMove::FoxMove { to }) => match self.apply_fox_move(to) {
+                Ok(()) => {
                     if self.result == GameResult::FoxWon {
                         Some(if self.player_faction == Faction::Fox {
                             SoundTrigger::Win
@@ -452,26 +427,40 @@ impl GameState {
                     } else {
                         Some(SoundTrigger::Move)
                     }
-                } else {
+                }
+                Err(err) => {
+                    eprintln!("AI error executing fox move to {}: {:?}", to, err);
+                    self.evaluate_game_result();
                     None
                 }
-            }
+            },
             Some(PieceMove::HoundMove { hound_idx, to, .. }) => {
-                if self.apply_hound_move(hound_idx, to).is_ok() {
-                    if self.result == GameResult::HoundsWon {
-                        Some(if self.player_faction == Faction::Hounds {
-                            SoundTrigger::Win
+                match self.apply_hound_move(hound_idx, to) {
+                    Ok(()) => {
+                        if self.result == GameResult::HoundsWon {
+                            Some(if self.player_faction == Faction::Hounds {
+                                SoundTrigger::Win
+                            } else {
+                                SoundTrigger::Loss
+                            })
                         } else {
-                            SoundTrigger::Loss
-                        })
-                    } else {
-                        Some(SoundTrigger::Move)
+                            Some(SoundTrigger::Move)
+                        }
                     }
-                } else {
-                    None
+                    Err(err) => {
+                        eprintln!(
+                            "AI error executing hound {} move to {}: {:?}",
+                            hound_idx, to, err
+                        );
+                        self.evaluate_game_result();
+                        None
+                    }
                 }
             }
-            None => None,
+            None => {
+                self.evaluate_game_result();
+                None
+            }
         }
     }
 }

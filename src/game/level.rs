@@ -237,6 +237,44 @@ impl BoardVariant {
     }
 }
 
+type RawNodeSpec = (&'static str, usize, usize, NodeType, Vec2);
+type RawEdgeSpec = (&'static str, &'static str);
+
+fn build_graph_from_specs(raw_nodes: &[RawNodeSpec], raw_edges: &[RawEdgeSpec]) -> Graph {
+    let nodes: Vec<Node> = raw_nodes
+        .iter()
+        .enumerate()
+        .map(|(id, &(name, row, col, node_type, visual_pos))| Node {
+            id: id as u8,
+            name: name.to_string(),
+            row,
+            col,
+            node_type,
+            visual_pos,
+        })
+        .collect();
+
+    let name_to_id: std::collections::HashMap<&str, u8> = nodes
+        .iter()
+        .map(|node| (node.name.as_str(), node.id))
+        .collect();
+
+    let edges: Vec<(u8, u8)> = raw_edges
+        .iter()
+        .map(|&(u_name, v_name)| {
+            let &u = name_to_id
+                .get(u_name)
+                .unwrap_or_else(|| panic!("Unknown edge source node: {u_name}"));
+            let &v = name_to_id
+                .get(v_name)
+                .unwrap_or_else(|| panic!("Unknown edge target node: {v_name}"));
+            (u, v)
+        })
+        .collect();
+
+    Graph::new(nodes, &edges)
+}
+
 pub fn build_river_crossing_graph() -> Graph {
     let col_x = [230.0, 384.0, 538.0];
     let row_y = [
@@ -252,7 +290,7 @@ pub fn build_river_crossing_graph() -> Graph {
         1052.0, // Row 9 (Fox Den)
     ];
 
-    let raw_nodes = vec![
+    let raw_nodes = [
         (
             "M0",
             0,
@@ -423,20 +461,7 @@ pub fn build_river_crossing_graph() -> Graph {
         ),
     ];
 
-    let nodes: Vec<Node> = raw_nodes
-        .into_iter()
-        .enumerate()
-        .map(|(id, (name, row, col, node_type, visual_pos))| Node {
-            id,
-            name: name.to_string(),
-            row,
-            col,
-            node_type,
-            visual_pos,
-        })
-        .collect();
-
-    let raw_edges = vec![
+    let raw_edges = [
         ("M0", "L1"),
         ("M0", "M1"),
         ("M0", "R1"),
@@ -500,25 +525,11 @@ pub fn build_river_crossing_graph() -> Graph {
         ("R8", "M9"),
     ];
 
-    let name_to_id: std::collections::HashMap<&str, usize> = nodes
-        .iter()
-        .map(|node| (node.name.as_str(), node.id))
-        .collect();
-
-    let edges: Vec<(usize, usize)> = raw_edges
-        .into_iter()
-        .filter_map(|(u_name, v_name)| {
-            let u = name_to_id.get(u_name)?;
-            let v = name_to_id.get(v_name)?;
-            Some((*u, *v))
-        })
-        .collect();
-
-    Graph::new(nodes, &edges)
+    build_graph_from_specs(&raw_nodes, &raw_edges)
 }
 
 pub fn build_classic_graph() -> Graph {
-    let raw_nodes = vec![
+    let raw_nodes = [
         ("M0", 0, 1, NodeType::TargetCoop, Vec2::new(243.0, 511.0)),
         ("T1", 1, 0, NodeType::Standard, Vec2::new(376.0, 329.0)),
         ("M1", 1, 1, NodeType::Standard, Vec2::new(375.0, 510.0)),
@@ -532,20 +543,7 @@ pub fn build_classic_graph() -> Graph {
         ("M4", 4, 1, NodeType::FoxStart, Vec2::new(778.0, 510.0)),
     ];
 
-    let nodes: Vec<Node> = raw_nodes
-        .into_iter()
-        .enumerate()
-        .map(|(id, (name, row, col, node_type, visual_pos))| Node {
-            id,
-            name: name.to_string(),
-            row,
-            col,
-            node_type,
-            visual_pos,
-        })
-        .collect();
-
-    let raw_edges = vec![
+    let raw_edges = [
         ("M0", "T1"),
         ("M0", "M1"),
         ("M0", "B1"),
@@ -570,25 +568,11 @@ pub fn build_classic_graph() -> Graph {
         ("B3", "M4"),
     ];
 
-    let name_to_id: std::collections::HashMap<&str, usize> = nodes
-        .iter()
-        .map(|node| (node.name.as_str(), node.id))
-        .collect();
-
-    let edges: Vec<(usize, usize)> = raw_edges
-        .into_iter()
-        .filter_map(|(u_name, v_name)| {
-            let u = name_to_id.get(u_name)?;
-            let v = name_to_id.get(v_name)?;
-            Some((*u, *v))
-        })
-        .collect();
-
-    Graph::new(nodes, &edges)
+    build_graph_from_specs(&raw_nodes, &raw_edges)
 }
 
-fn build_arthur_nodes() -> Vec<Node> {
-    let raw_nodes = vec![
+pub fn build_fox_and_dogs_graph() -> Graph {
+    let raw_nodes = [
         ("C0", 0, 1, NodeType::Standard, Vec2::new(510., 184.4)),
         ("L1", 1, 0, NodeType::Standard, Vec2::new(389.3, 253.5)),
         ("C1", 1, 1, NodeType::Standard, Vec2::new(510., 254.5)),
@@ -610,23 +594,7 @@ fn build_arthur_nodes() -> Vec<Node> {
         ("C8", 8, 1, NodeType::FoxStart, Vec2::new(510., 850.)),
     ];
 
-    raw_nodes
-        .into_iter()
-        .enumerate()
-        .map(|(id, (name, row, col, node_type, visual_pos))| Node {
-            id,
-            name: name.to_string(),
-            row,
-            col,
-            node_type,
-            visual_pos,
-        })
-        .collect()
-}
-
-/// Edges for the Fox and Dogs board.
-fn fox_and_dogs_raw_edges() -> Vec<(&'static str, &'static str)> {
-    vec![
+    let raw_edges = [
         // Central axis
         ("C0", "C1"),
         ("C1", "C2"),
@@ -676,34 +644,15 @@ fn fox_and_dogs_raw_edges() -> Vec<(&'static str, &'static str)> {
         // 7 -> C8 (Target Coop)
         ("L7", "C8"),
         ("R7", "C8"),
-    ]
-}
+    ];
 
-pub fn build_fox_and_dogs_graph() -> Graph {
-    let nodes = build_arthur_nodes();
-    let raw_edges = fox_and_dogs_raw_edges();
-
-    let name_to_id: std::collections::HashMap<&str, usize> = nodes
-        .iter()
-        .map(|node| (node.name.as_str(), node.id))
-        .collect();
-
-    let edges: Vec<(usize, usize)> = raw_edges
-        .into_iter()
-        .filter_map(|(u_name, v_name)| {
-            let u = name_to_id.get(u_name)?;
-            let v = name_to_id.get(v_name)?;
-            Some((*u, *v))
-        })
-        .collect();
-
-    Graph::new(nodes, &edges)
+    build_graph_from_specs(&raw_nodes, &raw_edges)
 }
 
 pub use build_fox_and_dogs_graph as build_arthur_symmetric_graph;
 
 pub fn build_the_red_hunt_graph() -> Graph {
-    let raw_nodes = vec![
+    let raw_nodes = [
         // Row 0: North row (Chicken Coop destination)
         ("L0", 0, 0, NodeType::Standard, Vec2::new(380., 220.)),
         ("C0", 0, 1, NodeType::TargetCoop, Vec2::new(512.0, 220.)),
@@ -738,20 +687,7 @@ pub fn build_the_red_hunt_graph() -> Graph {
         ("C9", 9, 1, NodeType::Standard, Vec2::new(512.0, 808.0)),
     ];
 
-    let nodes: Vec<Node> = raw_nodes
-        .into_iter()
-        .enumerate()
-        .map(|(id, (name, row, col, node_type, visual_pos))| Node {
-            id,
-            name: name.to_string(),
-            row,
-            col,
-            node_type,
-            visual_pos,
-        })
-        .collect();
-
-    let raw_edges = vec![
+    let raw_edges = [
         // Central vertical axis
         ("C0", "C1"),
         ("C1", "C2"),
@@ -804,19 +740,5 @@ pub fn build_the_red_hunt_graph() -> Graph {
         ("R8", "C9"),
     ];
 
-    let name_to_id: std::collections::HashMap<&str, usize> = nodes
-        .iter()
-        .map(|node| (node.name.as_str(), node.id))
-        .collect();
-
-    let edges: Vec<(usize, usize)> = raw_edges
-        .into_iter()
-        .filter_map(|(u_name, v_name)| {
-            let u = name_to_id.get(u_name)?;
-            let v = name_to_id.get(v_name)?;
-            Some((*u, *v))
-        })
-        .collect();
-
-    Graph::new(nodes, &edges)
+    build_graph_from_specs(&raw_nodes, &raw_edges)
 }

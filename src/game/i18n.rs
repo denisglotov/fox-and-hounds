@@ -327,6 +327,9 @@ pub fn parse_cli_locale(args: impl IntoIterator<Item = impl AsRef<str>>) -> Opti
 }
 
 #[cfg(target_os = "macos")]
+const K_CF_STRING_ENCODING_UTF8: u32 = 0x0800_0100;
+
+#[cfg(target_os = "macos")]
 fn detect_macos_locale() -> Option<String> {
     extern "C" {
         fn CFLocaleCopyCurrent() -> *const std::ffi::c_void;
@@ -347,7 +350,12 @@ fn detect_macos_locale() -> Option<String> {
         let ident = CFLocaleGetIdentifier(loc);
         let mut buf = [0u8; 64];
         let ok = !ident.is_null()
-            && CFStringGetCString(ident, buf.as_mut_ptr() as _, buf.len() as isize, 0x08000100);
+            && CFStringGetCString(
+                ident,
+                buf.as_mut_ptr() as _,
+                buf.len() as isize,
+                K_CF_STRING_ENCODING_UTF8,
+            );
         CFRelease(loc);
         ok.then(|| {
             std::ffi::CStr::from_bytes_until_nul(&buf)

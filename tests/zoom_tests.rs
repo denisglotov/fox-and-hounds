@@ -25,7 +25,7 @@ fn test_camera_center_on_faction() {
 }
 
 #[test]
-fn test_multiple_landscape_resolutions_gap_symmetry() {
+fn test_multiple_landscape_resolutions_intro_framing() {
     let resolutions: [(f32, f32); 5] = [
         (2560.0, 1440.0), // 1440p
         (1920.0, 1080.0), // 1080p
@@ -150,4 +150,19 @@ fn test_all_variants_start_intro_animation() {
         assert_eq!(anim.target_zoom, camera.target_zoom);
         assert_eq!(anim.duration, 2.0);
     }
+}
+
+#[test]
+fn test_vertical_pan_bounds_centering_and_clamping() {
+    use fox_and_hounds::ui::camera::vertical_pan_bounds;
+
+    // 1. Board fits within viewport: centered
+    let (min_y, max_y) = vertical_pan_bounds(1000.0, 800.0);
+    assert_eq!(min_y, 100.0);
+    assert_eq!(max_y, 100.0);
+
+    // 2. Board taller than viewport: scrolls between bottom and top
+    let (min_y, max_y) = vertical_pan_bounds(600.0, 1000.0);
+    assert_eq!(min_y, -400.0);
+    assert_eq!(max_y, 0.0);
 }

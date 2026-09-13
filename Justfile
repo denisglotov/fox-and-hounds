@@ -48,15 +48,16 @@ fmt-check:
     cargo fmt --check
 
 # Run tests
-test:
-    cargo test
+test *args:
+    cargo test {{args}}
 
 # Serve the WASM game locally on port 8080
 serve: install-wasm
     python3 -m http.server 8080 -d web
 
-# Run complete CI test suite (formatting, clippy, tests)
+# Run complete CI test suite (formatting, clippy, tests, wasm target check)
 ci: fmt-check clippy test
+    cargo check --target wasm32-unknown-unknown
 
 # Re-subset font from system Arial Unicode MS for all current locale strings
 subset-font:

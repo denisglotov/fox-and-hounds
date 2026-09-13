@@ -58,9 +58,8 @@ impl BoatSimulation {
         river_path: &RiverPath,
         texture: Option<&Texture2D>,
     ) {
-        let progress = match self.transit_progress() {
-            Some(p) => p,
-            None => return,
+        let Some(progress) = self.transit_progress() else {
+            return;
         };
 
         let t = self.elapsed_time;

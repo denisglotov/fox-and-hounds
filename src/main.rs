@@ -38,6 +38,18 @@ fn compute_board_layout(
     (viewport_rect, board_scale, board_size)
 }
 
+fn restart_board_session(
+    board_view: &mut BoardView,
+    camera: &mut ViewportCamera,
+    variant: fox_and_hounds::game::level::BoardVariant,
+    viewport_rect: Rect,
+    board_size: Vec2,
+    board_scale: f32,
+) {
+    board_view.reset_simulations();
+    camera.start_intro(variant, viewport_rect, board_size, board_scale, 2.0);
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let font = load_ttf_font_from_bytes(include_bytes!("../assets/NotoSansEmoji.ttf")).ok();
@@ -109,14 +121,20 @@ async fn main() {
                     sound_manager.play(snd);
                 }
                 if state.phase == GamePhase::Playing {
-                    board_view.reset_simulations();
                     let (viewport_rect, board_scale, board_size) = compute_board_layout(
                         screen_w,
                         screen_h,
                         scale,
                         &state.variant.config().dimensions,
                     );
-                    camera.start_intro(state.variant, viewport_rect, board_size, board_scale, 2.0);
+                    restart_board_session(
+                        &mut board_view,
+                        &mut camera,
+                        state.variant,
+                        viewport_rect,
+                        board_size,
+                        board_scale,
+                    );
                 }
             }
             GamePhase::Playing | GamePhase::GameOver => {
@@ -169,12 +187,13 @@ async fn main() {
                 if let Some(snd) = hud_sound {
                     sound_manager.play(snd);
                     if state.turn_count == 1 && state.phase == GamePhase::Playing {
-                        camera.start_intro(
+                        restart_board_session(
+                            &mut board_view,
+                            &mut camera,
                             state.variant,
                             viewport_rect,
                             board_size,
                             board_scale,
-                            2.0,
                         );
                     }
                 }
@@ -195,13 +214,13 @@ async fn main() {
                     if let Some(snd) = modal_sound {
                         sound_manager.play(snd);
                         if state.phase == GamePhase::Playing {
-                            board_view.reset_simulations();
-                            camera.start_intro(
+                            restart_board_session(
+                                &mut board_view,
+                                &mut camera,
                                 state.variant,
                                 viewport_rect,
                                 board_size,
                                 board_scale,
-                                2.0,
                             );
                         }
                     }
