@@ -8,10 +8,13 @@ const INF: i32 = 1_000_000;
 pub struct BoardSnapshot {
     pub fox_pos: usize,
     pub fox_pending: bool,
+    pub fox_has_left_start: bool,
+    pub is_coop_start: bool,
     pub hounds_pos: [usize; 3],
     pub coop_pos: usize,
     pub current_turn: Faction,
     pub allow_hound_retreat: bool,
+    pub allow_hounds_in_coop: bool,
 }
 
 /// A zero-allocation stack enum iterator over legal Fox moves.
@@ -59,10 +62,14 @@ impl BoardSnapshot {
         Self {
             fox_pos: state.fox_pos,
             fox_pending: state.fox_pending,
+            fox_has_left_start: state.fox_has_left_start,
+            is_coop_start: state.variant.config().fox_start_node
+                == state.variant.config().target_coop_node,
             hounds_pos: hounds,
             coop_pos: state.coop_pos,
             current_turn: state.current_turn,
             allow_hound_retreat: state.variant.config().allow_hound_retreat,
+            allow_hounds_in_coop: state.variant.config().allow_hounds_in_coop,
         }
     }
 
@@ -71,7 +78,15 @@ impl BoardSnapshot {
     }
 
     pub const fn is_fox_win(&self) -> bool {
-        self.fox_pos == self.coop_pos
+        if self.fox_pos == self.coop_pos {
+            if self.is_coop_start {
+                self.fox_has_left_start
+            } else {
+                true
+            }
+        } else {
+            false
+        }
     }
 
     pub fn fox_legal_moves<'a>(&'a self, graph: &'a Graph) -> impl Iterator<Item = usize> + 'a {
@@ -94,6 +109,7 @@ impl BoardSnapshot {
             self.coop_pos,
             &self.hounds_pos,
             self.allow_hound_retreat,
+            self.allow_hounds_in_coop,
         )
     }
 
@@ -108,13 +124,17 @@ impl BoardSnapshot {
     }
 
     pub fn apply_fox_move(&self, to: usize) -> Self {
+        let fox_has_left_start = self.fox_has_left_start || (to != self.coop_pos);
         Self {
             fox_pos: to,
             fox_pending: false,
+            fox_has_left_start,
+            is_coop_start: self.is_coop_start,
             hounds_pos: self.hounds_pos,
             coop_pos: self.coop_pos,
             current_turn: Faction::Hounds,
             allow_hound_retreat: self.allow_hound_retreat,
+            allow_hounds_in_coop: self.allow_hounds_in_coop,
         }
     }
 
@@ -124,10 +144,13 @@ impl BoardSnapshot {
         Self {
             fox_pos: self.fox_pos,
             fox_pending: self.fox_pending,
+            fox_has_left_start: self.fox_has_left_start,
+            is_coop_start: self.is_coop_start,
             hounds_pos: new_hounds,
             coop_pos: self.coop_pos,
             current_turn: Faction::Fox,
             allow_hound_retreat: self.allow_hound_retreat,
+            allow_hounds_in_coop: self.allow_hounds_in_coop,
         }
     }
 }
