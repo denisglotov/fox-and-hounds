@@ -3,8 +3,9 @@ use crate::game::level::{BoardDimensions, BoardVariant};
 use macroquad::input::TouchPhase;
 use macroquad::prelude::*;
 
-pub const MIN_ZOOM: f32 = 1.0;
-pub const MAX_ZOOM: f32 = 2.5;
+pub const DEFAULT_ZOOM: f32 = 1.0;
+pub const MIN_ZOOM: f32 = 0.75;
+pub const MAX_ZOOM: f32 = 3.0;
 pub const DOUBLE_TAP_ZOOM: f32 = 2.0;
 pub const DOUBLE_TAP_TIME_WINDOW: f64 = 0.30;
 pub const DOUBLE_TAP_MAX_DISTANCE: f32 = 24.0;
@@ -96,8 +97,8 @@ impl ViewportCamera {
     pub fn new() -> Self {
         Self {
             pan_offset: Vec2::ZERO,
-            zoom: MIN_ZOOM,
-            target_zoom: MIN_ZOOM,
+            zoom: DEFAULT_ZOOM,
+            target_zoom: DEFAULT_ZOOM,
             zoom_focal_point: None,
             drag_start: None,
             is_dragging: false,
@@ -112,8 +113,8 @@ impl ViewportCamera {
 
     pub fn reset_pan(&mut self) {
         self.pan_offset = Vec2::ZERO;
-        self.zoom = MIN_ZOOM;
-        self.target_zoom = MIN_ZOOM;
+        self.zoom = DEFAULT_ZOOM;
+        self.target_zoom = DEFAULT_ZOOM;
         self.zoom_focal_point = None;
         self.drag_start = None;
         self.is_dragging = false;
@@ -136,8 +137,8 @@ impl ViewportCamera {
         let dims = &variant.config().dimensions;
         let framing = variant.config().intro_framing;
 
-        // 1. Initial wide overview framing at MIN_ZOOM (1.0x)
-        let start_zoom = MIN_ZOOM;
+        // 1. Initial wide overview framing at DEFAULT_ZOOM (1.0x)
+        let start_zoom = DEFAULT_ZOOM;
         let start_scale = base_board_scale * start_zoom;
         let (start_min_x, start_max_x) = horizontal_pan_bounds(viewport_rect.w, start_scale, dims);
         let start_pan_x = (viewport_rect.w / 2.0 - dims.composition_center_x() * start_scale)
@@ -150,7 +151,9 @@ impl ViewportCamera {
         // 2. Target playable framing with zoom into the field
         let zoom_h = viewport_rect.h / (framing.playable_size.y * base_board_scale);
         let zoom_w = (viewport_rect.w * 0.95) / (framing.playable_size.x * base_board_scale);
-        let target_zoom = zoom_h.min(zoom_w).clamp(MIN_ZOOM, framing.max_target_zoom);
+        let target_zoom = zoom_h
+            .min(zoom_w)
+            .clamp(DEFAULT_ZOOM, framing.max_target_zoom);
 
         let target_scale = base_board_scale * target_zoom;
         let (target_min_x, target_max_x) =
@@ -299,7 +302,7 @@ impl ViewportCamera {
                 let focal_vp = mouse_pos - Vec2::new(viewport_rect.x, viewport_rect.y);
                 self.zoom_focal_point = Some(focal_vp);
                 if self.target_zoom > 1.2 {
-                    self.target_zoom = MIN_ZOOM;
+                    self.target_zoom = DEFAULT_ZOOM;
                 } else {
                     self.target_zoom = DOUBLE_TAP_ZOOM;
                 }

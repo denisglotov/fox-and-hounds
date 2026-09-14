@@ -1,6 +1,6 @@
 use fox_and_hounds::game::level::{BoardVariant, BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH};
 use fox_and_hounds::game::state::Faction;
-use fox_and_hounds::ui::camera::{ViewportCamera, MIN_ZOOM};
+use fox_and_hounds::ui::camera::{ViewportCamera, DEFAULT_ZOOM};
 use macroquad::prelude::*;
 
 #[test]
@@ -131,13 +131,13 @@ fn test_all_variants_start_intro_animation() {
         camera.start_intro(*variant, viewport, board_size, board_scale, 2.0);
 
         assert_eq!(
-            camera.zoom, MIN_ZOOM,
-            "{:?} must start at MIN_ZOOM",
+            camera.zoom, DEFAULT_ZOOM,
+            "{:?} must start at DEFAULT_ZOOM",
             variant
         );
         assert!(
-            camera.target_zoom > MIN_ZOOM,
-            "{:?} must target zoom > MIN_ZOOM",
+            camera.target_zoom > DEFAULT_ZOOM,
+            "{:?} must target zoom > DEFAULT_ZOOM",
             variant
         );
         assert!(
@@ -146,7 +146,7 @@ fn test_all_variants_start_intro_animation() {
             variant
         );
         let anim = camera.anim.unwrap();
-        assert_eq!(anim.start_zoom, MIN_ZOOM);
+        assert_eq!(anim.start_zoom, DEFAULT_ZOOM);
         assert_eq!(anim.target_zoom, camera.target_zoom);
         assert_eq!(anim.duration, 2.0);
     }
@@ -165,4 +165,43 @@ fn test_vertical_pan_bounds_centering_and_clamping() {
     let (min_y, max_y) = vertical_pan_bounds(600.0, 1000.0);
     assert_eq!(min_y, -400.0);
     assert_eq!(max_y, 0.0);
+}
+
+#[test]
+fn test_all_boards_support_zoom_range() {
+    use fox_and_hounds::ui::camera::{
+        horizontal_pan_bounds, vertical_pan_bounds, MAX_ZOOM, MIN_ZOOM,
+    };
+
+    assert_eq!(MIN_ZOOM, 0.75);
+    assert_eq!(MAX_ZOOM, 3.0);
+    for variant in BoardVariant::all() {
+        let dims = &variant.config().dimensions;
+        let viewport = Rect::new(0.0, 0.0, 1920.0, 1080.0);
+        let board_scale = viewport.h / dims.image_height;
+
+        for &zoom in &[MIN_ZOOM, 1.0, MAX_ZOOM] {
+            let zoom_scale = board_scale * zoom;
+            let (min_x, max_x) = horizontal_pan_bounds(viewport.w, zoom_scale, dims);
+            assert!(
+                min_x <= max_x,
+                "{:?} horizontal bounds min_x ({}) should be <= max_x ({}) at {}x zoom",
+                variant,
+                min_x,
+                max_x,
+                zoom
+            );
+
+            let cur_board_h = dims.image_height * zoom_scale;
+            let (min_y, max_y) = vertical_pan_bounds(viewport.h, cur_board_h);
+            assert!(
+                min_y <= max_y,
+                "{:?} vertical bounds min_y ({}) should be <= max_y ({}) at {}x zoom",
+                variant,
+                min_y,
+                max_y,
+                zoom
+            );
+        }
+    }
 }
