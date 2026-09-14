@@ -1,6 +1,7 @@
 use crate::audio::SoundTrigger;
 use crate::game::level::BoardVariant;
 use crate::game::state::{Difficulty, Faction, GamePhase, GameResult, GameState};
+use crate::ui::carousel::{BoardCarousel, CarouselDrawConfig};
 use crate::ui::{draw_text_styled, measure_text_styled};
 use macroquad::prelude::*;
 
@@ -37,10 +38,9 @@ pub struct TitleScreenLayout {
     pub left_column: Rect,
     pub right_column: Rect,
     pub hero_bounds: Option<Rect>,
-    pub variant_prev_bounds: Rect,
     pub variant_card_bounds: Rect,
-    pub variant_next_bounds: Rect,
     pub variant_dots_bounds: Rect,
+    pub carousel_clip_bounds: Rect,
     pub fox_btn_bounds: Rect,
     pub hounds_btn_bounds: Rect,
     pub difficulty_btn_bounds: [Rect; 3],
@@ -114,9 +114,9 @@ impl TitleScreenLayout {
             None
         };
 
-        let v_btn_h = (36.0 * scale).min(right_column.h * 0.14);
+        let v_btn_h = (48.0 * scale).min(right_column.h * 0.16);
         let dots_h = 8.0 * scale;
-        let dots_gap = 3.0 * scale;
+        let dots_gap = 4.0 * scale;
         let total_v_h = v_btn_h + dots_gap + dots_h;
         let f_btn_h = (36.0 * scale).min(right_column.h * 0.14);
         let d_btn_h = (28.0 * scale).min(right_column.h * 0.11);
@@ -131,22 +131,7 @@ impl TitleScreenLayout {
 
         curr_y += label_h + spacing * 0.4;
 
-        let arrow_w = (32.0 * scale).min(col_w * 0.13);
-        let arrow_gap = (6.0 * scale).min(col_w * 0.025);
-        let card_w = col_w - (arrow_w + arrow_gap) * 2.0;
-        let variant_prev_bounds = Rect::new(right_column.x, curr_y, arrow_w, v_btn_h);
-        let variant_card_bounds = Rect::new(
-            right_column.x + arrow_w + arrow_gap,
-            curr_y,
-            card_w,
-            v_btn_h,
-        );
-        let variant_next_bounds = Rect::new(
-            right_column.x + arrow_w + arrow_gap + card_w + arrow_gap,
-            curr_y,
-            arrow_w,
-            v_btn_h,
-        );
+        let variant_card_bounds = Rect::new(right_column.x, curr_y, col_w, v_btn_h);
         let variant_dots_bounds =
             Rect::new(right_column.x, curr_y + v_btn_h + dots_gap, col_w, dots_h);
         curr_y += total_v_h + spacing;
@@ -172,16 +157,26 @@ impl TitleScreenLayout {
 
         let start_btn_bounds = Rect::new(right_column.x, curr_y, col_w, s_btn_h);
 
+        let div_x = left_column.x + col_w + col_gap / 2.0;
+        let border_inset = 2.0 * scale;
+        let clip_left = div_x + border_inset;
+        let clip_right = card_bounds.x + card_bounds.w - border_inset;
+        let carousel_clip_bounds = Rect::new(
+            clip_left,
+            variant_card_bounds.y,
+            (clip_right - clip_left).max(10.0),
+            variant_card_bounds.h,
+        );
+
         Self {
             is_landscape: true,
             card_bounds,
             left_column,
             right_column,
             hero_bounds,
-            variant_prev_bounds,
             variant_card_bounds,
-            variant_next_bounds,
             variant_dots_bounds,
+            carousel_clip_bounds,
             fox_btn_bounds,
             hounds_btn_bounds,
             difficulty_btn_bounds,
@@ -213,7 +208,7 @@ impl TitleScreenLayout {
         let banner_bottom_gap = 14.0 * scale;
 
         let v_lbl_h = 16.0 * scale;
-        let v_btn_h = (40.0 * scale).min(avail_h * 0.07);
+        let v_btn_h = (54.0 * scale).min(avail_h * 0.09);
         let dots_h = 8.0 * scale;
         let dots_gap = 4.0 * scale;
         let total_v_h = v_btn_h + dots_gap + dots_h;
@@ -280,22 +275,7 @@ impl TitleScreenLayout {
         curr_y += v_lbl_h;
 
         let inner_w = card_w - 36.0 * scale;
-        let arrow_w = (38.0 * scale).min(inner_w * 0.14);
-        let arrow_gap = 8.0 * scale;
-        let card_carousel_w = inner_w - (arrow_w + arrow_gap) * 2.0;
-        let variant_prev_bounds = Rect::new(card_x + 18.0 * scale, curr_y, arrow_w, v_btn_h);
-        let variant_card_bounds = Rect::new(
-            card_x + 18.0 * scale + arrow_w + arrow_gap,
-            curr_y,
-            card_carousel_w,
-            v_btn_h,
-        );
-        let variant_next_bounds = Rect::new(
-            card_x + 18.0 * scale + arrow_w + arrow_gap + card_carousel_w + arrow_gap,
-            curr_y,
-            arrow_w,
-            v_btn_h,
-        );
+        let variant_card_bounds = Rect::new(card_x + 18.0 * scale, curr_y, inner_w, v_btn_h);
         let variant_dots_bounds = Rect::new(
             card_x + 18.0 * scale,
             curr_y + v_btn_h + dots_gap,
@@ -332,16 +312,23 @@ impl TitleScreenLayout {
         let start_w = card_w - 36.0 * scale;
         let start_btn_bounds = Rect::new(card_x + 18.0 * scale, curr_y, start_w, s_btn_h);
 
+        let border_inset = 2.0 * scale;
+        let carousel_clip_bounds = Rect::new(
+            card_bounds.x + border_inset,
+            variant_card_bounds.y,
+            (card_bounds.w - border_inset * 2.0).max(10.0),
+            variant_card_bounds.h,
+        );
+
         Self {
             is_landscape: false,
             card_bounds,
             left_column: card_bounds,
             right_column: card_bounds,
             hero_bounds,
-            variant_prev_bounds,
             variant_card_bounds,
-            variant_next_bounds,
             variant_dots_bounds,
+            carousel_clip_bounds,
             fox_btn_bounds,
             hounds_btn_bounds,
             difficulty_btn_bounds,
@@ -390,6 +377,7 @@ pub struct Screens;
 impl Screens {
     pub fn draw_title_screen(
         state: &mut GameState,
+        carousel: &mut BoardCarousel,
         screen_w: f32,
         screen_h: f32,
         scale: f32,
@@ -452,7 +440,7 @@ impl Screens {
             Color::from_rgba(255, 255, 255, 35),
         );
 
-        if layout.is_landscape {
+        let sound = if layout.is_landscape {
             let left = layout.left_column;
             let right = layout.right_column;
 
@@ -544,7 +532,7 @@ impl Screens {
 
             // 3-5. Right Column: Variant, Faction, Difficulty, and Start Controls
             let right_center_x = right.x + right.w / 2.0;
-            Self::draw_title_controls(state, &layout, right_center_x, scale, font)
+            Self::draw_title_controls(state, carousel, &layout, right_center_x, scale, font)
         } else {
             let card_x = layout.card_bounds.x;
             let card_y = layout.card_bounds.y;
@@ -560,54 +548,40 @@ impl Screens {
                 (14.0 * scale) as u16,
                 font,
             );
-            let title_y = card_y + 22.0 * scale + title_dims.height / 1.2;
             draw_text_styled(
                 title_text,
                 center_x - title_dims.width / 2.0,
-                title_y,
+                card_y + 26.0 * scale + title_dims.height,
                 title_font_size,
-                Color::from_rgba(255, 224, 130, 255),
+                Color::from_rgba(238, 242, 246, 255),
                 font,
             );
 
-            let subtitle_text = &state.locales.title_screen.subtitle;
-            let (sub_font_size, sub_dims) = Self::fit_font_size(
-                subtitle_text,
-                (13.0 * scale) as u16,
-                card_w - 24.0 * scale,
-                (8.0 * scale) as u16,
-                font,
-            );
-            let sub_y = card_y + (22.0 + 32.0 + 6.0) * scale + sub_dims.height / 1.2;
+            let sub_text = &state.locales.title_screen.subtitle;
+            let sub_size = (14.0 * scale) as u16;
+            let sub_dims = measure_text_styled(sub_text, sub_size, font);
             draw_text_styled(
-                subtitle_text,
+                sub_text,
                 center_x - sub_dims.width / 2.0,
-                sub_y,
-                sub_font_size,
-                Color::from_rgba(176, 190, 197, 255),
+                card_y + 26.0 * scale + title_dims.height + 6.0 * scale + sub_dims.height,
+                sub_size,
+                Color::from_rgba(144, 164, 174, 255),
                 font,
             );
 
-            // 2. Character Artwork Hero Banner
-            if let (Some(tex), Some(hb)) = (hero_texture, layout.hero_bounds) {
-                draw_rectangle(hb.x, hb.y, hb.w, hb.h, Color::from_rgba(10, 16, 26, 255));
-
-                let tex_w = tex.width();
-                let tex_h = tex.height();
-                let tex_aspect = if tex_h > 0.0 {
-                    tex_w / tex_h
-                } else {
-                    16.0 / 9.0
-                };
-
-                let (draw_w, draw_h) = if hb.w / hb.h > tex_aspect {
-                    (hb.h * tex_aspect, hb.h)
-                } else {
+            // 2. Hero Art Banner (or sleek horizontal divider)
+            if let Some(hb) = layout.hero_bounds {
+                let tex = hero_texture.unwrap();
+                let tex_aspect = tex.width() / tex.height().max(1.0);
+                let (draw_w, draw_h) = if tex_aspect >= hb.w / hb.h {
                     (hb.w, hb.w / tex_aspect)
+                } else {
+                    (hb.h * tex_aspect, hb.h)
                 };
                 let draw_x = hb.x + (hb.w - draw_w) / 2.0;
                 let draw_y = hb.y + (hb.h - draw_h) / 2.0;
 
+                draw_rectangle(hb.x, hb.y, hb.w, hb.h, Color::from_rgba(10, 16, 26, 255));
                 draw_texture_ex(
                     tex,
                     draw_x,
@@ -627,7 +601,7 @@ impl Screens {
                     Color::from_rgba(255, 255, 255, 60),
                 );
             } else {
-                let div_y = layout.variant_prev_bounds.y - 20.0 * scale;
+                let div_y = layout.variant_card_bounds.y - 20.0 * scale;
                 draw_line(
                     card_x + 30.0 * scale,
                     div_y,
@@ -639,12 +613,25 @@ impl Screens {
             }
 
             // 3-5. Variant, Faction, Difficulty, and Start Controls
-            Self::draw_title_controls(state, &layout, center_x, scale, font)
-        }
+            Self::draw_title_controls(state, carousel, &layout, center_x, scale, font)
+        };
+
+        // Re-draw outer card border to ensure it stays pristine on top of any clipped controls
+        draw_rectangle_lines(
+            layout.card_bounds.x,
+            layout.card_bounds.y,
+            layout.card_bounds.w,
+            layout.card_bounds.h,
+            2.0 * scale,
+            Color::from_rgba(255, 255, 255, 35),
+        );
+
+        sound
     }
 
     fn draw_title_controls(
         state: &mut GameState,
+        carousel: &mut BoardCarousel,
         layout: &TitleScreenLayout,
         header_center_x: f32,
         scale: f32,
@@ -659,74 +646,43 @@ impl Screens {
         draw_text_styled(
             variant_label,
             header_center_x - variant_dims.width / 2.0,
-            layout.variant_prev_bounds.y - 6.0 * scale,
+            layout.variant_card_bounds.y - 6.0 * scale,
             label_size,
             Color::from_rgba(144, 164, 174, 255),
             font,
         );
 
-        let variants = BoardVariant::all();
-        let cur_idx = variants
-            .iter()
-            .position(|&v| v == state.variant)
-            .unwrap_or(0);
+        carousel.sync_variant(state.variant);
 
-        // Prev Arrow Button (<)
-        let prev_clicked = Self::draw_action_button(&ActionButtonConfig {
-            bounds: layout.variant_prev_bounds,
-            text: "<",
-            normal_color: Color::from_rgba(28, 38, 52, 220),
-            hover_color: Color::from_rgba(45, 60, 80, 255),
-            scale,
-            font,
-        });
-        if prev_clicked {
-            let next_idx = if cur_idx == 0 {
-                variants.len() - 1
-            } else {
-                cur_idx - 1
-            };
-            state.switch_variant(variants[next_idx]);
-            sound_trigger = Some(SoundTrigger::ButtonClick);
-        }
-
-        // Active Variant Card
-        let card_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
+        let outcome = carousel.draw(&CarouselDrawConfig {
             bounds: layout.variant_card_bounds,
-            title: state.variant.localized_name(state.locales),
-            subtitle: state.variant.localized_sub(state.locales),
-            is_selected: true,
-            accent_color: Color::from_rgba(69, 90, 100, 255),
+            clip_bounds: layout.carousel_clip_bounds,
             scale,
             font,
+            locales: state.locales,
+            dt: get_frame_time(),
         });
-        if card_clicked {
-            let next_idx = (cur_idx + 1) % variants.len();
-            state.switch_variant(variants[next_idx]);
-            sound_trigger = Some(SoundTrigger::ButtonClick);
+        if let Some(v) = outcome.variant_changed {
+            state.switch_variant(v);
         }
-
-        // Next Arrow Button (>)
-        let next_clicked = Self::draw_action_button(&ActionButtonConfig {
-            bounds: layout.variant_next_bounds,
-            text: ">",
-            normal_color: Color::from_rgba(28, 38, 52, 220),
-            hover_color: Color::from_rgba(45, 60, 80, 255),
-            scale,
-            font,
-        });
-        if next_clicked {
-            let next_idx = (cur_idx + 1) % variants.len();
-            state.switch_variant(variants[next_idx]);
-            sound_trigger = Some(SoundTrigger::ButtonClick);
+        if outcome.start_game {
+            state.start_game(state.player_faction, state.difficulty);
+        }
+        if let Some(snd) = outcome.sound_trigger {
+            sound_trigger = Some(snd);
         }
 
         // Pagination Indicator Dots
+        let variants = BoardVariant::all();
+        let cur_idx = carousel.current_index();
         let dots_clicked =
             Self::draw_pagination_dots(layout.variant_dots_bounds, variants.len(), cur_idx, scale);
         if let Some(target_idx) = dots_clicked {
             if target_idx != cur_idx {
-                state.switch_variant(variants[target_idx]);
+                carousel.set_target_index(target_idx);
+                let new_v = carousel.current_variant();
+                carousel.sync_variant(new_v);
+                state.switch_variant(new_v);
                 sound_trigger = Some(SoundTrigger::ButtonClick);
             }
         }
@@ -1166,7 +1122,7 @@ impl Screens {
         clicked
     }
 
-    fn draw_action_button(cfg: &ActionButtonConfig) -> bool {
+    pub fn draw_action_button(cfg: &ActionButtonConfig) -> bool {
         let mouse_pos = Vec2::from(mouse_position());
         let is_hovered = cfg.bounds.contains(mouse_pos);
         let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
@@ -1269,26 +1225,39 @@ impl Screens {
         for i in 0..count {
             let cx = start_x + i as f32 * dot_spacing;
             let is_active = i == active_idx;
-            let radius = if is_active { 3.5 * scale } else { 2.2 * scale };
-            let color = if is_active {
-                Color::from_rgba(255, 224, 130, 255)
-            } else {
-                Color::from_rgba(144, 164, 174, 140)
-            };
 
             let hit_rect = Rect::new(cx - dot_spacing / 2.0, bounds.y, dot_spacing, bounds.h);
             if clicked && hit_rect.contains(mouse_pos) {
                 clicked_idx = Some(i);
             }
 
-            draw_circle(cx, center_y, radius, color);
             if is_active {
+                let pill_w = 14.0 * scale;
+                let pill_h = 5.0 * scale;
+                let r = pill_h / 2.0;
+                let col = Color::from_rgba(255, 224, 130, 255);
+                draw_rectangle(
+                    cx - pill_w / 2.0 + r,
+                    center_y - r,
+                    pill_w - r * 2.0,
+                    pill_h,
+                    col,
+                );
+                draw_circle(cx - pill_w / 2.0 + r, center_y, r, col);
+                draw_circle(cx + pill_w / 2.0 - r, center_y, r, col);
                 draw_circle_lines(
                     cx,
                     center_y,
-                    radius + 1.5 * scale,
+                    pill_w / 2.0 + 1.0 * scale,
                     1.0 * scale,
-                    Color::from_rgba(255, 224, 130, 100),
+                    Color::from_rgba(255, 224, 130, 70),
+                );
+            } else {
+                draw_circle(
+                    cx,
+                    center_y,
+                    2.4 * scale,
+                    Color::from_rgba(144, 164, 174, 140),
                 );
             }
         }

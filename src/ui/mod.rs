@@ -1,6 +1,7 @@
 pub mod board_view;
 pub mod boat;
 pub mod camera;
+pub mod carousel;
 pub mod fx;
 pub mod river;
 pub mod rover;

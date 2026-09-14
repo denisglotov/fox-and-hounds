@@ -3,6 +3,7 @@ use fox_and_hounds::game::level::BoardDimensions;
 use fox_and_hounds::game::state::{GamePhase, GameResult, GameState};
 use fox_and_hounds::ui::board_view::{BoardView, BoardViewParams};
 use fox_and_hounds::ui::camera::{CameraUpdateParams, ViewportCamera};
+use fox_and_hounds::ui::carousel::BoardCarousel;
 use fox_and_hounds::ui::fx::FxManager;
 use fox_and_hounds::ui::screens::Screens;
 use macroquad::prelude::*;
@@ -64,6 +65,7 @@ async fn main() {
     let mut sound_manager = SoundManager::new().await;
     let mut state = GameState::new();
     let mut board_view = BoardView::new(font.clone()).await;
+    let mut carousel = BoardCarousel::new();
     let mut camera = ViewportCamera::new();
     let mut fx_manager = FxManager::new();
 
@@ -111,6 +113,7 @@ async fn main() {
                 camera.reset_pan();
                 let title_sound = Screens::draw_title_screen(
                     &mut state,
+                    &mut carousel,
                     screen_w,
                     screen_h,
                     scale,

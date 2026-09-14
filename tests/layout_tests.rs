@@ -64,19 +64,14 @@ fn test_title_screen_landscape_fit() {
             "start_btn_bounds",
         );
         assert_rect_inside(
-            layout.variant_prev_bounds,
-            layout.card_bounds,
-            "variant_prev_bounds",
-        );
-        assert_rect_inside(
             layout.variant_card_bounds,
             layout.card_bounds,
             "variant_card_bounds",
         );
         assert_rect_inside(
-            layout.variant_next_bounds,
+            layout.carousel_clip_bounds,
             layout.card_bounds,
-            "variant_next_bounds",
+            "carousel_clip_bounds",
         );
         assert_rect_inside(
             layout.variant_dots_bounds,
@@ -84,14 +79,9 @@ fn test_title_screen_landscape_fit() {
             "variant_dots_bounds",
         );
         assert!(
-            layout.variant_prev_bounds.x + layout.variant_prev_bounds.w
-                <= layout.variant_card_bounds.x + 0.1,
-            "Variant prev button must not overlap card horizontally"
-        );
-        assert!(
-            layout.variant_card_bounds.x + layout.variant_card_bounds.w
-                <= layout.variant_next_bounds.x + 0.1,
-            "Variant card must not overlap next button horizontally"
+            layout.variant_card_bounds.y + layout.variant_card_bounds.h
+                <= layout.variant_dots_bounds.y + 0.1,
+            "Variant card carousel must precede dots vertically"
         );
         assert_rect_inside(layout.fox_btn_bounds, layout.card_bounds, "fox_btn_bounds");
         assert_rect_inside(
@@ -141,19 +131,14 @@ fn test_title_screen_portrait_fit() {
             "start_btn_bounds",
         );
         assert_rect_inside(
-            layout.variant_prev_bounds,
-            layout.card_bounds,
-            "variant_prev_bounds",
-        );
-        assert_rect_inside(
             layout.variant_card_bounds,
             layout.card_bounds,
             "variant_card_bounds",
         );
         assert_rect_inside(
-            layout.variant_next_bounds,
+            layout.carousel_clip_bounds,
             layout.card_bounds,
-            "variant_next_bounds",
+            "carousel_clip_bounds",
         );
         assert_rect_inside(
             layout.variant_dots_bounds,
@@ -161,14 +146,9 @@ fn test_title_screen_portrait_fit() {
             "variant_dots_bounds",
         );
         assert!(
-            layout.variant_prev_bounds.x + layout.variant_prev_bounds.w
-                <= layout.variant_card_bounds.x + 0.1,
-            "Variant prev button must not overlap card horizontally"
-        );
-        assert!(
-            layout.variant_card_bounds.x + layout.variant_card_bounds.w
-                <= layout.variant_next_bounds.x + 0.1,
-            "Variant card must not overlap next button horizontally"
+            layout.variant_card_bounds.y + layout.variant_card_bounds.h
+                <= layout.variant_dots_bounds.y + 0.1,
+            "Variant card carousel must precede dots vertically"
         );
         assert!(
             layout.variant_dots_bounds.y + layout.variant_dots_bounds.h
