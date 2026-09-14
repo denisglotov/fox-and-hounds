@@ -120,7 +120,7 @@ impl BoardCarousel {
         let variants = BoardVariant::all();
         for (i, variant) in variants.iter().enumerate() {
             if i < VARIANT_COUNT {
-                self.textures[i] = load_variant_texture(variant.config().board_image_bytes);
+                self.textures[i] = load_variant_texture(variant.config().carousel_button_bytes);
             }
         }
         self.textures_loaded = true;
@@ -369,7 +369,37 @@ impl BoardCarousel {
             };
 
             // Card body plate (clipped to [draw_x1, draw_x2])
-            draw_rectangle(draw_x1, rect.y, draw_w, rect.h, bg_color);
+            if let Some(Some(tex)) = self.textures.get(card.tex_idx) {
+                let tex_w = tex.width();
+                let tex_h = tex.height();
+                let u1 = ((draw_x1 - card_x1) / rect.w).clamp(0.0, 1.0) * tex_w;
+                let u2 = ((draw_x2 - card_x1) / rect.w).clamp(0.0, 1.0) * tex_w;
+                let sub_w = (u2 - u1).max(0.1);
+
+                draw_texture_ex(
+                    tex,
+                    draw_x1,
+                    rect.y,
+                    Color::new(1.0, 1.0, 1.0, card.alpha),
+                    DrawTextureParams {
+                        dest_size: Some(vec2(draw_w, rect.h)),
+                        source: Some(Rect::new(u1, 0.0, sub_w, tex_h)),
+                        ..Default::default()
+                    },
+                );
+
+                if is_center_hovered {
+                    draw_rectangle(
+                        draw_x1,
+                        rect.y,
+                        draw_w,
+                        rect.h,
+                        Color::from_rgba(255, 255, 255, (25.0 * card.alpha) as u8),
+                    );
+                }
+            } else {
+                draw_rectangle(draw_x1, rect.y, draw_w, rect.h, bg_color);
+            }
 
             // Border (gold glow for center, brighter on hover, subtle border for peeking cards)
             let border_color = if is_center {
@@ -394,76 +424,13 @@ impl BoardCarousel {
 
             draw_clipped_border(rect, clip_left, clip_right, border_thick, border_color);
 
-            // Mini Thumbnail on Left (anchor inside visible portion if clipped on left)
-            let pad = 6.0 * config.scale * s;
-            let thumb_sz = (rect.h - pad * 2.0).max(12.0 * config.scale);
-            let thumb_x = if card_x1 < clip_left {
-                (draw_x2 - pad - thumb_sz).max(draw_x1 + pad)
-            } else {
-                rect.x + pad
-            };
-            let thumb_rect = Rect::new(thumb_x, rect.y + pad, thumb_sz, thumb_sz);
-
-            let thumb_x1 = thumb_rect.x;
-            let thumb_x2 = thumb_rect.x + thumb_rect.w;
-            if thumb_x2 > clip_left && thumb_x1 < clip_right {
-                let t_draw_x1 = thumb_x1.max(clip_left);
-                let t_draw_x2 = thumb_x2.min(clip_right);
-                let t_draw_w = t_draw_x2 - t_draw_x1;
-
-                draw_rectangle(
-                    t_draw_x1,
-                    thumb_rect.y,
-                    t_draw_w,
-                    thumb_rect.h,
-                    Color::from_rgba(14, 20, 30, (230.0 * card.alpha) as u8),
-                );
-
-                if let Some(Some(tex)) = self.textures.get(card.tex_idx) {
-                    let tex_aspect = tex.width() / tex.height().max(1.0);
-                    let (draw_w, draw_h) = if tex_aspect >= 1.0 {
-                        (thumb_sz, thumb_sz / tex_aspect)
-                    } else {
-                        (thumb_sz * tex_aspect, thumb_sz)
-                    };
-                    let raw_tx = thumb_rect.x + (thumb_sz - draw_w) / 2.0;
-                    let ty = thumb_rect.y + (thumb_sz - draw_h) / 2.0;
-
-                    let img_x1 = raw_tx.max(clip_left);
-                    let img_x2 = (raw_tx + draw_w).min(clip_right);
-                    if img_x2 > img_x1 {
-                        let tex_w = tex.width();
-                        let tex_h = tex.height();
-                        let u1 = ((img_x1 - raw_tx) / draw_w).clamp(0.0, 1.0) * tex_w;
-                        let u2 = ((img_x2 - raw_tx) / draw_w).clamp(0.0, 1.0) * tex_w;
-                        let sub_w = (u2 - u1).max(0.1);
-                        let dest_w = img_x2 - img_x1;
-
-                        draw_texture_ex(
-                            tex,
-                            img_x1,
-                            ty,
-                            Color::new(1.0, 1.0, 1.0, card.alpha),
-                            DrawTextureParams {
-                                dest_size: Some(vec2(dest_w, draw_h)),
-                                source: Some(Rect::new(u1, 0.0, sub_w, tex_h)),
-                                ..Default::default()
-                            },
-                        );
-                    }
-                }
-
-                draw_clipped_border(
-                    thumb_rect,
-                    clip_left,
-                    clip_right,
-                    1.0 * config.scale * s,
-                    Color::from_rgba(255, 255, 255, (30.0 * card.alpha) as u8),
-                );
-            }
-
             // Right side: Localized Name and Subtitle
-            let text_x = thumb_rect.x + thumb_rect.w + 8.0 * config.scale * s;
+            let graph_area_w = rect.w * 0.38;
+            let text_x = if card_x1 < clip_left {
+                (draw_x1 + 6.0 * config.scale * s).max(card_x1 + graph_area_w)
+            } else {
+                card_x1 + graph_area_w
+            };
             let right_pad = 8.0 * config.scale * s;
             let content_right = (rect.x + rect.w).min(clip_right) - right_pad;
             let max_text_w = content_right - text_x;
@@ -533,6 +500,15 @@ impl BoardCarousel {
                             rect.y + (rect.h - text_total_h) / 2.0 + actual_title_dims.height;
                         let title_color = Color::new(1.0, 1.0, 1.0, card.alpha);
 
+                        // Subtle drop-shadow for enhanced contrast over textured plate
+                        draw_text_styled(
+                            title_text,
+                            text_x + 1.0 * config.scale * s,
+                            text_start_y + 1.0 * config.scale * s,
+                            scaled_title_size,
+                            Color::from_rgba(0, 0, 0, (180.0 * card.alpha) as u8),
+                            config.font,
+                        );
                         draw_text_styled(
                             title_text,
                             text_x,
@@ -543,7 +519,18 @@ impl BoardCarousel {
                         );
 
                         if show_sub {
-                            let sub_color = Color::new(0.72, 0.80, 0.88, card.alpha * 0.88);
+                            let sub_color = Color::new(0.78, 0.86, 0.94, card.alpha * 0.92);
+                            draw_text_styled(
+                                sub_text,
+                                text_x + 1.0 * config.scale * s,
+                                text_start_y
+                                    + 4.0 * config.scale * s
+                                    + actual_sub_dims.height
+                                    + 1.0 * config.scale * s,
+                                scaled_sub_size,
+                                Color::from_rgba(0, 0, 0, (150.0 * card.alpha) as u8),
+                                config.font,
+                            );
                             draw_text_styled(
                                 sub_text,
                                 text_x,
