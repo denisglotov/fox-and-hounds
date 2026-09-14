@@ -439,6 +439,8 @@ mod tests {
             assert!(!loc.title_screen.variant_river_crossing_sub.is_empty());
             assert!(!loc.title_screen.variant_fox_and_dogs.is_empty());
             assert!(!loc.title_screen.variant_fox_and_dogs_sub.is_empty());
+            assert!(!loc.title_screen.variant_fox_and_dogs_maze.is_empty());
+            assert!(!loc.title_screen.variant_fox_and_dogs_maze_sub.is_empty());
             assert!(!loc.title_screen.variant_the_red_hunt.is_empty());
             assert!(!loc.title_screen.variant_the_red_hunt_sub.is_empty());
             assert!(!loc.title_screen.choose_faction.is_empty());
@@ -680,6 +682,8 @@ mod tests {
                 &loc.title_screen.variant_river_crossing_sub,
                 &loc.title_screen.variant_fox_and_dogs,
                 &loc.title_screen.variant_fox_and_dogs_sub,
+                &loc.title_screen.variant_fox_and_dogs_maze,
+                &loc.title_screen.variant_fox_and_dogs_maze_sub,
                 &loc.title_screen.variant_the_red_hunt,
                 &loc.title_screen.variant_the_red_hunt_sub,
                 &loc.title_screen.choose_faction,

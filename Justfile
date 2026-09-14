@@ -61,5 +61,11 @@ ci: fmt-check clippy test
 
 # Re-subset font from system Arial Unicode MS for all current locale strings
 subset-font:
-    python3 scripts/subset-font.py
+    @if [ -f scratch/venv/bin/python ]; then \
+        scratch/venv/bin/python scripts/subset-font.py; \
+    elif [ -f .venv/bin/python ]; then \
+        .venv/bin/python scripts/subset-font.py; \
+    else \
+        python3 scripts/subset-font.py; \
+    fi
 
