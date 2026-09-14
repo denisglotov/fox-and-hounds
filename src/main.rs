@@ -39,7 +39,7 @@ fn compute_board_layout(
     (viewport_rect, board_scale, board_size)
 }
 
-fn restart_board_session(
+async fn restart_board_session(
     board_view: &mut BoardView,
     camera: &mut ViewportCamera,
     variant: fox_and_hounds::game::level::BoardVariant,
@@ -47,12 +47,14 @@ fn restart_board_session(
     board_size: Vec2,
     board_scale: f32,
 ) {
+    board_view.ensure_board_loaded(variant).await;
     board_view.reset_simulations();
     camera.start_intro(variant, viewport_rect, board_size, board_scale, 2.0);
 }
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    macroquad::file::set_pc_assets_folder("assets");
     let font = load_ttf_font_from_bytes(include_bytes!("../assets/NotoSansEmoji.ttf")).ok();
     let character_texture = {
         let tex = Texture2D::from_file_with_format(
@@ -141,7 +143,8 @@ async fn main() {
                         viewport_rect,
                         board_size,
                         board_scale,
-                    );
+                    )
+                    .await;
                 }
             }
             GamePhase::Playing | GamePhase::GameOver => {
@@ -201,7 +204,8 @@ async fn main() {
                             viewport_rect,
                             board_size,
                             board_scale,
-                        );
+                        )
+                        .await;
                     }
                 }
 
@@ -228,7 +232,8 @@ async fn main() {
                                 viewport_rect,
                                 board_size,
                                 board_scale,
-                            );
+                            )
+                            .await;
                         }
                     }
                 }

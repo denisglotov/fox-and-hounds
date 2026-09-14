@@ -1,6 +1,6 @@
 use crate::audio::{SoundManager, SoundTrigger};
 use crate::game::graph::NodeType;
-use crate::game::level::BoardVariant;
+use crate::game::level::{BoardVariant, VARIANT_COUNT};
 use crate::game::state::{Faction, GamePhase, GameResult, GameState};
 use crate::ui::boat::BoatSimulation;
 use crate::ui::river::{RiverPath, RiverSimulation};
@@ -27,6 +27,7 @@ fn load_texture(bytes: &[u8]) -> Option<Texture2D> {
 }
 
 pub struct BoardView {
+    pub board_textures: [Option<Texture2D>; VARIANT_COUNT],
     pub board_texture: Option<Texture2D>,
     pub current_variant: Option<BoardVariant>,
     pub fox_texture: Option<Texture2D>,
@@ -70,8 +71,10 @@ pub struct BoardViewParams<'a> {
 
 impl BoardView {
     pub async fn new(font: Option<Font>) -> Self {
-        let current_variant = Some(BoardVariant::Classic);
-        let board_texture = load_texture(BoardVariant::Classic.config().board_image_bytes);
+        const NO_TEX: Option<Texture2D> = None;
+        let board_textures = [NO_TEX; VARIANT_COUNT];
+        let current_variant = None;
+        let board_texture = None;
         let fox_texture = load_texture(include_bytes!("../../assets/fox_figure.png"));
         let hound_textures = [
             load_texture(include_bytes!("../../assets/hound1_figure.png")),
@@ -101,6 +104,7 @@ impl BoardView {
         let bridge_texture = load_texture(include_bytes!("../../assets/fox_and_dogs_bridge.png"));
 
         Self {
+            board_textures,
             board_texture,
             current_variant,
             fox_texture,
@@ -180,6 +184,25 @@ impl BoardView {
         }
     }
 
+    pub async fn ensure_board_loaded(&mut self, variant: BoardVariant) {
+        let idx = variant.index();
+        if self.board_textures[idx].is_none() {
+            let filename = variant.config().board_image_filename;
+            match macroquad::texture::load_texture(filename).await {
+                Ok(tex) => {
+                    tex.set_filter(FilterMode::Linear);
+                    self.board_textures[idx] = Some(tex);
+                }
+                Err(err) => {
+                    eprintln!("Failed to load board texture '{filename}': {err:?}");
+                }
+            }
+        }
+        self.current_variant = Some(variant);
+        self.board_texture = self.board_textures[idx].clone();
+        self.river.set_path(RiverPath::for_variant(variant));
+    }
+
     pub fn reset_simulations(&mut self) {
         self.train = TrainSimulation::new();
         self.rover = RoverSimulation::new();
@@ -199,12 +222,9 @@ impl BoardView {
         // Switch board texture and river path if variant changed
         if self.current_variant != Some(state.variant) {
             self.current_variant = Some(state.variant);
-            self.board_texture = load_texture(state.variant.config().board_image_bytes);
+            self.board_texture = self.board_textures[state.variant.index()].clone();
             self.river.set_path(RiverPath::for_variant(state.variant));
-            self.train = TrainSimulation::new();
-            self.rover = RoverSimulation::new();
-            self.boat = BoatSimulation::new();
-            self.last_waf_sound_time = 0.0;
+            self.reset_simulations();
         }
 
         let dims = state.variant.config().dimensions;
@@ -807,7 +827,9 @@ mod tests {
 
     #[test]
     fn test_hound_idle_bounds_safety() {
+        const NO_TEX: Option<Texture2D> = None;
         let mut view = BoardView {
+            board_textures: [NO_TEX; VARIANT_COUNT],
             board_texture: None,
             current_variant: None,
             fox_texture: None,

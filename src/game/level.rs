@@ -85,7 +85,7 @@ pub struct VariantConfig {
     pub allow_hounds_in_coop: bool,
     pub dimensions: BoardDimensions,
     pub intro_framing: BoardIntroFraming,
-    pub board_image_bytes: &'static [u8],
+    pub board_image_filename: &'static str,
     pub carousel_button_bytes: &'static [u8],
     pub fox_start_node: &'static str,
     pub fox_free_entry: bool,
@@ -117,7 +117,7 @@ pub const CLASSIC_CONFIG: VariantConfig = VariantConfig {
         playable_size: Vec2::new(660.0, 520.0),
         max_target_zoom: 1.30,
     },
-    board_image_bytes: include_bytes!("../../assets/classic_board_image.png"),
+    board_image_filename: "classic_board_image.png",
     carousel_button_bytes: include_bytes!("../../assets/carousel_btn_classic.png"),
     fox_start_node: "M4",
     fox_free_entry: true,
@@ -141,7 +141,7 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
         playable_size: Vec2::new(380.0, 1080.0),
         max_target_zoom: 1.85,
     },
-    board_image_bytes: include_bytes!("../../assets/board_image.png"),
+    board_image_filename: "board_image.png",
     carousel_button_bytes: include_bytes!("../../assets/carousel_btn_river_crossing.png"),
     fox_start_node: "M9",
     fox_free_entry: false,
@@ -165,7 +165,7 @@ pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
         playable_size: Vec2::new(420.0, 780.0),
         max_target_zoom: 1.35,
     },
-    board_image_bytes: include_bytes!("../../assets/fox_and_dogs_board.png"),
+    board_image_filename: "fox_and_dogs_board.png",
     carousel_button_bytes: include_bytes!("../../assets/carousel_btn_fox_and_dogs.png"),
     fox_start_node: "C8",
     fox_free_entry: false,
@@ -192,7 +192,7 @@ pub const FOX_AND_DOGS_MAZE_CONFIG: VariantConfig = VariantConfig {
         playable_size: Vec2::new(660.0, 840.0),
         max_target_zoom: 1.25,
     },
-    board_image_bytes: include_bytes!("../../assets/fox_and_dogs_sketch_board.png"),
+    board_image_filename: "fox_and_dogs_sketch_board.png",
     carousel_button_bytes: include_bytes!("../../assets/carousel_btn_fox_and_dogs_maze.png"),
     fox_start_node: "C8",
     fox_free_entry: false,
@@ -216,7 +216,7 @@ pub const THE_RED_HUNT_CONFIG: VariantConfig = VariantConfig {
         playable_size: Vec2::new(400.0, 720.0),
         max_target_zoom: 1.40,
     },
-    board_image_bytes: include_bytes!("../../assets/the_red_hunt_board.png"),
+    board_image_filename: "the_red_hunt_board.png",
     carousel_button_bytes: include_bytes!("../../assets/carousel_btn_the_red_hunt.png"),
     fox_start_node: "C4",
     fox_free_entry: false,
@@ -227,7 +227,19 @@ pub const THE_RED_HUNT_CONFIG: VariantConfig = VariantConfig {
     build_graph: build_the_red_hunt_graph,
 };
 
+pub const VARIANT_COUNT: usize = BoardVariant::all().len();
+
 impl BoardVariant {
+    pub const fn index(self) -> usize {
+        match self {
+            BoardVariant::Classic => 0,
+            BoardVariant::RiverCrossing => 1,
+            BoardVariant::FoxAndDogs => 2,
+            BoardVariant::FoxAndDogsMaze => 3,
+            BoardVariant::TheRedHunt => 4,
+        }
+    }
+
     pub const fn move_duration(self) -> f32 {
         self.config().move_duration
     }
