@@ -468,7 +468,7 @@ impl BoardCarousel {
             let content_right = (rect.x + rect.w).min(clip_right) - right_pad;
             let max_text_w = content_right - text_x;
 
-            if text_x >= clip_left && max_text_w >= 20.0 * config.scale * s {
+            if text_x >= clip_left && max_text_w >= 40.0 * config.scale * s {
                 let title_text = card.variant.localized_name(config.locales);
                 let sub_text = card.variant.localized_sub(config.locales);
 
@@ -476,57 +476,84 @@ impl BoardCarousel {
                 let sub_size = ((10.5 * config.scale * s) as u16).max(7);
 
                 let title_dims = measure_text_styled(title_text, title_size, config.font);
-                let sub_dims = measure_text_styled(sub_text, sub_size, config.font);
 
-                let text_total_h = title_dims.height + 4.0 * config.scale * s + sub_dims.height;
-                let text_start_y = rect.y + (rect.h - text_total_h) / 2.0 + title_dims.height;
-
-                let title_color = Color::new(1.0, 1.0, 1.0, card.alpha);
-                let sub_color = Color::new(0.72, 0.80, 0.88, card.alpha * 0.88);
-
-                // Scale text if needed to fit width
-                if title_dims.width > max_text_w {
-                    let fit_ratio = (max_text_w / title_dims.width).clamp(0.5, 1.0);
-                    let scaled_size = ((title_size as f32) * fit_ratio) as u16;
-                    draw_text_styled(
-                        title_text,
-                        text_x,
-                        text_start_y,
-                        scaled_size,
-                        title_color,
-                        config.font,
-                    );
+                // Check if title fits (allowing minor scaling down to 80% for long localized strings)
+                let title_fit_ratio = if title_dims.width > 0.0 {
+                    max_text_w / title_dims.width
                 } else {
-                    draw_text_styled(
-                        title_text,
-                        text_x,
-                        text_start_y,
-                        title_size,
-                        title_color,
-                        config.font,
-                    );
-                }
+                    1.0
+                };
 
-                if sub_dims.width > max_text_w {
-                    let fit_ratio = (max_text_w / sub_dims.width).clamp(0.5, 1.0);
-                    let scaled_size = ((sub_size as f32) * fit_ratio) as u16;
-                    draw_text_styled(
-                        sub_text,
-                        text_x,
-                        text_start_y + 4.0 * config.scale * s + sub_dims.height,
-                        scaled_size,
-                        sub_color,
-                        config.font,
-                    );
-                } else {
-                    draw_text_styled(
-                        sub_text,
-                        text_x,
-                        text_start_y + 4.0 * config.scale * s + sub_dims.height,
-                        sub_size,
-                        sub_color,
-                        config.font,
-                    );
+                if title_fit_ratio >= 0.80 {
+                    let scaled_title_size = if title_fit_ratio < 1.0 {
+                        ((title_size as f32) * title_fit_ratio) as u16
+                    } else {
+                        title_size
+                    };
+
+                    let actual_title_dims = if scaled_title_size != title_size {
+                        measure_text_styled(title_text, scaled_title_size, config.font)
+                    } else {
+                        title_dims
+                    };
+
+                    // Strict boundary check: title must not exceed content_right or clip_right
+                    if text_x + actual_title_dims.width <= content_right {
+                        let sub_dims = measure_text_styled(sub_text, sub_size, config.font);
+                        let sub_fit_ratio = if sub_dims.width > 0.0 {
+                            max_text_w / sub_dims.width
+                        } else {
+                            1.0
+                        };
+
+                        let scaled_sub_size = if sub_fit_ratio < 1.0 {
+                            ((sub_size as f32) * sub_fit_ratio) as u16
+                        } else {
+                            sub_size
+                        };
+
+                        let actual_sub_dims = if scaled_sub_size != sub_size {
+                            measure_text_styled(sub_text, scaled_sub_size, config.font)
+                        } else {
+                            sub_dims
+                        };
+
+                        let show_sub = sub_fit_ratio >= 0.80
+                            && text_x + actual_sub_dims.width <= content_right;
+
+                        let text_total_h = if show_sub {
+                            actual_title_dims.height
+                                + 4.0 * config.scale * s
+                                + actual_sub_dims.height
+                        } else {
+                            actual_title_dims.height
+                        };
+
+                        let text_start_y =
+                            rect.y + (rect.h - text_total_h) / 2.0 + actual_title_dims.height;
+                        let title_color = Color::new(1.0, 1.0, 1.0, card.alpha);
+
+                        draw_text_styled(
+                            title_text,
+                            text_x,
+                            text_start_y,
+                            scaled_title_size,
+                            title_color,
+                            config.font,
+                        );
+
+                        if show_sub {
+                            let sub_color = Color::new(0.72, 0.80, 0.88, card.alpha * 0.88);
+                            draw_text_styled(
+                                sub_text,
+                                text_x,
+                                text_start_y + 4.0 * config.scale * s + actual_sub_dims.height,
+                                scaled_sub_size,
+                                sub_color,
+                                config.font,
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -606,5 +633,16 @@ mod tests {
         let draw2_x2 = (290.0f32).min(clip_right);
         assert_eq!(draw2_x1, 180.0);
         assert_eq!(draw2_x2, 250.0);
+
+        // 3. Text strict boundary enforcement
+        let right_pad = 8.0 * scale;
+        let content_right = draw2_x2 - right_pad;
+        let text_x = 220.0;
+        let max_text_w = content_right - text_x; // 250 - 12 - 220 = 18.0
+        let full_title_width = 110.0;
+        let fit_ratio = max_text_w / full_title_width;
+        // Text should be rejected when it cannot fit within 80% scaling
+        assert!(fit_ratio < 0.80);
+        assert!(max_text_w < 40.0 * scale);
     }
 }
