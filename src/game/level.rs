@@ -40,6 +40,7 @@ pub const FOX_AND_DOGS_DIMENSIONS: BoardDimensions = BoardDimensions {
     right_width: 0.0,
 };
 
+pub const FOX_AND_DOGS_MAZE_DIMENSIONS: BoardDimensions = FOX_AND_DOGS_DIMENSIONS;
 pub const ARTHUR_DIMENSIONS: BoardDimensions = FOX_AND_DOGS_DIMENSIONS;
 pub const RED_HUNT_DIMENSIONS: BoardDimensions = BoardDimensions {
     image_width: 1024.0,
@@ -61,6 +62,7 @@ pub enum BoardVariant {
     Classic,
     RiverCrossing,
     FoxAndDogs,
+    FoxAndDogsMaze,
     TheRedHunt,
 }
 
@@ -172,6 +174,30 @@ pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
 
 pub const FOX_AND_DOGS_SYMMETRIC_CONFIG: VariantConfig = FOX_AND_DOGS_CONFIG;
 
+pub const FOX_AND_DOGS_MAZE_CONFIG: VariantConfig = VariantConfig {
+    id: BoardVariant::FoxAndDogsMaze,
+    name: "fox and dogs",
+    description:
+        "Fox and dogs maze board: dogs start on Row 7 and move first, fox must return to C8",
+    allow_hound_retreat: true,
+    hounds_start_first: true,
+    allow_hounds_in_coop: true,
+    dimensions: FOX_AND_DOGS_MAZE_DIMENSIONS,
+    intro_framing: BoardIntroFraming {
+        playable_center: Vec2::new(512.0, 556.0),
+        playable_size: Vec2::new(660.0, 840.0),
+        max_target_zoom: 1.25,
+    },
+    board_image_bytes: include_bytes!("../../assets/fox_and_dogs_sketch_board.png"),
+    fox_start_node: "C8",
+    fox_free_entry: false,
+    hounds_start_nodes: &["R7", "C7", "L7"],
+    target_coop_node: "C8",
+    move_duration: DEFAULT_MOVE_DURATION,
+    piece_base_size: DEFAULT_PIECE_BASE_SIZE,
+    build_graph: build_fox_and_dogs_maze_graph,
+};
+
 pub const THE_RED_HUNT_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::TheRedHunt,
     name: "The Red Hunt",
@@ -207,6 +233,7 @@ impl BoardVariant {
             BoardVariant::Classic => &CLASSIC_CONFIG,
             BoardVariant::RiverCrossing => &RIVER_CROSSING_CONFIG,
             BoardVariant::FoxAndDogs => &FOX_AND_DOGS_CONFIG,
+            BoardVariant::FoxAndDogsMaze => &FOX_AND_DOGS_MAZE_CONFIG,
             BoardVariant::TheRedHunt => &THE_RED_HUNT_CONFIG,
         }
     }
@@ -216,6 +243,7 @@ impl BoardVariant {
             BoardVariant::Classic,
             BoardVariant::RiverCrossing,
             BoardVariant::FoxAndDogs,
+            BoardVariant::FoxAndDogsMaze,
             BoardVariant::TheRedHunt,
         ]
     }
@@ -650,6 +678,83 @@ pub fn build_fox_and_dogs_graph() -> Graph {
 }
 
 pub use build_fox_and_dogs_graph as build_arthur_symmetric_graph;
+
+pub fn build_fox_and_dogs_maze_graph() -> Graph {
+    let raw_nodes = [
+        ("C0", 0, 1, NodeType::Standard, Vec2::new(510.0, 160.0)),
+        ("L1", 1, 0, NodeType::Standard, Vec2::new(370.0, 249.0)),
+        ("C1", 1, 1, NodeType::Standard, Vec2::new(604.0, 241.0)),
+        ("R1", 1, 2, NodeType::Standard, Vec2::new(759.0, 198.0)),
+        ("L2", 2, 0, NodeType::Standard, Vec2::new(224.0, 322.0)),
+        ("C2", 2, 1, NodeType::Bottleneck, Vec2::new(497.0, 340.0)),
+        ("R2", 2, 2, NodeType::Standard, Vec2::new(810.0, 298.0)),
+        ("C3", 3, 1, NodeType::Bottleneck, Vec2::new(533.0, 469.0)),
+        ("L4", 4, 0, NodeType::Standard, Vec2::new(249.0, 522.0)),
+        ("C4", 4, 1, NodeType::Standard, Vec2::new(547.0, 583.0)),
+        ("R4", 4, 2, NodeType::Standard, Vec2::new(758.0, 491.0)),
+        ("L5", 5, 0, NodeType::Standard, Vec2::new(369.0, 626.0)),
+        ("C5", 5, 1, NodeType::Standard, Vec2::new(494.0, 660.0)),
+        ("R5", 5, 2, NodeType::Standard, Vec2::new(816.0, 659.0)),
+        ("C6", 6, 1, NodeType::Standard, Vec2::new(598.0, 742.0)),
+        ("L7", 7, 0, NodeType::Standard, Vec2::new(250.0, 818.0)),
+        ("C7", 7, 1, NodeType::Standard, Vec2::new(534.0, 823.0)),
+        ("R7", 7, 2, NodeType::Standard, Vec2::new(776.0, 826.0)),
+        ("C8", 8, 1, NodeType::FoxStart, Vec2::new(529.0, 952.0)),
+    ];
+
+    let raw_edges = [
+        // Central axis
+        ("C0", "C1"),
+        ("C1", "C2"),
+        ("C2", "C3"),
+        ("C3", "C4"),
+        ("C4", "C5"),
+        ("C5", "C6"),
+        ("C6", "C7"),
+        ("C7", "C8"),
+        // 0 -> 1
+        ("C0", "L1"),
+        ("C0", "R1"),
+        // Rows 1 and 2
+        ("L1", "L2"),
+        ("R1", "R2"),
+        ("L1", "C1"),
+        ("R1", "C1"),
+        ("L1", "C2"),
+        ("R1", "C2"),
+        ("L2", "C2"),
+        ("R2", "C2"),
+        // 3 -> 4
+        ("C3", "L4"),
+        ("C3", "R4"),
+        // Row 4 horizontal
+        ("L4", "C4"),
+        ("C4", "R4"),
+        // 4 -> 5
+        ("L4", "L5"),
+        ("C4", "L5"),
+        ("C4", "R5"),
+        // Row 5 horizontal
+        ("L5", "C5"),
+        ("C5", "R5"),
+        // 5 -> 6 and outputs to dogs
+        ("L5", "L7"),
+        ("R5", "R7"),
+        ("L5", "C6"),
+        ("R5", "C6"),
+        // 6 -> dogs
+        ("C6", "L7"),
+        ("C6", "R7"),
+        // Row 7 horizontal
+        ("L7", "C7"),
+        ("C7", "R7"),
+        // 7 -> C8 (Target Coop)
+        ("L7", "C8"),
+        ("R7", "C8"),
+    ];
+
+    build_graph_from_specs(&raw_nodes, &raw_edges)
+}
 
 pub fn build_the_red_hunt_graph() -> Graph {
     let raw_nodes = [

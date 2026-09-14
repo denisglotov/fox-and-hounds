@@ -39,6 +39,7 @@ impl RiverPath {
             BoardVariant::Classic => Self::classic(),
             BoardVariant::RiverCrossing => Self::river_crossing(),
             BoardVariant::FoxAndDogs => Self::arthur(BoardVariant::FoxAndDogs),
+            BoardVariant::FoxAndDogsMaze => Self::fox_and_dogs_maze(),
             BoardVariant::TheRedHunt => Self::the_red_hunt(),
         }
     }
@@ -153,6 +154,28 @@ impl RiverPath {
             (Vec2::new(1024.0, 400.0), 45.0),
         ];
         Self::from_control_points(variant, &control_points)
+    }
+
+    pub fn fox_and_dogs_maze() -> Self {
+        // Control points: (x, y, half_width) defining the winding river channel across the sketch board
+        let control_points = [
+            (Vec2::new(0.0, 435.0), 30.0),
+            (Vec2::new(80.0, 425.0), 28.0),
+            (Vec2::new(160.0, 398.0), 26.0),
+            (Vec2::new(240.0, 415.0), 28.0),
+            (Vec2::new(320.0, 400.0), 28.0),
+            (Vec2::new(400.0, 410.0), 26.0),
+            (Vec2::new(480.0, 412.0), 24.0),
+            (Vec2::new(510.0, 408.0), 24.0), // Under bridge
+            (Vec2::new(560.0, 402.0), 24.0),
+            (Vec2::new(640.0, 398.0), 26.0),
+            (Vec2::new(720.0, 408.0), 28.0),
+            (Vec2::new(800.0, 415.0), 28.0),
+            (Vec2::new(880.0, 410.0), 26.0),
+            (Vec2::new(960.0, 385.0), 24.0),
+            (Vec2::new(1024.0, 368.0), 26.0),
+        ];
+        Self::from_control_points(BoardVariant::FoxAndDogsMaze, &control_points)
     }
 
     pub fn the_red_hunt() -> Self {
@@ -295,7 +318,9 @@ impl RiverPath {
         match self.variant {
             BoardVariant::Classic => classic_bridge_occlusion(pos),
             BoardVariant::RiverCrossing => self.river_crossing_bridge_occlusion(pos),
-            BoardVariant::FoxAndDogs => self.arthur_bridge_occlusion(pos),
+            BoardVariant::FoxAndDogs | BoardVariant::FoxAndDogsMaze => {
+                self.arthur_bridge_occlusion(pos)
+            }
             BoardVariant::TheRedHunt => self.the_red_hunt_bridge_occlusion(pos),
         }
     }

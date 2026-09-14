@@ -37,7 +37,10 @@ pub struct TitleScreenLayout {
     pub left_column: Rect,
     pub right_column: Rect,
     pub hero_bounds: Option<Rect>,
-    pub variant_btn_bounds: [Rect; 4],
+    pub variant_prev_bounds: Rect,
+    pub variant_card_bounds: Rect,
+    pub variant_next_bounds: Rect,
+    pub variant_dots_bounds: Rect,
     pub fox_btn_bounds: Rect,
     pub hounds_btn_bounds: Rect,
     pub difficulty_btn_bounds: [Rect; 3],
@@ -111,9 +114,10 @@ impl TitleScreenLayout {
             None
         };
 
-        let v_btn_h = (32.0 * scale).min(right_column.h * 0.11);
-        let v_row_gap = (4.0 * scale).min(right_column.h * 0.015);
-        let total_v_h = v_btn_h * 2.0 + v_row_gap;
+        let v_btn_h = (36.0 * scale).min(right_column.h * 0.14);
+        let dots_h = 8.0 * scale;
+        let dots_gap = 3.0 * scale;
+        let total_v_h = v_btn_h + dots_gap + dots_h;
         let f_btn_h = (36.0 * scale).min(right_column.h * 0.14);
         let d_btn_h = (28.0 * scale).min(right_column.h * 0.11);
         let s_btn_h = (36.0 * scale).min(right_column.h * 0.14);
@@ -127,19 +131,24 @@ impl TitleScreenLayout {
 
         curr_y += label_h + spacing * 0.4;
 
-        let v_gap = (8.0 * scale).min(col_w * 0.04);
-        let v_w = (col_w - v_gap) / 2.0;
-        let variant_btn_bounds = [
-            Rect::new(right_column.x, curr_y, v_w, v_btn_h),
-            Rect::new(right_column.x + v_w + v_gap, curr_y, v_w, v_btn_h),
-            Rect::new(right_column.x, curr_y + v_btn_h + v_row_gap, v_w, v_btn_h),
-            Rect::new(
-                right_column.x + v_w + v_gap,
-                curr_y + v_btn_h + v_row_gap,
-                v_w,
-                v_btn_h,
-            ),
-        ];
+        let arrow_w = (32.0 * scale).min(col_w * 0.13);
+        let arrow_gap = (6.0 * scale).min(col_w * 0.025);
+        let card_w = col_w - (arrow_w + arrow_gap) * 2.0;
+        let variant_prev_bounds = Rect::new(right_column.x, curr_y, arrow_w, v_btn_h);
+        let variant_card_bounds = Rect::new(
+            right_column.x + arrow_w + arrow_gap,
+            curr_y,
+            card_w,
+            v_btn_h,
+        );
+        let variant_next_bounds = Rect::new(
+            right_column.x + arrow_w + arrow_gap + card_w + arrow_gap,
+            curr_y,
+            arrow_w,
+            v_btn_h,
+        );
+        let variant_dots_bounds =
+            Rect::new(right_column.x, curr_y + v_btn_h + dots_gap, col_w, dots_h);
         curr_y += total_v_h + spacing;
 
         curr_y += label_h + spacing * 0.4;
@@ -169,7 +178,10 @@ impl TitleScreenLayout {
             left_column,
             right_column,
             hero_bounds,
-            variant_btn_bounds,
+            variant_prev_bounds,
+            variant_card_bounds,
+            variant_next_bounds,
+            variant_dots_bounds,
             fox_btn_bounds,
             hounds_btn_bounds,
             difficulty_btn_bounds,
@@ -201,9 +213,10 @@ impl TitleScreenLayout {
         let banner_bottom_gap = 14.0 * scale;
 
         let v_lbl_h = 16.0 * scale;
-        let v_btn_h = (36.0 * scale).min(avail_h * 0.06);
-        let v_row_gap = 6.0 * scale;
-        let total_v_h = v_btn_h * 2.0 + v_row_gap;
+        let v_btn_h = (40.0 * scale).min(avail_h * 0.07);
+        let dots_h = 8.0 * scale;
+        let dots_gap = 4.0 * scale;
+        let total_v_h = v_btn_h + dots_gap + dots_h;
         let v_gap = 12.0 * scale;
 
         let f_lbl_h = 16.0 * scale;
@@ -266,24 +279,29 @@ impl TitleScreenLayout {
 
         curr_y += v_lbl_h;
 
-        let v_gap_w = 10.0 * scale;
-        let v_w = (card_w - 36.0 * scale - v_gap_w) / 2.0;
-        let variant_btn_bounds = [
-            Rect::new(card_x + 18.0 * scale, curr_y, v_w, v_btn_h),
-            Rect::new(card_x + 18.0 * scale + v_w + v_gap_w, curr_y, v_w, v_btn_h),
-            Rect::new(
-                card_x + 18.0 * scale,
-                curr_y + v_btn_h + v_row_gap,
-                v_w,
-                v_btn_h,
-            ),
-            Rect::new(
-                card_x + 18.0 * scale + v_w + v_gap_w,
-                curr_y + v_btn_h + v_row_gap,
-                v_w,
-                v_btn_h,
-            ),
-        ];
+        let inner_w = card_w - 36.0 * scale;
+        let arrow_w = (38.0 * scale).min(inner_w * 0.14);
+        let arrow_gap = 8.0 * scale;
+        let card_carousel_w = inner_w - (arrow_w + arrow_gap) * 2.0;
+        let variant_prev_bounds = Rect::new(card_x + 18.0 * scale, curr_y, arrow_w, v_btn_h);
+        let variant_card_bounds = Rect::new(
+            card_x + 18.0 * scale + arrow_w + arrow_gap,
+            curr_y,
+            card_carousel_w,
+            v_btn_h,
+        );
+        let variant_next_bounds = Rect::new(
+            card_x + 18.0 * scale + arrow_w + arrow_gap + card_carousel_w + arrow_gap,
+            curr_y,
+            arrow_w,
+            v_btn_h,
+        );
+        let variant_dots_bounds = Rect::new(
+            card_x + 18.0 * scale,
+            curr_y + v_btn_h + dots_gap,
+            inner_w,
+            dots_h,
+        );
         curr_y += total_v_h + v_gap;
 
         curr_y += f_lbl_h;
@@ -320,7 +338,10 @@ impl TitleScreenLayout {
             left_column: card_bounds,
             right_column: card_bounds,
             hero_bounds,
-            variant_btn_bounds,
+            variant_prev_bounds,
+            variant_card_bounds,
+            variant_next_bounds,
+            variant_dots_bounds,
             fox_btn_bounds,
             hounds_btn_bounds,
             difficulty_btn_bounds,
@@ -606,7 +627,7 @@ impl Screens {
                     Color::from_rgba(255, 255, 255, 60),
                 );
             } else {
-                let div_y = layout.variant_btn_bounds[0].y - 20.0 * scale;
+                let div_y = layout.variant_prev_bounds.y - 20.0 * scale;
                 draw_line(
                     card_x + 30.0 * scale,
                     div_y,
@@ -638,26 +659,74 @@ impl Screens {
         draw_text_styled(
             variant_label,
             header_center_x - variant_dims.width / 2.0,
-            layout.variant_btn_bounds[0].y - 6.0 * scale,
+            layout.variant_prev_bounds.y - 6.0 * scale,
             label_size,
             Color::from_rgba(144, 164, 174, 255),
             font,
         );
 
         let variants = BoardVariant::all();
-        for (idx, &v) in variants.iter().enumerate() {
-            let is_sel = state.variant == v;
-            let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
-                bounds: layout.variant_btn_bounds[idx],
-                title: v.localized_name(state.locales),
-                subtitle: v.localized_sub(state.locales),
-                is_selected: is_sel,
-                accent_color: Color::from_rgba(69, 90, 100, 255),
-                scale,
-                font,
-            });
-            if clicked {
-                state.switch_variant(v);
+        let cur_idx = variants
+            .iter()
+            .position(|&v| v == state.variant)
+            .unwrap_or(0);
+
+        // Prev Arrow Button (<)
+        let prev_clicked = Self::draw_action_button(&ActionButtonConfig {
+            bounds: layout.variant_prev_bounds,
+            text: "<",
+            normal_color: Color::from_rgba(28, 38, 52, 220),
+            hover_color: Color::from_rgba(45, 60, 80, 255),
+            scale,
+            font,
+        });
+        if prev_clicked {
+            let next_idx = if cur_idx == 0 {
+                variants.len() - 1
+            } else {
+                cur_idx - 1
+            };
+            state.switch_variant(variants[next_idx]);
+            sound_trigger = Some(SoundTrigger::ButtonClick);
+        }
+
+        // Active Variant Card
+        let card_clicked = Self::draw_selectable_button(&SelectableButtonConfig {
+            bounds: layout.variant_card_bounds,
+            title: state.variant.localized_name(state.locales),
+            subtitle: state.variant.localized_sub(state.locales),
+            is_selected: true,
+            accent_color: Color::from_rgba(69, 90, 100, 255),
+            scale,
+            font,
+        });
+        if card_clicked {
+            let next_idx = (cur_idx + 1) % variants.len();
+            state.switch_variant(variants[next_idx]);
+            sound_trigger = Some(SoundTrigger::ButtonClick);
+        }
+
+        // Next Arrow Button (>)
+        let next_clicked = Self::draw_action_button(&ActionButtonConfig {
+            bounds: layout.variant_next_bounds,
+            text: ">",
+            normal_color: Color::from_rgba(28, 38, 52, 220),
+            hover_color: Color::from_rgba(45, 60, 80, 255),
+            scale,
+            font,
+        });
+        if next_clicked {
+            let next_idx = (cur_idx + 1) % variants.len();
+            state.switch_variant(variants[next_idx]);
+            sound_trigger = Some(SoundTrigger::ButtonClick);
+        }
+
+        // Pagination Indicator Dots
+        let dots_clicked =
+            Self::draw_pagination_dots(layout.variant_dots_bounds, variants.len(), cur_idx, scale);
+        if let Some(target_idx) = dots_clicked {
+            if target_idx != cur_idx {
+                state.switch_variant(variants[target_idx]);
                 sound_trigger = Some(SoundTrigger::ButtonClick);
             }
         }
@@ -1180,5 +1249,50 @@ impl Screens {
         );
 
         clicked
+    }
+
+    fn draw_pagination_dots(
+        bounds: Rect,
+        count: usize,
+        active_idx: usize,
+        scale: f32,
+    ) -> Option<usize> {
+        let mouse_pos = Vec2::from(mouse_position());
+        let clicked = is_mouse_button_released(MouseButton::Left);
+        let mut clicked_idx = None;
+
+        let dot_spacing = (16.0 * scale).min(bounds.w / (count as f32).max(1.0));
+        let total_w = (count as f32 - 1.0) * dot_spacing;
+        let start_x = bounds.x + (bounds.w - total_w) / 2.0;
+        let center_y = bounds.y + bounds.h / 2.0;
+
+        for i in 0..count {
+            let cx = start_x + i as f32 * dot_spacing;
+            let is_active = i == active_idx;
+            let radius = if is_active { 3.5 * scale } else { 2.2 * scale };
+            let color = if is_active {
+                Color::from_rgba(255, 224, 130, 255)
+            } else {
+                Color::from_rgba(144, 164, 174, 140)
+            };
+
+            let hit_rect = Rect::new(cx - dot_spacing / 2.0, bounds.y, dot_spacing, bounds.h);
+            if clicked && hit_rect.contains(mouse_pos) {
+                clicked_idx = Some(i);
+            }
+
+            draw_circle(cx, center_y, radius, color);
+            if is_active {
+                draw_circle_lines(
+                    cx,
+                    center_y,
+                    radius + 1.5 * scale,
+                    1.0 * scale,
+                    Color::from_rgba(255, 224, 130, 100),
+                );
+            }
+        }
+
+        clicked_idx
     }
 }

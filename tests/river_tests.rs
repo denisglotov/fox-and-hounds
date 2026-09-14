@@ -152,4 +152,17 @@ fn test_variant_river_paths_and_occlusion() {
         0.0,
         "Open fault chasm must have zero occlusion"
     );
+
+    // Fox and Dogs Maze
+    let maze_path = RiverPath::for_variant(BoardVariant::FoxAndDogsMaze);
+    assert!(maze_path.total_length > 900.0 && maze_path.total_length < 1300.0);
+    assert!(
+        maze_path.bridge_occlusion(Vec2::new(508.0, 410.0)) > 0.8,
+        "Maze bridge deck must have high occlusion"
+    );
+    assert_eq!(
+        maze_path.bridge_occlusion(Vec2::new(200.0, 400.0)),
+        0.0,
+        "Maze open water must have zero occlusion"
+    );
 }

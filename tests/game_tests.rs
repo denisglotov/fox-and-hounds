@@ -1,8 +1,8 @@
 use fox_and_hounds::game::ai::find_best_move;
 use fox_and_hounds::game::graph::NodeType;
 use fox_and_hounds::game::level::{
-    build_classic_graph, build_fox_and_dogs_graph, build_river_crossing_graph, BoardVariant,
-    FOX_AND_DOGS_CONFIG,
+    build_classic_graph, build_fox_and_dogs_graph, build_fox_and_dogs_maze_graph,
+    build_river_crossing_graph, BoardVariant, FOX_AND_DOGS_CONFIG,
 };
 use fox_and_hounds::game::state::{
     Difficulty, Faction, GamePhase, GameResult, GameState, MoveError, PieceMove,
@@ -42,6 +42,20 @@ fn test_graph_structures() {
     let c2 = arthur_g.find_id_by_name("C2").unwrap();
     assert_eq!(arthur_g.node(c8).unwrap().node_type, NodeType::FoxStart);
     assert_eq!(arthur_g.node(c2).unwrap().node_type, NodeType::Bottleneck);
+
+    // 4. Fox and Dogs Maze
+    let maze_g = build_fox_and_dogs_maze_graph();
+    assert_eq!(maze_g.node_count(), 19);
+    let m_c8 = maze_g.find_id_by_name("C8").unwrap();
+    let m_c2 = maze_g.find_id_by_name("C2").unwrap();
+    let m_c3 = maze_g.find_id_by_name("C3").unwrap();
+    let m_r4 = maze_g.find_id_by_name("R4").unwrap();
+    let m_r5 = maze_g.find_id_by_name("R5").unwrap();
+    assert_eq!(maze_g.node(m_c8).unwrap().node_type, NodeType::FoxStart);
+    assert_eq!(maze_g.node(m_c2).unwrap().node_type, NodeType::Bottleneck);
+    assert_eq!(maze_g.node(m_c3).unwrap().node_type, NodeType::Bottleneck);
+    // Maze characteristic: R4 does not connect directly to R5
+    assert!(!maze_g.neighbors(m_r4).contains(&m_r5));
 }
 
 #[test]
@@ -632,5 +646,46 @@ fn test_the_red_hunt_gameplay_and_ai() {
     assert!(
         best_move.is_some(),
         "Fox AI should find an opening move in TheRedHunt"
+    );
+}
+
+#[test]
+fn test_fox_and_dogs_maze_gameplay_and_ai() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::FoxAndDogsMaze);
+    state.start_game(Faction::Fox, Difficulty::Hard);
+
+    assert_eq!(state.variant, BoardVariant::FoxAndDogsMaze);
+    assert_eq!(state.phase, GamePhase::Playing);
+    // Dogs start first
+    assert_eq!(state.current_turn, Faction::Hounds);
+    assert_eq!(state.result, GameResult::Ongoing);
+
+    let hounds_start = state.variant.config().hounds_start_nodes;
+    assert_eq!(hounds_start, &["R7", "C7", "L7"]);
+    assert_eq!(state.variant.config().fox_start_node, "C8");
+    assert_eq!(state.variant.config().target_coop_node, "C8");
+
+    // Hound moves first
+    let hound_move = find_best_move(&state);
+    assert!(
+        hound_move.is_some(),
+        "Hounds AI should find an opening move in FoxAndDogsMaze"
+    );
+    match hound_move.unwrap() {
+        PieceMove::HoundMove { hound_idx, to, .. } => {
+            assert!(state.apply_hound_move(hound_idx, to).is_ok());
+        }
+        PieceMove::FoxMove { to, .. } => {
+            assert!(state.apply_fox_move(to).is_ok());
+        }
+    }
+    assert_eq!(state.current_turn, Faction::Fox);
+
+    // Fox should now have legal moves from C8
+    let fox_moves = state.fox_legal_moves();
+    assert!(
+        !fox_moves.is_empty(),
+        "Fox should have valid moves after dogs opening"
     );
 }

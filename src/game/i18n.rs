@@ -13,6 +13,8 @@ pub struct TitleScreenStrings {
     pub variant_river_crossing_sub: String,
     pub variant_fox_and_dogs: String,
     pub variant_fox_and_dogs_sub: String,
+    pub variant_fox_and_dogs_maze: String,
+    pub variant_fox_and_dogs_maze_sub: String,
     pub variant_the_red_hunt: String,
     pub variant_the_red_hunt_sub: String,
     pub choose_faction: String,
@@ -41,6 +43,7 @@ impl TitleScreenStrings {
             crate::game::level::BoardVariant::Classic => &self.variant_classic,
             crate::game::level::BoardVariant::RiverCrossing => &self.variant_river_crossing,
             crate::game::level::BoardVariant::FoxAndDogs => &self.variant_fox_and_dogs,
+            crate::game::level::BoardVariant::FoxAndDogsMaze => &self.variant_fox_and_dogs_maze,
             crate::game::level::BoardVariant::TheRedHunt => &self.variant_the_red_hunt,
         }
     }
@@ -50,6 +53,7 @@ impl TitleScreenStrings {
             crate::game::level::BoardVariant::Classic => &self.variant_classic_sub,
             crate::game::level::BoardVariant::RiverCrossing => &self.variant_river_crossing_sub,
             crate::game::level::BoardVariant::FoxAndDogs => &self.variant_fox_and_dogs_sub,
+            crate::game::level::BoardVariant::FoxAndDogsMaze => &self.variant_fox_and_dogs_maze_sub,
             crate::game::level::BoardVariant::TheRedHunt => &self.variant_the_red_hunt_sub,
         }
     }

@@ -63,9 +63,36 @@ fn test_title_screen_landscape_fit() {
             layout.card_bounds,
             "start_btn_bounds",
         );
-        for (idx, &vb) in layout.variant_btn_bounds.iter().enumerate() {
-            assert_rect_inside(vb, layout.card_bounds, &format!("variant_btn_{}", idx));
-        }
+        assert_rect_inside(
+            layout.variant_prev_bounds,
+            layout.card_bounds,
+            "variant_prev_bounds",
+        );
+        assert_rect_inside(
+            layout.variant_card_bounds,
+            layout.card_bounds,
+            "variant_card_bounds",
+        );
+        assert_rect_inside(
+            layout.variant_next_bounds,
+            layout.card_bounds,
+            "variant_next_bounds",
+        );
+        assert_rect_inside(
+            layout.variant_dots_bounds,
+            layout.card_bounds,
+            "variant_dots_bounds",
+        );
+        assert!(
+            layout.variant_prev_bounds.x + layout.variant_prev_bounds.w
+                <= layout.variant_card_bounds.x + 0.1,
+            "Variant prev button must not overlap card horizontally"
+        );
+        assert!(
+            layout.variant_card_bounds.x + layout.variant_card_bounds.w
+                <= layout.variant_next_bounds.x + 0.1,
+            "Variant card must not overlap next button horizontally"
+        );
         assert_rect_inside(layout.fox_btn_bounds, layout.card_bounds, "fox_btn_bounds");
         assert_rect_inside(
             layout.hounds_btn_bounds,
@@ -113,19 +140,40 @@ fn test_title_screen_portrait_fit() {
             layout.card_bounds,
             "start_btn_bounds",
         );
-        for (idx, &vb) in layout.variant_btn_bounds.iter().enumerate() {
-            assert_rect_inside(vb, layout.card_bounds, &format!("variant_btn_{}", idx));
-        }
-        assert!(
-            layout.variant_btn_bounds[0].x + layout.variant_btn_bounds[0].w
-                <= layout.variant_btn_bounds[1].x + 0.1,
-            "Variant buttons must not overlap horizontally"
+        assert_rect_inside(
+            layout.variant_prev_bounds,
+            layout.card_bounds,
+            "variant_prev_bounds",
+        );
+        assert_rect_inside(
+            layout.variant_card_bounds,
+            layout.card_bounds,
+            "variant_card_bounds",
+        );
+        assert_rect_inside(
+            layout.variant_next_bounds,
+            layout.card_bounds,
+            "variant_next_bounds",
+        );
+        assert_rect_inside(
+            layout.variant_dots_bounds,
+            layout.card_bounds,
+            "variant_dots_bounds",
         );
         assert!(
-            layout.variant_btn_bounds.last().unwrap().y
-                + layout.variant_btn_bounds.last().unwrap().h
+            layout.variant_prev_bounds.x + layout.variant_prev_bounds.w
+                <= layout.variant_card_bounds.x + 0.1,
+            "Variant prev button must not overlap card horizontally"
+        );
+        assert!(
+            layout.variant_card_bounds.x + layout.variant_card_bounds.w
+                <= layout.variant_next_bounds.x + 0.1,
+            "Variant card must not overlap next button horizontally"
+        );
+        assert!(
+            layout.variant_dots_bounds.y + layout.variant_dots_bounds.h
                 <= layout.fox_btn_bounds.y + 0.1,
-            "Variant buttons must precede Faction buttons vertically"
+            "Variant carousel must precede Faction buttons vertically"
         );
         assert_rect_inside(layout.fox_btn_bounds, layout.card_bounds, "fox_btn_bounds");
         assert_rect_inside(
