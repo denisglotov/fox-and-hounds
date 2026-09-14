@@ -316,19 +316,25 @@ pub fn minimax(
         return WIN_SCORE + (depth as i32 * 100);
     }
 
-    if is_fox_turn {
-        let mut fox_moves: Vec<u8> = board.fox_legal_moves(graph).collect();
-        if fox_moves.is_empty() {
-            return -WIN_SCORE - (depth as i32 * 100);
-        }
+    if depth == 0 {
+        return evaluate_board(board, graph);
+    }
 
-        if depth == 0 {
-            return evaluate_board(board, graph);
+    if is_fox_turn {
+        let mut fox_moves = [0u8; 32];
+        let mut count = 0;
+        for to in board.fox_legal_moves(graph) {
+            fox_moves[count] = to;
+            count += 1;
+        }
+        if count == 0 {
+            return -WIN_SCORE - (depth as i32 * 100);
         }
 
         // Move ordering: evaluate immediate winning moves and moves closer to coop first
         let coop = board.coop_pos;
-        fox_moves.sort_unstable_by_key(|&to| {
+        let moves = &mut fox_moves[..count];
+        moves.sort_unstable_by_key(|&to| {
             if to == coop {
                 0
             } else {
@@ -337,7 +343,7 @@ pub fn minimax(
         });
 
         let mut max_eval = -INF;
-        for to in fox_moves {
+        for &to in moves.iter() {
             let next_board = board.apply_fox_move(to);
             let eval = minimax(&next_board, graph, depth - 1, alpha, beta, false);
             max_eval = max_eval.max(eval);
@@ -348,24 +354,26 @@ pub fn minimax(
         }
         max_eval
     } else {
-        let mut hound_moves: Vec<(u8, u8)> = board.all_hound_moves(graph).collect();
-        if hound_moves.is_empty() {
+        let mut hound_moves = [(0u8, 0u8); 32];
+        let mut count = 0;
+        for m in board.all_hound_moves(graph) {
+            hound_moves[count] = m;
+            count += 1;
+        }
+        if count == 0 {
             // Hounds have no moves on their turn: Fox wins immediately
             return WIN_SCORE + (depth as i32 * 100);
         }
 
-        if depth == 0 {
-            return evaluate_board(board, graph);
-        }
-
         // Move ordering for Hounds: evaluate moves that close distance to Fox first
         let fox_pos = board.fox_pos;
-        hound_moves.sort_unstable_by_key(|&(_, to)| {
+        let moves = &mut hound_moves[..count];
+        moves.sort_unstable_by_key(|&(_, to)| {
             graph.distance(to, fox_pos).unwrap_or(UNREACHABLE_DIST)
         });
 
         let mut min_eval = INF;
-        for (hound_idx, to) in hound_moves {
+        for &(hound_idx, to) in moves.iter() {
             let next_board = board.apply_hound_move(hound_idx, to);
             let eval = minimax(&next_board, graph, depth - 1, alpha, beta, true);
             min_eval = min_eval.min(eval);

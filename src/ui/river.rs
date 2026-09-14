@@ -540,16 +540,18 @@ impl RiverSimulation {
         let step = 16.0;
         let num_steps = (self.path.total_length / step).ceil() as usize;
 
+        let (mut p0, _, _, mut w0) = self.path.sample_at(0.0, 0.0);
         for i in 0..num_steps {
             let d0 = (i as f32 * step).min(self.path.total_length);
             let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
+            let (p1, _, _, w1) = self.path.sample_at(d1, 0.0);
             if (d1 - d0) < 1.0 {
+                p0 = p1;
+                w0 = w1;
                 continue;
             }
 
             let mid_d = (d0 + d1) * 0.5;
-            let (p0, _, _, w0) = self.path.sample_at(d0, 0.0);
-            let (p1, _, _, w1) = self.path.sample_at(d1, 0.0);
 
             let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
             // Throbbing volcanic pulse
@@ -573,6 +575,8 @@ impl RiverSimulation {
                     glow_color,
                 );
             }
+            p0 = p1;
+            w0 = w1;
         }
     }
 
@@ -584,16 +588,17 @@ impl RiverSimulation {
         for &v in &STREAMLINE_CHANNELS {
             let bank_fade = (1.0 - v * v).powf(1.4);
 
+            let (mut p0, _, _, _) = self.path.sample_at(0.0, v);
             for i in 0..num_steps {
                 let d0 = (i as f32 * step).min(self.path.total_length);
                 let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
+                let (p1, _, _, _) = self.path.sample_at(d1, v);
                 if (d1 - d0) < 1.0 {
+                    p0 = p1;
                     continue;
                 }
 
                 let mid_d = (d0 + d1) * 0.5;
-                let (p0, _, _, _) = self.path.sample_at(d0, v);
-                let (p1, _, _, _) = self.path.sample_at(d1, v);
 
                 let flow_speed = 2.8 + (1.0 - v.abs()) * 0.9;
                 let w1 = (mid_d * 0.055 - t * flow_speed + v * 2.1).sin();
@@ -642,6 +647,7 @@ impl RiverSimulation {
                         }
                     }
                 }
+                p0 = p1;
             }
         }
     }
@@ -705,16 +711,18 @@ impl RiverSimulation {
         let step = 20.0;
         let num_steps = (self.path.total_length / step).ceil() as usize;
 
+        let (mut p0, _, _, mut w0) = self.path.sample_at(0.0, 0.0);
         for i in 0..num_steps {
             let d0 = (i as f32 * step).min(self.path.total_length);
             let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
+            let (p1, _, _, w1) = self.path.sample_at(d1, 0.0);
             if (d1 - d0) < 1.0 {
+                p0 = p1;
+                w0 = w1;
                 continue;
             }
 
             let mid_d = (d0 + d1) * 0.5;
-            let (p0, _, _, w0) = self.path.sample_at(d0, 0.0);
-            let (p1, _, _, w1) = self.path.sample_at(d1, 0.0);
 
             let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
             let breathe = ((mid_d * 0.03 - t * 1.5).sin() * 0.5 + 0.5) * 0.3 + 0.7;
@@ -736,6 +744,8 @@ impl RiverSimulation {
                     glow_color,
                 );
             }
+            p0 = p1;
+            w0 = w1;
         }
     }
 
@@ -747,16 +757,17 @@ impl RiverSimulation {
         for &v in &STREAMLINE_CHANNELS {
             let bank_fade = (1.0 - v * v).powf(1.4); // Smooth bank falloff
 
+            let (mut p0, _, _, _) = self.path.sample_at(0.0, v);
             for i in 0..num_steps {
                 let d0 = (i as f32 * step).min(self.path.total_length);
                 let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
+                let (p1, _, _, _) = self.path.sample_at(d1, v);
                 if (d1 - d0) < 1.0 {
+                    p0 = p1;
                     continue;
                 }
 
                 let mid_d = (d0 + d1) * 0.5;
-                let (p0, _, _, _) = self.path.sample_at(d0, v);
-                let (p1, _, _, _) = self.path.sample_at(d1, v);
 
                 // Multi-frequency wave traveling downstream
                 // Velocity is slightly faster in center (v=0)
@@ -780,7 +791,7 @@ impl RiverSimulation {
                             128,
                             222,
                             234,
-                            (alpha * 135.0).clamp(0.0, 255.0) as u8,
+                            (alpha * 155.0).clamp(0.0, 255.0) as u8,
                         );
                         draw_line(
                             screen_p0.x,
@@ -812,6 +823,7 @@ impl RiverSimulation {
                         }
                     }
                 }
+                p0 = p1;
             }
         }
     }
@@ -824,16 +836,17 @@ impl RiverSimulation {
         for &v in &CAUSTIC_LANES {
             let bank_fade = (1.0 - v * v).max(0.1);
 
+            let (mut p0, _, _, _) = self.path.sample_at(0.0, v);
             for i in 0..num_steps {
                 let d0 = (i as f32 * step).min(self.path.total_length);
                 let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
+                let (p1, _, _, _) = self.path.sample_at(d1, v);
                 if (d1 - d0) < 1.0 {
+                    p0 = p1;
                     continue;
                 }
 
                 let mid_d = (d0 + d1) * 0.5;
-                let (p0, _, _, _) = self.path.sample_at(d0, v);
-                let (p1, _, _, _) = self.path.sample_at(d1, v);
 
                 // Procedural cellular caustic function
                 let c1 = (mid_d * 0.065 - t * 2.2 + v * 3.5).sin();
@@ -899,6 +912,7 @@ impl RiverSimulation {
                         }
                     }
                 }
+                p0 = p1;
             }
         }
     }
