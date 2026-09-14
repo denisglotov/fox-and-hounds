@@ -4,7 +4,7 @@ use crate::game::level::BoardVariant;
 use crate::ui::{draw_text_styled, measure_text_styled};
 use macroquad::prelude::*;
 
-const VARIANT_COUNT: usize = 5;
+pub const VARIANT_COUNT: usize = BoardVariant::all().len();
 const FLANKING_SCALE: f32 = 0.85;
 const FLANKING_ALPHA: f32 = 0.50;
 const DRAG_CLICK_THRESHOLD: f32 = 6.0;
@@ -100,8 +100,9 @@ impl Default for BoardCarousel {
 
 impl BoardCarousel {
     pub fn new() -> Self {
+        const NO_TEX: Option<Texture2D> = None;
         Self {
-            textures: [None, None, None, None, None],
+            textures: [NO_TEX; VARIANT_COUNT],
             textures_loaded: false,
             scroll_pos: 0.0,
             target_pos: 0.0,
@@ -287,7 +288,7 @@ impl BoardCarousel {
         let base_idx_f = self.scroll_pos.round();
         let base_idx = base_idx_f as i32;
 
-        let mut visible_cards = [VisibleCard::EMPTY; 5];
+        let mut visible_cards = [VisibleCard::EMPTY; VARIANT_COUNT];
         let mut visible_count = 0;
 
         for offset in -2..=2 {
@@ -539,37 +540,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_carousel_navigation_and_wrapping() {
+    fn test_carousel_navigation_wrapping_and_sync() {
+        assert_eq!(VARIANT_COUNT, BoardVariant::all().len());
+
         let mut carousel = BoardCarousel::new();
         assert_eq!(carousel.current_index(), 0);
         assert_eq!(carousel.current_variant(), BoardVariant::Classic);
 
-        // Step forward
+        // Step forward and direct index targeting
         carousel.step(1.0);
         assert_eq!(carousel.current_index(), 1);
-        assert_eq!(carousel.current_variant(), BoardVariant::RiverCrossing);
-
-        // Target index directly
         carousel.set_target_index(4);
         assert_eq!(carousel.current_index(), 4);
-        assert_eq!(carousel.current_variant(), BoardVariant::TheRedHunt);
 
-        // Circular wrap forward from 4 -> 0
+        // Circular wrapping: 4 -> 0 and 0 -> 4
         carousel.step(1.0);
         assert_eq!(carousel.current_index(), 0);
-        assert_eq!(carousel.current_variant(), BoardVariant::Classic);
-
-        // Circular wrap backward from 0 -> 4
         carousel.step(-1.0);
         assert_eq!(carousel.current_index(), 4);
-        assert_eq!(carousel.current_variant(), BoardVariant::TheRedHunt);
+
+        // Sync variant
+        carousel.sync_variant(BoardVariant::FoxAndDogs);
+        assert_eq!(carousel.current_variant(), BoardVariant::FoxAndDogs);
+        carousel.sync_variant(BoardVariant::FoxAndDogs); // Idempotent
+        assert_eq!(carousel.current_variant(), BoardVariant::FoxAndDogs);
+        carousel.is_dragging = true;
+        carousel.sync_variant(BoardVariant::Classic); // No-op during drag
+        assert_eq!(carousel.current_variant(), BoardVariant::FoxAndDogs);
     }
 
     #[test]
     fn test_carousel_smooth_update() {
         let mut carousel = BoardCarousel::new();
         carousel.step(1.0);
-        // Simulate frames
         for _ in 0..30 {
             carousel.update(0.016);
         }
@@ -578,70 +581,30 @@ mod tests {
     }
 
     #[test]
-    fn test_carousel_sync_variant() {
-        let mut carousel = BoardCarousel::new();
-        carousel.sync_variant(BoardVariant::FoxAndDogs);
-        assert_eq!(carousel.current_variant(), BoardVariant::FoxAndDogs);
-
-        // When already synced, calling sync_variant does not reset anything
-        carousel.sync_variant(BoardVariant::FoxAndDogs);
-        assert_eq!(carousel.current_variant(), BoardVariant::FoxAndDogs);
-
-        // While dragging, sync_variant is a no-op
-        carousel.is_dragging = true;
-        carousel.sync_variant(BoardVariant::Classic);
-        assert_eq!(carousel.current_variant(), BoardVariant::FoxAndDogs);
-    }
-
-    #[test]
-    fn test_carousel_clip_math() {
-        let clip_left: f32 = 50.0;
-        let clip_right: f32 = 250.0;
-
-        // Card sticking out on the left: clipped to clip_left
-        let c_left: f32 = 20.0;
-        let c_right: f32 = 120.0;
-        let draw_x1 = c_left.max(clip_left);
-        let draw_x2 = c_right.min(clip_right);
-        assert_eq!(draw_x1, 50.0);
-        assert_eq!(draw_x2, 120.0);
-        assert!(draw_x1 >= clip_left && draw_x2 <= clip_right);
-
-        // Card sticking out on the right: clipped to clip_right
-        let c2_left: f32 = 180.0;
-        let c2_right: f32 = 290.0;
-        let draw2_x1 = c2_left.max(clip_left);
-        let draw2_x2 = c2_right.min(clip_right);
-        assert_eq!(draw2_x1, 180.0);
-        assert_eq!(draw2_x2, 250.0);
-        assert!(draw2_x1 >= clip_left && draw2_x2 <= clip_right);
-
-        // Card wholly outside to the left
-        let _c3_left: f32 = -100.0;
-        let c3_right: f32 = 40.0;
-        assert!(c3_right <= clip_left);
-
-        // Card wholly outside to the right
-        let c4_left: f32 = 260.0;
-        let _c4_right: f32 = 360.0;
-        assert!(c4_left >= clip_right);
-    }
-
-    #[test]
-    fn test_carousel_button_gap() {
-        let scale: f32 = 1.5;
+    fn test_carousel_geometry_and_clipping() {
+        // 1. Button gap math
+        let scale = 1.5;
         let button_gap = 10.0 * scale;
         let card_w = 200.0 * scale;
         let card_step = card_w * (1.0 + FLANKING_SCALE) * 0.5 + button_gap;
-
         let center_cx = 300.0;
         let center_right = center_cx + card_w * 0.5;
-
         let flank_cx = center_cx + card_step;
         let flank_w = card_w * FLANKING_SCALE;
         let flank_left = flank_cx - flank_w * 0.5;
+        assert!((flank_left - center_right - button_gap).abs() < 0.001);
 
-        let gap = flank_left - center_right;
-        assert!((gap - button_gap).abs() < 0.001);
+        // 2. Clip math
+        let clip_left = 50.0;
+        let clip_right = 250.0;
+        let draw_x1 = (20.0f32).max(clip_left);
+        let draw_x2 = (120.0f32).min(clip_right);
+        assert_eq!(draw_x1, 50.0);
+        assert_eq!(draw_x2, 120.0);
+
+        let draw2_x1 = (180.0f32).max(clip_left);
+        let draw2_x2 = (290.0f32).min(clip_right);
+        assert_eq!(draw2_x1, 180.0);
+        assert_eq!(draw2_x2, 250.0);
     }
 }

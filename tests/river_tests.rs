@@ -1,10 +1,6 @@
-use fox_and_hounds::game::level::{
-    BoardVariant, BOARD_IMAGE_HEIGHT, BOARD_IMAGE_WIDTH, CLASSIC_DIMENSIONS,
-};
-use fox_and_hounds::ui::board_view::{BOARD_LEFT_WIDTH, BOARD_RIGHT_WIDTH};
+use fox_and_hounds::game::level::BoardVariant;
 use fox_and_hounds::ui::river::RiverPath;
 use macroquad::prelude::Vec2;
-
 use std::ops::RangeInclusive;
 
 fn assert_river_path_continuity(
@@ -63,106 +59,137 @@ fn assert_river_path_continuity(
 }
 
 #[test]
-fn test_river_path_continuity_and_board_bounds() {
-    let path = RiverPath::new();
-    assert!(
-        path.total_length > 1300.0 && path.total_length < 1800.0,
-        "River total length {} is out of expected span",
-        path.total_length
-    );
+fn test_all_variant_river_paths_continuity_and_bounds() {
+    struct VariantPathExpectation {
+        variant: BoardVariant,
+        length_range: RangeInclusive<f32>,
+        x_bounds: RangeInclusive<f32>,
+        y_bounds: RangeInclusive<f32>,
+        width_bounds: RangeInclusive<f32>,
+    }
 
-    assert_river_path_continuity(
-        &path,
-        100,
-        (-BOARD_LEFT_WIDTH - 50.0)..=(BOARD_IMAGE_WIDTH + BOARD_RIGHT_WIDTH + 50.0),
-        500.0..=BOARD_IMAGE_HEIGHT,
-        18.0..=35.0,
-    );
+    let expectations = [
+        VariantPathExpectation {
+            variant: BoardVariant::RiverCrossing,
+            length_range: 1300.0..=1800.0,
+            x_bounds: -434.0..=1074.0,
+            y_bounds: 500.0..=1376.0,
+            width_bounds: 18.0..=35.0,
+        },
+        VariantPathExpectation {
+            variant: BoardVariant::Classic,
+            length_range: 1300.0..=1600.0,
+            x_bounds: -30.0..=1054.0,
+            y_bounds: -30.0..=1054.0,
+            width_bounds: 12.0..=26.0,
+        },
+        VariantPathExpectation {
+            variant: BoardVariant::FoxAndDogs,
+            length_range: 900.0..=1300.0,
+            x_bounds: -50.0..=1074.0,
+            y_bounds: 300.0..=600.0,
+            width_bounds: 30.0..=50.0,
+        },
+        VariantPathExpectation {
+            variant: BoardVariant::FoxAndDogsMaze,
+            length_range: 900.0..=1300.0,
+            x_bounds: -50.0..=1074.0,
+            y_bounds: 300.0..=600.0,
+            width_bounds: 20.0..=35.0,
+        },
+        VariantPathExpectation {
+            variant: BoardVariant::TheRedHunt,
+            length_range: 900.0..=1400.0,
+            x_bounds: -50.0..=1074.0,
+            y_bounds: 550.0..=750.0,
+            width_bounds: 25.0..=38.0,
+        },
+    ];
+
+    for exp in expectations {
+        let path = RiverPath::for_variant(exp.variant);
+        assert!(
+            exp.length_range.contains(&path.total_length),
+            "{:?} river length {} not in {:?}",
+            exp.variant,
+            path.total_length,
+            exp.length_range
+        );
+        assert_river_path_continuity(&path, 80, exp.x_bounds, exp.y_bounds, exp.width_bounds);
+    }
 }
 
 #[test]
-fn test_classic_river_path_continuity_and_bounds() {
-    let path = RiverPath::classic();
-    assert_eq!(path.variant, BoardVariant::Classic);
-    assert!(
-        path.total_length > 1300.0 && path.total_length < 1600.0,
-        "Classic river total length {} is out of expected span",
-        path.total_length
-    );
+fn test_bridge_occlusion_across_variants() {
+    let cases = [
+        // River crossing rail bridge, wooden bridge, open water
+        (
+            BoardVariant::RiverCrossing,
+            Vec2::new(45.0, 848.0),
+            0.5,
+            true,
+        ),
+        (
+            BoardVariant::RiverCrossing,
+            Vec2::new(384.0, 755.0),
+            0.5,
+            true,
+        ),
+        (
+            BoardVariant::RiverCrossing,
+            Vec2::new(220.0, 780.0),
+            0.0,
+            false,
+        ),
+        // Fox and Dogs bridge deck & open water
+        (BoardVariant::FoxAndDogs, Vec2::new(508.0, 410.0), 0.8, true),
+        (
+            BoardVariant::FoxAndDogs,
+            Vec2::new(200.0, 400.0),
+            0.0,
+            false,
+        ),
+        // The Red Hunt Perekop bridge & open chasm
+        (BoardVariant::TheRedHunt, Vec2::new(512.0, 655.0), 0.8, true),
+        (
+            BoardVariant::TheRedHunt,
+            Vec2::new(200.0, 650.0),
+            0.0,
+            false,
+        ),
+        // Fox and Dogs Maze bridge deck & open water
+        (
+            BoardVariant::FoxAndDogsMaze,
+            Vec2::new(508.0, 410.0),
+            0.8,
+            true,
+        ),
+        (
+            BoardVariant::FoxAndDogsMaze,
+            Vec2::new(200.0, 400.0),
+            0.0,
+            false,
+        ),
+    ];
 
-    assert_river_path_continuity(
-        &path,
-        120,
-        -30.0..=(CLASSIC_DIMENSIONS.image_width + 30.0),
-        -30.0..=(CLASSIC_DIMENSIONS.image_height + 30.0),
-        12.0..=26.0,
-    );
-}
-
-#[test]
-fn test_bridge_occlusion_detection() {
-    let path = RiverPath::new();
-
-    // Railway bridge center
-    let rail_occlusion = path.bridge_occlusion(Vec2::new(45.0, 848.0));
-    assert!(
-        rail_occlusion > 0.5,
-        "Railway bridge center should have high occlusion"
-    );
-
-    // M6 wooden bridge center
-    let wood_occlusion = path.bridge_occlusion(Vec2::new(384.0, 755.0));
-    assert!(
-        wood_occlusion > 0.5,
-        "M6 wooden bridge center should have high occlusion"
-    );
-
-    // Open water
-    assert_eq!(
-        path.bridge_occlusion(Vec2::new(220.0, 780.0)),
-        0.0,
-        "Open water between bridges should have zero occlusion"
-    );
-}
-
-#[test]
-fn test_variant_river_paths_and_occlusion() {
-    // Fox and Dogs (Arthur)
-    let arthur_path = RiverPath::for_variant(BoardVariant::FoxAndDogs);
-    assert!(arthur_path.total_length > 900.0 && arthur_path.total_length < 1300.0);
-    assert!(
-        arthur_path.bridge_occlusion(Vec2::new(508.0, 410.0)) > 0.8,
-        "Arthur bridge deck must have high occlusion"
-    );
-    assert_eq!(
-        arthur_path.bridge_occlusion(Vec2::new(200.0, 400.0)),
-        0.0,
-        "Arthur open water must have zero occlusion"
-    );
-
-    // The Red Hunt
-    let red_path = RiverPath::for_variant(BoardVariant::TheRedHunt);
-    assert!(red_path.total_length > 900.0 && red_path.total_length < 1400.0);
-    assert!(
-        red_path.bridge_occlusion(Vec2::new(512.0, 655.0)) > 0.8,
-        "Perekop bridge deck must have high occlusion"
-    );
-    assert_eq!(
-        red_path.bridge_occlusion(Vec2::new(200.0, 650.0)),
-        0.0,
-        "Open fault chasm must have zero occlusion"
-    );
-
-    // Fox and Dogs Maze
-    let maze_path = RiverPath::for_variant(BoardVariant::FoxAndDogsMaze);
-    assert!(maze_path.total_length > 900.0 && maze_path.total_length < 1300.0);
-    assert!(
-        maze_path.bridge_occlusion(Vec2::new(508.0, 410.0)) > 0.8,
-        "Maze bridge deck must have high occlusion"
-    );
-    assert_eq!(
-        maze_path.bridge_occlusion(Vec2::new(200.0, 400.0)),
-        0.0,
-        "Maze open water must have zero occlusion"
-    );
+    for (variant, pos, threshold, is_occluded) in cases {
+        let path = RiverPath::for_variant(variant);
+        let occlusion = path.bridge_occlusion(pos);
+        if is_occluded {
+            assert!(
+                occlusion > threshold,
+                "{:?} bridge deck at {:?} should have occlusion > {}, got {}",
+                variant,
+                pos,
+                threshold,
+                occlusion
+            );
+        } else {
+            assert_eq!(
+                occlusion, 0.0,
+                "{:?} open area at {:?} should have zero occlusion, got {}",
+                variant, pos, occlusion
+            );
+        }
+    }
 }

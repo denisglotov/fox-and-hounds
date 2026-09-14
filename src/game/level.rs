@@ -248,10 +248,6 @@ impl BoardVariant {
         ]
     }
 
-    pub const fn is_arthur(self) -> bool {
-        matches!(self, BoardVariant::FoxAndDogs)
-    }
-
     pub const fn is_red_hunt(self) -> bool {
         matches!(self, BoardVariant::TheRedHunt)
     }

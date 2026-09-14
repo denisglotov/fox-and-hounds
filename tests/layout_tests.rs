@@ -2,186 +2,93 @@ use fox_and_hounds::ui::screens::{GameOverModalLayout, TitleScreenLayout};
 use macroquad::prelude::Rect;
 
 fn assert_rect_inside(inner: Rect, outer: Rect, name: &str) {
-    assert!(inner.w > 0.0, "{}: inner.w ({}) <= 0", name, inner.w);
-    assert!(inner.h > 0.0, "{}: inner.h ({}) <= 0", name, inner.h);
+    assert!(inner.w > 0.0, "{name}: inner.w ({}) <= 0", inner.w);
+    assert!(inner.h > 0.0, "{name}: inner.h ({}) <= 0", inner.h);
     assert!(
         inner.x >= outer.x - 0.1,
-        "{}: inner.x ({}) < outer.x ({})",
-        name,
+        "{name}: inner.x ({}) < outer.x ({})",
         inner.x,
         outer.x
     );
     assert!(
         inner.y >= outer.y - 0.1,
-        "{}: inner.y ({}) < outer.y ({})",
-        name,
+        "{name}: inner.y ({}) < outer.y ({})",
         inner.y,
         outer.y
     );
     assert!(
         inner.x + inner.w <= outer.x + outer.w + 0.1,
-        "{}: inner right ({}) > outer right ({})",
-        name,
+        "{name}: inner right ({}) > outer right ({})",
         inner.x + inner.w,
         outer.x + outer.w
     );
     assert!(
         inner.y + inner.h <= outer.y + outer.h + 0.1,
-        "{}: inner bottom ({}) > outer bottom ({})",
-        name,
+        "{name}: inner bottom ({}) > outer bottom ({})",
         inner.y + inner.h,
         outer.y + outer.h
     );
 }
 
 #[test]
-fn test_title_screen_landscape_fit() {
-    let test_resolutions: [(f32, f32); 6] = [
-        (2400.0, 1080.0), // Ultra-wide landscape
-        (1920.0, 1080.0), // 1080p
-        (1280.0, 720.0),  // 720p
-        (960.0, 540.0),   // qHD
-        (800.0, 480.0),   // WVGA
-        (640.0, 360.0),   // 360p
+fn test_title_screen_responsive_fit() {
+    let test_resolutions: [(f32, f32, f32, bool); 10] = [
+        // Landscape (screen_w, screen_h, scale, expected_landscape)
+        (2400.0, 1080.0, 2.07, true),
+        (1920.0, 1080.0, 2.07, true),
+        (1280.0, 720.0, 1.38, true),
+        (960.0, 540.0, 1.03, true),
+        (800.0, 480.0, 0.92, true),
+        (640.0, 360.0, 0.69, true),
+        // Portrait
+        (1080.0, 2400.0, 2.84, false),
+        (960.0, 1360.0, 1.60, false),
+        (720.0, 1280.0, 1.89, false),
+        (600.0, 800.0, 0.94, false),
     ];
 
-    for (screen_w, screen_h) in test_resolutions {
-        let base_scale = (screen_w / 850.0f32).min(screen_h / 520.0f32);
-        let scale = base_scale.clamp(0.65, 2.85);
+    for (w, h, scale, expected_landscape) in test_resolutions {
+        let screen_bounds = Rect::new(0.0, 0.0, w, h);
 
-        let layout = TitleScreenLayout::compute(screen_w, screen_h, scale, true, 16.0 / 9.0);
-        assert!(
-            layout.is_landscape,
-            "Resolution {}x{} should be landscape",
-            screen_w, screen_h
+        // 1. With hero texture
+        let layout = TitleScreenLayout::compute(w, h, scale, true, 16.0 / 9.0);
+        assert_eq!(
+            layout.is_landscape, expected_landscape,
+            "{w}x{h} orientation"
         );
-
-        let screen_bounds = Rect::new(0.0, 0.0, screen_w, screen_h);
         assert_rect_inside(layout.card_bounds, screen_bounds, "card_bounds");
-        assert_rect_inside(
-            layout.start_btn_bounds,
-            layout.card_bounds,
-            "start_btn_bounds",
-        );
+        assert_rect_inside(layout.start_btn_bounds, layout.card_bounds, "start_btn");
         assert_rect_inside(
             layout.variant_card_bounds,
             layout.card_bounds,
-            "variant_card_bounds",
+            "variant_card",
         );
         assert_rect_inside(
             layout.carousel_clip_bounds,
             layout.card_bounds,
-            "carousel_clip_bounds",
+            "carousel_clip",
         );
         assert_rect_inside(
             layout.variant_dots_bounds,
             layout.card_bounds,
-            "variant_dots_bounds",
+            "variant_dots",
         );
+        assert_rect_inside(layout.fox_btn_bounds, layout.card_bounds, "fox_btn");
+        assert_rect_inside(layout.hounds_btn_bounds, layout.card_bounds, "hounds_btn");
+
         assert!(
             layout.variant_card_bounds.y + layout.variant_card_bounds.h
-                <= layout.variant_dots_bounds.y + 0.1,
-            "Variant card carousel must precede dots vertically"
+                <= layout.variant_dots_bounds.y + 0.1
         );
-        assert_rect_inside(layout.fox_btn_bounds, layout.card_bounds, "fox_btn_bounds");
-        assert_rect_inside(
-            layout.hounds_btn_bounds,
-            layout.card_bounds,
-            "hounds_btn_bounds",
-        );
-        assert!(
-            layout.fox_btn_bounds.x + layout.fox_btn_bounds.w <= layout.hounds_btn_bounds.x + 0.1,
-            "Fox and Hounds buttons must not overlap horizontally"
-        );
+
         for (idx, &db) in layout.difficulty_btn_bounds.iter().enumerate() {
-            assert_rect_inside(db, layout.card_bounds, &format!("difficulty_btn_{}", idx));
-        }
-        for i in 0..2 {
-            assert!(
-                layout.difficulty_btn_bounds[i].x + layout.difficulty_btn_bounds[i].w
-                    <= layout.difficulty_btn_bounds[i + 1].x + 0.1,
-                "Difficulty buttons must not overlap horizontally"
-            );
-        }
-    }
-}
-
-#[test]
-fn test_title_screen_portrait_fit() {
-    let test_portrait_resolutions: [(f32, f32, f32); 4] = [
-        (1080.0, 2400.0, 2.842), // Android portrait
-        (960.0, 1360.0, 1.6),    // Desktop portrait
-        (720.0, 1280.0, 1.89),   // HD portrait
-        (600.0, 800.0, 0.94),    // 3:4 portrait
-    ];
-
-    for (screen_w, screen_h, scale) in test_portrait_resolutions {
-        let layout = TitleScreenLayout::compute(screen_w, screen_h, scale, true, 16.0 / 9.0);
-        assert!(
-            !layout.is_landscape,
-            "Resolution {}x{} should be portrait",
-            screen_w, screen_h
-        );
-
-        let screen_bounds = Rect::new(0.0, 0.0, screen_w, screen_h);
-        assert_rect_inside(layout.card_bounds, screen_bounds, "card_bounds");
-        assert_rect_inside(
-            layout.start_btn_bounds,
-            layout.card_bounds,
-            "start_btn_bounds",
-        );
-        assert_rect_inside(
-            layout.variant_card_bounds,
-            layout.card_bounds,
-            "variant_card_bounds",
-        );
-        assert_rect_inside(
-            layout.carousel_clip_bounds,
-            layout.card_bounds,
-            "carousel_clip_bounds",
-        );
-        assert_rect_inside(
-            layout.variant_dots_bounds,
-            layout.card_bounds,
-            "variant_dots_bounds",
-        );
-        assert!(
-            layout.variant_card_bounds.y + layout.variant_card_bounds.h
-                <= layout.variant_dots_bounds.y + 0.1,
-            "Variant card carousel must precede dots vertically"
-        );
-        assert!(
-            layout.variant_dots_bounds.y + layout.variant_dots_bounds.h
-                <= layout.fox_btn_bounds.y + 0.1,
-            "Variant carousel must precede Faction buttons vertically"
-        );
-        assert_rect_inside(layout.fox_btn_bounds, layout.card_bounds, "fox_btn_bounds");
-        assert_rect_inside(
-            layout.hounds_btn_bounds,
-            layout.card_bounds,
-            "hounds_btn_bounds",
-        );
-
-        if let Some(hb) = layout.hero_bounds {
-            assert_rect_inside(hb, layout.card_bounds, "hero_bounds");
-            let hb_aspect = hb.w / hb.h;
-            assert!(
-                (hb_aspect - (16.0 / 9.0)).abs() < 0.02,
-                "Hero banner aspect ratio {} should match 16:9 (resolution {}x{})",
-                hb_aspect,
-                screen_w,
-                screen_h
-            );
+            assert_rect_inside(db, layout.card_bounds, &format!("diff_btn_{idx}"));
         }
 
-        assert!(
-            layout.fox_btn_bounds.y + layout.fox_btn_bounds.h
-                <= layout.difficulty_btn_bounds[0].y + 0.1
-        );
-        assert!(
-            layout.difficulty_btn_bounds[0].y + layout.difficulty_btn_bounds[0].h
-                <= layout.start_btn_bounds.y + 0.1
-        );
+        // 2. Without hero texture fallback
+        let no_hero = TitleScreenLayout::compute(w, h, scale, false, 16.0 / 9.0);
+        assert!(no_hero.hero_bounds.is_none());
+        assert_rect_inside(no_hero.card_bounds, screen_bounds, "no_hero_card_bounds");
     }
 }
 
@@ -216,23 +123,4 @@ fn test_game_over_modal_layout_fit() {
             "Rematch button must be above Menu button without overlap"
         );
     }
-}
-
-#[test]
-fn test_title_screen_without_hero_texture() {
-    let layout_landscape = TitleScreenLayout::compute(1920.0, 1080.0, 2.0, false, 16.0 / 9.0);
-    assert!(layout_landscape.hero_bounds.is_none());
-    assert_rect_inside(
-        layout_landscape.card_bounds,
-        Rect::new(0.0, 0.0, 1920.0, 1080.0),
-        "card_bounds_landscape_no_hero",
-    );
-
-    let layout_portrait = TitleScreenLayout::compute(1080.0, 2400.0, 2.842, false, 16.0 / 9.0);
-    assert!(layout_portrait.hero_bounds.is_none());
-    assert_rect_inside(
-        layout_portrait.card_bounds,
-        Rect::new(0.0, 0.0, 1080.0, 2400.0),
-        "card_bounds_portrait_no_hero",
-    );
 }

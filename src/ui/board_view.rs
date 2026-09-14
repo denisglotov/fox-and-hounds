@@ -133,7 +133,8 @@ impl BoardView {
     }
 
     pub fn is_hound_sitting(&self, hound_idx: usize) -> bool {
-        hound_idx < 3 && self.hound_idle_times[hound_idx] >= self.hound_sit_thresholds[hound_idx]
+        hound_idx < self.hound_idle_times.len()
+            && self.hound_idle_times[hound_idx] >= self.hound_sit_thresholds[hound_idx]
     }
 
     pub fn active_hound_texture(
@@ -168,7 +169,7 @@ impl BoardView {
     }
 
     pub fn update_hound_idle(&mut self, hound_idx: usize, is_active: bool, dt: f32) {
-        if hound_idx >= 3 {
+        if hound_idx >= self.hound_idle_times.len() {
             return;
         }
         if is_active {
@@ -254,7 +255,8 @@ impl BoardView {
             self.rover.draw(origin, scale, self.rover_texture.as_ref());
         }
 
-        // 5. Update & Draw Paper Boat (only for Fox and Dogs)
+        // 5. Update & Draw Paper Boat (only for Fox and Dogs; omitted on FoxAndDogsMaze
+        // to preserve the clean hand-drawn sketch illustration aesthetic)
         if state.variant == BoardVariant::FoxAndDogs {
             self.boat.update(dt);
             self.boat
@@ -512,6 +514,9 @@ impl BoardView {
 
         // 2. Draw Hounds (Left: Terrier/User's white dog, Mid: Beagle, Right: Golden)
         for (idx, &hound_pos) in state.hounds_pos.iter().enumerate() {
+            if idx >= self.hound_angles.len() {
+                break;
+            }
             let is_selected = state.selected_hound_idx == Some(idx as u8);
             let hound_node = state.graph.node(hound_pos);
 
@@ -793,5 +798,51 @@ impl BoardView {
         }
 
         waf_sound
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hound_idle_bounds_safety() {
+        let mut view = BoardView {
+            board_texture: None,
+            current_variant: None,
+            fox_texture: None,
+            hound_textures: [None, None, None],
+            hound_sit_textures: [None, None, None],
+            martian_fox_texture: None,
+            martian_hound_textures: [None, None, None],
+            martian_hound_sit_textures: [None, None, None],
+            train_texture: None,
+            rover_texture: None,
+            boat_texture: None,
+            bridge_texture: None,
+            hound_angles: [0.0; 3],
+            fox_angle: 0.0,
+            hover_node_id: None,
+            font: None,
+            river: RiverSimulation::for_variant(BoardVariant::Classic),
+            train: TrainSimulation::new(),
+            rover: RoverSimulation::new(),
+            boat: BoatSimulation::new(),
+            last_waf_sound_time: 0.0,
+            hound_idle_times: [0.0; 3],
+            hound_sit_thresholds: [10.0, 10.0, 10.0],
+            hound_sit_blend: [0.0; 3],
+        };
+
+        // Indices within bounds
+        assert!(!view.is_hound_sitting(0));
+        view.update_hound_idle(0, false, 12.0);
+        assert!(view.is_hound_sitting(0));
+
+        // Indices out of bounds must not panic
+        assert!(!view.is_hound_sitting(3));
+        assert!(!view.is_hound_sitting(10));
+        view.update_hound_idle(3, false, 12.0);
+        view.update_hound_idle(99, true, 1.0);
     }
 }

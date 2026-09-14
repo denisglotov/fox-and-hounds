@@ -1,6 +1,6 @@
 use fox_and_hounds::audio::SoundManager;
 use fox_and_hounds::game::level::BoardDimensions;
-use fox_and_hounds::game::state::{GamePhase, GameResult, GameState};
+use fox_and_hounds::game::state::{Faction, GamePhase, GameResult, GameState};
 use fox_and_hounds::ui::board_view::{BoardView, BoardViewParams};
 use fox_and_hounds::ui::camera::{CameraUpdateParams, ViewportCamera};
 use fox_and_hounds::ui::carousel::BoardCarousel;
@@ -101,7 +101,11 @@ async fn main() {
 
         // Spawn confetti when match concludes with player victory
         if state.result != last_result {
-            if state.result != GameResult::Ongoing {
+            let player_won = matches!(
+                (state.result, state.player_faction),
+                (GameResult::FoxWon, Faction::Fox) | (GameResult::HoundsWon, Faction::Hounds)
+            );
+            if player_won {
                 fx_manager.spawn_victory_burst(Vec2::new(screen_w / 2.0, screen_h / 3.0), 70);
             }
             last_result = state.result;
