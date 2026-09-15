@@ -30,7 +30,7 @@
     "fox_turn": "狐の手番",
     "hounds_turn": "猟犬の手番",
     "thinking": "思考中...",
-    "special_rule_notice": "この盤では猟犬は後退できません"
+    "special_rule_notice": "ここでは犬は後退できません"
   },
   "game_over": {
     "victory": "勝利！",

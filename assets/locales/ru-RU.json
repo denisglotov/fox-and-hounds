@@ -30,7 +30,7 @@
     "fox_turn": "Ход Лиса",
     "hounds_turn": "Ход Гончих",
     "thinking": "Думает...",
-    "special_rule_notice": "Гончие не могут отступать на этой доске"
+    "special_rule_notice": "Здесь собаки не могут отступать"
   },
   "game_over": {
     "victory": "ПОБЕДА!",

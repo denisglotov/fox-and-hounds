@@ -30,7 +30,7 @@
     "fox_turn": "Tour du Renard",
     "hounds_turn": "Tour des Chiens",
     "thinking": "Réflexion...",
-    "special_rule_notice": "Les chiens ne peuvent pas reculer sur ce plateau"
+    "special_rule_notice": "Les chiens ne peuvent pas reculer ici"
   },
   "game_over": {
     "victory": "VICTOIRE !",

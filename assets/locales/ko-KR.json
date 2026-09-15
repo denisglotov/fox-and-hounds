@@ -30,7 +30,7 @@
     "fox_turn": "여우 턴",
     "hounds_turn": "사냥개 턴",
     "thinking": "생각 중...",
-    "special_rule_notice": "이 보드에서는 사냥개가 후퇴할 수 없습니다"
+    "special_rule_notice": "여기서는 개가 후퇴할 수 없습니다"
   },
   "game_over": {
     "victory": "승리!",

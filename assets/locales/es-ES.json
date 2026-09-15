@@ -30,7 +30,7 @@
     "fox_turn": "Turno del Zorro",
     "hounds_turn": "Turno de los Sabuesos",
     "thinking": "Pensando...",
-    "special_rule_notice": "Los sabuesos no pueden retroceder en este tablero"
+    "special_rule_notice": "Los perros no pueden retroceder aquí"
   },
   "game_over": {
     "victory": "¡VICTORIA!",
