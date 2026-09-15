@@ -16,8 +16,79 @@ pub use crate::game::level::{
 pub const MIN_IDLE_SIT_SECONDS: f32 = 10.0;
 pub const RANDOM_IDLE_SIT_SECONDS_RANGE: f32 = 5.0;
 
+/// Number of small arrows of the start-of-match objective reticle.
+pub const START_TARGET_ARROW_COUNT: usize = 6;
+
+/// How long the Fox player may sit on their turn before the objective reticle fades
+/// back in as a reminder. Deliberately the same wait as a hound settling down to sit.
+pub const FOX_OBJECTIVE_HINT_IDLE_SECONDS: f32 = 10.0;
+
 pub fn roll_sit_threshold() -> f32 {
     MIN_IDLE_SIT_SECONDS + macroquad::rand::gen_range(0.0, RANDOM_IDLE_SIT_SECONDS_RANGE)
+}
+
+/// True while the Fox player owns the move and the board has settled, i.e. the only
+/// window in which the objective reticle is offered. `active_anim.is_none()` keeps it
+/// from popping up while a piece is still gliding, and `!is_ai_turn()` covers the
+/// phase/result/turn checks the same way the input path does.
+fn fox_player_waiting(state: &GameState) -> bool {
+    state.phase == GamePhase::Playing
+        && state.player_faction == Faction::Fox
+        && !state.is_ai_turn()
+        && state.active_anim.is_none()
+}
+
+/// The objective reticle marks the Fox destination (the coop) so the Fox player can read
+/// their goal. It shows for the very first decision of a match, and comes back whenever
+/// the Fox player has been idling on a later turn for `FOX_OBJECTIVE_HINT_IDLE_SECONDS`.
+/// It is a Fox-player aid, so it stays hidden while the hounds are to move.
+pub fn should_highlight_fox_objective(state: &GameState, fox_idle_seconds: f32) -> bool {
+    fox_player_waiting(state)
+        && (state.move_history.is_empty() || fox_idle_seconds >= FOX_OBJECTIVE_HINT_IDLE_SECONDS)
+}
+
+/// Vertices of one arrowhead of the objective reticle. `angle` is the outward
+/// direction from `center`; the tip sits at `tip_radius` (nearer the center than
+/// `base_radius`), so every arrow visually points at the highlighted node.
+pub fn target_arrow_vertices(
+    center: Vec2,
+    angle: f32,
+    tip_radius: f32,
+    base_radius: f32,
+    half_width: f32,
+) -> (Vec2, Vec2, Vec2) {
+    let dir = Vec2::new(angle.cos(), angle.sin());
+    let perp = Vec2::new(-angle.sin(), angle.cos());
+    let base = center + dir * base_radius;
+    (
+        center + dir * tip_radius,
+        base + perp * half_width,
+        base - perp * half_width,
+    )
+}
+
+/// Exponential ease of a fade weight, matching the smoothing used for piece rotation.
+fn approach_fade(current: f32, target: f32, rate: f32, dt: f32) -> f32 {
+    current + (target - current) * (1.0 - (-rate * dt).exp())
+}
+
+/// Tint of the start-of-match objective reticle. White reads on the meadow boards and
+/// on the rust-coloured Martian crust alike, so a single tint covers every board; give
+/// a board its own colour here if the artwork ever calls for it.
+const START_TARGET_TINT: Color = WHITE;
+
+/// Contrast backing of the reticle: a darker copy drawn just behind the marker keeps
+/// the bright tint legible on pale artwork (the hand-drawn sketch board) as well.
+const START_TARGET_OUTLINE: Color = Color::new(0.05, 0.06, 0.10, 1.0);
+
+/// Scales a colour's alpha so the reticle and its backing fade out together.
+fn with_alpha(color: Color, factor: f32) -> Color {
+    Color::new(
+        color.r,
+        color.g,
+        color.b,
+        (color.a * factor).clamp(0.0, 1.0),
+    )
 }
 
 fn load_texture(bytes: &[u8]) -> Option<Texture2D> {
@@ -52,6 +123,11 @@ pub struct BoardView {
     pub hound_idle_times: [f32; 3],
     pub hound_sit_thresholds: [f32; 3],
     pub hound_sit_blend: [f32; 3],
+    /// Fade weight (0..1) of the objective reticle for the Fox player.
+    pub start_target_alpha: f32,
+    /// Seconds the Fox player has been sitting on their turn without acting, used to
+    /// bring the objective reticle back as a reminder.
+    pub fox_idle_seconds: f32,
 }
 
 fn lerp_angle(current: f32, target: f32, speed: f32, dt: f32) -> f32 {
@@ -133,6 +209,8 @@ impl BoardView {
                 roll_sit_threshold(),
             ],
             hound_sit_blend: [0.0; 3],
+            start_target_alpha: 0.0,
+            fox_idle_seconds: 0.0,
         }
     }
 
@@ -208,6 +286,19 @@ impl BoardView {
         self.rover = RoverSimulation::new();
         self.boat = BoatSimulation::new();
         self.last_waf_sound_time = 0.0;
+        self.start_target_alpha = 0.0;
+        self.fox_idle_seconds = 0.0;
+    }
+
+    /// Advances the Fox idle timer that brings the objective reticle back as a reminder.
+    /// It only accrues while `fox_player_waiting`, so the hounds' turn, a piece still
+    /// gliding and the game-over screen all hold it at zero.
+    pub fn update_fox_idle(&mut self, state: &GameState, dt: f32) {
+        if fox_player_waiting(state) {
+            self.fox_idle_seconds += dt.max(0.0);
+        } else {
+            self.fox_idle_seconds = 0.0;
+        }
     }
 
     pub fn draw_and_handle_input(&mut self, state: &mut GameState, params: &BoardViewParams) {
@@ -320,15 +411,30 @@ impl BoardView {
             Vec::new()
         };
 
-        // 4. Draw Graph Nodes & Interactive Indicators
+        // 4. Track how long the Fox player has been sitting on their turn, then ease the
+        // objective hint (Fox player only) in and out: it opens the match and returns as
+        // a reminder whenever the Fox player idles on a later turn
+        self.update_fox_idle(state, dt);
+        let wants_objective_hint = should_highlight_fox_objective(state, self.fox_idle_seconds);
+        self.start_target_alpha = approach_fade(
+            self.start_target_alpha,
+            if wants_objective_hint { 1.0 } else { 0.0 },
+            if wants_objective_hint { 2.2 } else { 5.0 },
+            dt,
+        );
+
+        // 5. Draw Graph Nodes & Interactive Indicators
         self.draw_nodes(state, origin, scale, &legal_destinations, t);
 
-        // 5. Draw Animated Live Characters (Fox & 3 Unique Hounds) & play waffing sound
+        // 6. Draw the objective reticle pointing at the Fox destination
+        self.draw_start_target_marker(state, origin, scale, t);
+
+        // 7. Draw Animated Live Characters (Fox & 3 Unique Hounds) & play waffing sound
         if let Some(snd) = self.draw_pieces(state, origin, scale, t, dt) {
             sound_manager.play(snd);
         }
 
-        // 6. Handle Player Tap / Click Input (only if not dragging)
+        // 8. Handle Player Tap / Click Input (only if not dragging)
         if is_mouse_button_released(MouseButton::Left)
             && !was_dragging
             && state.phase == GamePhase::Playing
@@ -392,6 +498,79 @@ impl BoardView {
                     Some(SoundTrigger::InvalidMove)
                 }
             }
+        }
+    }
+
+    /// Draws a targeting reticle of small arrows converging on the Fox's destination
+    /// (the coop) for a Fox player: the arrows orbit the spot, slide inwards and point at
+    /// it, while a soft glow marks it as the hot spot. It opens a match and fades back in
+    /// whenever the Fox player has been idling on a later turn (see
+    /// `should_highlight_fox_objective`).
+    fn draw_start_target_marker(&self, state: &GameState, origin: Vec2, scale: f32, t: f32) {
+        let alpha = self.start_target_alpha;
+        if alpha <= 0.01 {
+            return;
+        }
+        let Some(target) = state.graph.node(state.active_target_node()) else {
+            return;
+        };
+        let center = origin + target.visual_pos * scale;
+        let breathing = (t * 2.6).sin() * 0.5 + 0.5;
+
+        // Soft glow so the destination reads as the hot spot on the board
+        draw_circle(
+            center.x,
+            center.y,
+            (24.0 + breathing * 5.0) * scale,
+            with_alpha(START_TARGET_TINT, alpha * 0.16),
+        );
+
+        // Reticle ring hugging the objective, backed by a darker copy for contrast
+        let ring_radius = (34.0 + breathing * 3.0) * scale;
+        draw_circle_lines(
+            center.x,
+            center.y,
+            ring_radius,
+            4.2 * scale,
+            with_alpha(START_TARGET_OUTLINE, alpha * 0.32),
+        );
+        draw_circle_lines(
+            center.x,
+            center.y,
+            ring_radius,
+            2.2 * scale,
+            with_alpha(START_TARGET_TINT, alpha * 0.95),
+        );
+
+        // Arrows slowly orbit while sliding inwards, then fade out and repeat
+        let spin = t * 0.45;
+        let step = std::f32::consts::TAU / START_TARGET_ARROW_COUNT as f32;
+        for i in 0..START_TARGET_ARROW_COUNT {
+            let angle = spin + i as f32 * step;
+            let flow = (t * 0.85 + i as f32 * 0.19).rem_euclid(1.0);
+            let base_radius = ring_radius + (1.0 - flow) * 15.0 * scale;
+            let half_width = (5.5 - flow * 1.5) * scale;
+            let tip_radius = base_radius - 11.0 * scale;
+            let fade = alpha * (1.0 - flow * 0.45);
+
+            // Darker backing, a hair larger, keeps the bright arrow legible anywhere
+            let (back_tip, back_left, back_right) = target_arrow_vertices(
+                center,
+                angle,
+                tip_radius - 1.6 * scale,
+                base_radius + 1.6 * scale,
+                half_width + 1.6 * scale,
+            );
+            draw_triangle(
+                back_tip,
+                back_left,
+                back_right,
+                with_alpha(START_TARGET_OUTLINE, fade * 0.45),
+            );
+
+            let (tip, left, right) =
+                target_arrow_vertices(center, angle, tip_radius, base_radius, half_width);
+            draw_triangle(tip, left, right, with_alpha(START_TARGET_TINT, fade));
         }
     }
 
@@ -824,11 +1003,13 @@ impl BoardView {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::game::state::{Difficulty, MoveAnimation};
 
-    #[test]
-    fn test_hound_idle_bounds_safety() {
+    /// Headless BoardView for tests that only exercise timing/logic helpers; every
+    /// texture stays `None` so nothing touches the GPU.
+    fn test_view() -> BoardView {
         const NO_TEX: Option<Texture2D> = None;
-        let mut view = BoardView {
+        BoardView {
             board_textures: [NO_TEX; VARIANT_COUNT],
             board_texture: None,
             current_variant: None,
@@ -854,7 +1035,18 @@ mod tests {
             hound_idle_times: [0.0; 3],
             hound_sit_thresholds: [10.0, 10.0, 10.0],
             hound_sit_blend: [0.0; 3],
-        };
+            start_target_alpha: 0.0,
+            fox_idle_seconds: 0.0,
+        }
+    }
+
+    #[test]
+    fn test_hound_idle_bounds_safety() {
+        let mut view = test_view();
+
+        // The opening objective reticle stays hidden until a match begins
+        assert_eq!(view.start_target_alpha, 0.0);
+        assert_eq!(view.fox_idle_seconds, 0.0);
 
         // Indices within bounds
         assert!(!view.is_hound_sitting(0));
@@ -866,5 +1058,144 @@ mod tests {
         assert!(!view.is_hound_sitting(10));
         view.update_hound_idle(3, false, 12.0);
         view.update_hound_idle(99, true, 1.0);
+    }
+
+    #[test]
+    fn test_objective_hint_on_opening_move_and_after_fox_idles() {
+        const IDLE: f32 = FOX_OBJECTIVE_HINT_IDLE_SECONDS;
+
+        // Fox-controlled match: the hint is on until the very first move
+        let mut fox_game = GameState::new();
+        fox_game.start_game(Faction::Fox, Difficulty::Medium);
+        assert!(fox_game.move_history.is_empty());
+        assert!(should_highlight_fox_objective(&fox_game, 0.0));
+
+        let opening = fox_game.fox_legal_moves();
+        assert!(!opening.is_empty());
+        assert!(fox_game.apply_fox_move(opening[0]).is_ok());
+
+        // Now the hounds are to move, so it stays hidden no matter how long they take
+        assert!(!should_highlight_fox_objective(&fox_game, IDLE * 100.0));
+
+        // Once the hounds have replied the hint waits for the Fox player to idle again
+        let hound_moves = fox_game.all_hound_legal_moves();
+        assert!(!hound_moves.is_empty());
+        assert!(fox_game
+            .apply_hound_move(hound_moves[0].0, hound_moves[0].1)
+            .is_ok());
+        assert_eq!(fox_game.current_turn, Faction::Fox);
+        assert!(!fox_game.move_history.is_empty());
+
+        // ...but not until that hound has finished gliding and the board settles
+        assert!(!should_highlight_fox_objective(&fox_game, IDLE * 100.0));
+        fox_game.active_anim = None;
+
+        // Just short of the wait it is hidden, then it comes back as a reminder
+        assert!(!should_highlight_fox_objective(&fox_game, IDLE - 0.1));
+        assert!(should_highlight_fox_objective(&fox_game, IDLE));
+
+        // Hound-controlled matches never advertise the Fox objective, however long
+        // they idle
+        let mut hound_game = GameState::new();
+        hound_game.start_game(Faction::Hounds, Difficulty::Medium);
+        assert!(!should_highlight_fox_objective(&hound_game, 0.0));
+        assert!(!should_highlight_fox_objective(&hound_game, IDLE * 100.0));
+
+        // Finished matches (and the title screen) never show it either
+        let mut finished = GameState::new();
+        finished.start_game(Faction::Fox, Difficulty::Medium);
+        finished.phase = GamePhase::GameOver;
+        assert!(!should_highlight_fox_objective(&finished, IDLE * 100.0));
+
+        let mut titled = GameState::new();
+        titled.start_game(Faction::Fox, Difficulty::Medium);
+        titled.phase = GamePhase::TitleScreen;
+        assert!(!should_highlight_fox_objective(&titled, IDLE * 100.0));
+    }
+
+    #[test]
+    fn test_fox_idle_timer_accrues_only_while_fox_waits() {
+        let mut fox_game = GameState::new();
+        fox_game.start_game(Faction::Fox, Difficulty::Medium);
+
+        // Idling on the Fox turn accumulates the wait
+        let mut view = test_view();
+        view.update_fox_idle(&fox_game, 4.0);
+        assert!((view.fox_idle_seconds - 4.0).abs() < 1e-6);
+        view.update_fox_idle(&fox_game, 6.5);
+        assert!((view.fox_idle_seconds - 10.5).abs() < 1e-6);
+        assert!(should_highlight_fox_objective(
+            &fox_game,
+            view.fox_idle_seconds
+        ));
+
+        // Moving the fox hands the turn to the hounds and clears the wait
+        let opening = fox_game.fox_legal_moves();
+        assert!(fox_game.apply_fox_move(opening[0]).is_ok());
+        view.update_fox_idle(&fox_game, 1.0);
+        assert_eq!(view.fox_idle_seconds, 0.0);
+
+        // Nor does it run while a piece is still gliding, or once the match is over
+        let mut gliding = GameState::new();
+        gliding.start_game(Faction::Fox, Difficulty::Medium);
+        gliding.active_anim = Some(MoveAnimation {
+            from: Vec2::ZERO,
+            to: Vec2::ZERO,
+            progress: 0.5,
+            duration: 1.0,
+            faction: Faction::Fox,
+            hound_idx: None,
+        });
+        view.fox_idle_seconds = 3.0;
+        view.update_fox_idle(&gliding, 1.0);
+        assert_eq!(view.fox_idle_seconds, 0.0);
+
+        let mut over = GameState::new();
+        over.start_game(Faction::Fox, Difficulty::Medium);
+        over.phase = GamePhase::GameOver;
+        view.fox_idle_seconds = 3.0;
+        view.update_fox_idle(&over, 1.0);
+        assert_eq!(view.fox_idle_seconds, 0.0);
+
+        // A negative dt can never rewind the wait while the fox is on the clock
+        let mut fresh = GameState::new();
+        fresh.start_game(Faction::Fox, Difficulty::Medium);
+        view.fox_idle_seconds = 3.0;
+        view.update_fox_idle(&fresh, -1.0);
+        assert!((view.fox_idle_seconds - 3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_reset_simulations_clears_fox_idle() {
+        let mut view = test_view();
+        view.fox_idle_seconds = 7.5;
+        view.start_target_alpha = 0.4;
+        view.reset_simulations();
+        assert_eq!(view.fox_idle_seconds, 0.0);
+        assert_eq!(view.start_target_alpha, 0.0);
+    }
+
+    #[test]
+    fn test_reticle_arrow_geometry_and_fade() {
+        let center = Vec2::new(300.0, 200.0);
+        let (tip, left, right) = target_arrow_vertices(center, 0.0, 20.0, 30.0, 5.0);
+        assert!((tip - Vec2::new(320.0, 200.0)).length() < 0.01);
+        assert!((left - Vec2::new(330.0, 205.0)).length() < 0.01);
+        assert!((right - Vec2::new(330.0, 195.0)).length() < 0.01);
+
+        // The tip sits nearer the spot than the base, so the arrow targets the node
+        assert!((tip - center).length() < (left - center).length());
+
+        // Rotating an arrow keeps its tip on the reticle circle
+        let (rotated_tip, _, _) =
+            target_arrow_vertices(center, std::f32::consts::FRAC_PI_2, 20.0, 30.0, 5.0);
+        assert!((rotated_tip - Vec2::new(300.0, 220.0)).length() < 0.01);
+
+        // Fade weight eases toward its target without overshooting
+        let rising = approach_fade(0.0, 1.0, 2.2, 0.016);
+        assert!((0.0..=1.0).contains(&rising));
+        let falling = approach_fade(1.0, 0.0, 5.0, 0.016);
+        assert!((0.0..1.0).contains(&falling));
+        assert!((approach_fade(1.0, 1.0, 2.2, 0.016) - 1.0).abs() < 1e-6);
     }
 }
