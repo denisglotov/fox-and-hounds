@@ -223,6 +223,7 @@ pub struct BoardView {
     pub rover_texture: Option<Texture2D>,
     pub boat_texture: Option<Texture2D>,
     pub bridge_texture: Option<Texture2D>,
+    pub no_reverse_dog_texture: Option<Texture2D>,
     pub hound_angles: [f32; 3],
     pub fox_angle: f32,
     pub hover_node_id: Option<u8>,
@@ -298,6 +299,8 @@ impl BoardView {
         let rover_texture = load_texture(include_bytes!("../../assets/rover_curiosity.png"));
         let boat_texture = load_texture(include_bytes!("../../assets/paper_boat.png"));
         let bridge_texture = load_texture(include_bytes!("../../assets/fox_and_dogs_bridge.png"));
+        let no_reverse_dog_texture =
+            load_texture(include_bytes!("../../assets/no_reverse_dog.png"));
 
         Self {
             board_textures,
@@ -313,6 +316,7 @@ impl BoardView {
             rover_texture,
             boat_texture,
             bridge_texture,
+            no_reverse_dog_texture,
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
             hover_node_id: None,
@@ -749,6 +753,15 @@ impl BoardView {
         let text = state.locales.hud.special_rule_notice.as_str();
         let font = self.font.as_ref();
 
+        let icon_tex = self.no_reverse_dog_texture.as_ref();
+        let icon_size = (SPECIAL_RULE_NOTICE_BASE_FONT_SIZE * 1.75 * scale).round();
+        let icon_gap = if icon_tex.is_some() { 8.0 * scale } else { 0.0 };
+        let icon_extra_w = if icon_tex.is_some() {
+            icon_size + icon_gap
+        } else {
+            0.0
+        };
+
         // Measure the sentence at the base size, then shrink it until the plate fits the
         // board's framed field, or the visible width on boards wider than the window
         let base_size = (SPECIAL_RULE_NOTICE_BASE_FONT_SIZE * scale)
@@ -756,8 +769,10 @@ impl BoardView {
             .max(1.0) as u16;
         let base_width = measure_text_styled(text, base_size, font).width;
         let field_width = config.intro_framing.playable_size.x * scale;
-        let max_width = field_width.min(viewport_size.x) * SPECIAL_RULE_NOTICE_MAX_WIDTH_RATIO
-            - 2.0 * SPECIAL_RULE_NOTICE_PLATE_PADDING * scale;
+        let max_width = (field_width.min(viewport_size.x) * SPECIAL_RULE_NOTICE_MAX_WIDTH_RATIO
+            - 2.0 * SPECIAL_RULE_NOTICE_PLATE_PADDING * scale
+            - icon_extra_w)
+            .max(10.0);
         let font_size = fit_special_rule_notice_font_size(base_size, base_width, max_width);
         let text_dims = measure_text_styled(text, font_size, font);
 
@@ -774,8 +789,12 @@ impl BoardView {
             ) * scale;
 
         let pad = SPECIAL_RULE_NOTICE_PLATE_PADDING * scale;
-        let plate_w = text_dims.width + pad * 2.0;
-        let plate_h = text_dims.height + pad * 2.0;
+        let content_w = text_dims.width + icon_extra_w;
+        let content_h = text_dims
+            .height
+            .max(if icon_tex.is_some() { icon_size } else { 0.0 });
+        let plate_w = content_w + pad * 2.0;
+        let plate_h = content_h + pad * 2.0;
         let plate_x = center.x - plate_w / 2.0;
         let plate_y = center.y - plate_h / 2.0;
 
@@ -784,7 +803,7 @@ impl BoardView {
             plate_y,
             plate_w,
             plate_h,
-            with_alpha(SPECIAL_RULE_NOTICE_PLATE, alpha * 0.82),
+            with_alpha(SPECIAL_RULE_NOTICE_PLATE, alpha * 0.50),
         );
         draw_rectangle_lines(
             plate_x,
@@ -794,9 +813,26 @@ impl BoardView {
             1.2 * scale,
             with_alpha(SPECIAL_RULE_NOTICE_TINT, alpha * 0.28),
         );
+
+        let mut content_x = plate_x + pad;
+        if let Some(tex) = icon_tex {
+            let icon_y = center.y - icon_size / 2.0;
+            draw_texture_ex(
+                tex,
+                content_x,
+                icon_y,
+                with_alpha(WHITE, alpha),
+                DrawTextureParams {
+                    dest_size: Some(Vec2::new(icon_size, icon_size)),
+                    ..Default::default()
+                },
+            );
+            content_x += icon_size + icon_gap;
+        }
+
         draw_text_styled(
             text,
-            plate_x + pad,
+            content_x,
             center.y + text_dims.height / 3.0,
             font_size,
             with_alpha(SPECIAL_RULE_NOTICE_TINT, alpha),
@@ -1253,6 +1289,7 @@ mod tests {
             rover_texture: None,
             boat_texture: None,
             bridge_texture: None,
+            no_reverse_dog_texture: None,
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
             hover_node_id: None,
