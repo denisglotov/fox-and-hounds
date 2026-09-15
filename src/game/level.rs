@@ -176,8 +176,6 @@ pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
     build_graph: build_fox_and_dogs_graph,
 };
 
-pub const FOX_AND_DOGS_SYMMETRIC_CONFIG: VariantConfig = FOX_AND_DOGS_CONFIG;
-
 pub const FOX_AND_DOGS_MAZE_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::FoxAndDogsMaze,
     name: "fox and dogs",
@@ -193,7 +191,7 @@ pub const FOX_AND_DOGS_MAZE_CONFIG: VariantConfig = VariantConfig {
     },
     board_image_filename: "fox_and_dogs_sketch_board.png",
     carousel_button_bytes: include_bytes!("../../assets/carousel_btn_fox_and_dogs_maze.png"),
-    fox_start_node: "C4",
+    fox_start_node: "C3",
     fox_free_entry: false,
     hounds_start_nodes: &["R7", "C7", "L7"],
     target_coop_node: "C8",
