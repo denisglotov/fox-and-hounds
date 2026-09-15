@@ -1,11 +1,12 @@
 use crate::audio::{SoundManager, SoundTrigger};
 use crate::game::graph::NodeType;
-use crate::game::level::{BoardVariant, VARIANT_COUNT};
-use crate::game::state::{Faction, GamePhase, GameResult, GameState};
+use crate::game::level::{BoardIntroFraming, BoardVariant, VARIANT_COUNT};
+use crate::game::state::{Faction, GamePhase, GameResult, GameState, PieceMove};
 use crate::ui::boat::BoatSimulation;
 use crate::ui::river::{RiverPath, RiverSimulation};
 use crate::ui::rover::RoverSimulation;
 use crate::ui::train::TrainSimulation;
+use crate::ui::{draw_text_styled, measure_text_styled};
 use macroquad::prelude::*;
 
 pub use crate::game::level::{
@@ -22,6 +23,26 @@ pub const START_TARGET_ARROW_COUNT: usize = 6;
 /// How long the Fox player may sit on their turn before the objective reticle fades
 /// back in as a reminder. Deliberately the same wait as a hound settling down to sit.
 pub const FOX_OBJECTIVE_HINT_IDLE_SECONDS: f32 = 10.0;
+
+/// Board-space font size of the start-of-match special rule notice, before width fitting.
+pub const SPECIAL_RULE_NOTICE_BASE_FONT_SIZE: f32 = 18.0;
+
+/// Smallest font size the special rule notice may shrink to when a translation runs long.
+pub const SPECIAL_RULE_NOTICE_MIN_FONT_SIZE: u16 = 11;
+
+/// Share of the framed field's width the special rule notice plate may occupy.
+pub const SPECIAL_RULE_NOTICE_MAX_WIDTH_RATIO: f32 = 0.92;
+
+/// Padding between the special rule notice text and its backing plate, in board units.
+pub const SPECIAL_RULE_NOTICE_PLATE_PADDING: f32 = 6.0;
+
+/// Clearance kept between the lowest piece and the special rule notice, in board units: hounds
+/// breathe, sway and bark on the spot, so the notice clears a little more than their
+/// sprite box.
+pub const SPECIAL_RULE_NOTICE_PIECE_CLEARANCE: f32 = 4.0;
+
+/// Ease rate of the special rule notice fading in with the match and out on the opening move.
+pub const SPECIAL_RULE_NOTICE_FADE_RATE: f32 = 4.0;
 
 pub fn roll_sit_threshold() -> f32 {
     MIN_IDLE_SIT_SECONDS + macroquad::rand::gen_range(0.0, RANDOM_IDLE_SIT_SECONDS_RANGE)
@@ -45,6 +66,61 @@ fn fox_player_waiting(state: &GameState) -> bool {
 pub fn should_highlight_fox_objective(state: &GameState, fox_idle_seconds: f32) -> bool {
     fox_player_waiting(state)
         && (state.move_history.is_empty() || fox_idle_seconds >= FOX_OBJECTIVE_HINT_IDLE_SECONDS)
+}
+
+/// The special rule notice announces a board's own rule as the match opens. Classic is the
+/// board that has one today: its hounds may not fall back toward the coop
+/// (`allow_hound_retreat == false`). Like the objective reticle it belongs to the opening
+/// decision only: it leaves as soon as the player has played their first move.
+pub fn should_show_special_rule_notice(state: &GameState) -> bool {
+    state.phase == GamePhase::Playing
+        && !state.variant.config().allow_hound_retreat
+        && !player_has_moved(state)
+}
+
+/// True once the faction the player controls has made a move of its own. Every board opens
+/// with the Fox, so a Hounds player reads the notice until their own first hound move
+/// instead of losing it to the AI's opening reply at match start.
+fn player_has_moved(state: &GameState) -> bool {
+    let player_is_fox = state.player_faction == Faction::Fox;
+    state.move_history.iter().any(|mv| match mv {
+        PieceMove::FoxMove { .. } => player_is_fox,
+        PieceMove::HoundMove { .. } => !player_is_fox,
+    })
+}
+
+/// Centre of the special rule notice plate: the middle of the framed field horizontally, and the
+/// middle of the clear strip between the lowest board node (plus the piece standing on it)
+/// and the bottom edge of that field vertically, so the sentence never covers a piece.
+pub fn special_rule_notice_center(
+    framing: BoardIntroFraming,
+    lowest_node_y: f32,
+    piece_base_size: f32,
+) -> Vec2 {
+    let field_bottom = framing.playable_center.y + framing.playable_size.y * 0.5;
+    let piece_bottom = lowest_node_y + piece_base_size * 0.5 + SPECIAL_RULE_NOTICE_PIECE_CLEARANCE;
+    // A board whose pieces already reach the field's edge keeps the notice on the field.
+    Vec2::new(
+        framing.playable_center.x,
+        ((piece_bottom + field_bottom) * 0.5)
+            .max(piece_bottom)
+            .min(field_bottom),
+    )
+}
+
+/// Shrinks the special rule notice font from `base_font_size` until `text_width` fits `max_width`,
+/// so a long translation stays on the board instead of running off it. Never goes below
+/// `SPECIAL_RULE_NOTICE_MIN_FONT_SIZE`, which keeps the sentence legible.
+pub fn fit_special_rule_notice_font_size(
+    base_font_size: u16,
+    text_width: f32,
+    max_width: f32,
+) -> u16 {
+    if text_width <= 0.0 || text_width <= max_width {
+        return base_font_size;
+    }
+    let fitted = f32::from(base_font_size) * max_width / text_width;
+    fitted.max(f32::from(SPECIAL_RULE_NOTICE_MIN_FONT_SIZE)) as u16
 }
 
 /// Vertices of one arrowhead of the objective reticle. `angle` is the outward
@@ -80,6 +156,13 @@ const START_TARGET_TINT: Color = WHITE;
 /// Contrast backing of the reticle: a darker copy drawn just behind the marker keeps
 /// the bright tint legible on pale artwork (the hand-drawn sketch board) as well.
 const START_TARGET_OUTLINE: Color = Color::new(0.05, 0.06, 0.10, 1.0);
+
+/// Tint of the special rule notice text, matching the contrast backing of the reticle.
+const SPECIAL_RULE_NOTICE_TINT: Color = Color::new(0.96, 0.97, 1.0, 1.0);
+
+/// Plate behind the special rule notice: the same dark glass as the in-game HUD pills, so the
+/// sentence reads on every board artwork.
+const SPECIAL_RULE_NOTICE_PLATE: Color = Color::new(0.04, 0.06, 0.10, 1.0);
 
 /// Scales a colour's alpha so the reticle and its backing fade out together.
 fn with_alpha(color: Color, factor: f32) -> Color {
@@ -125,6 +208,9 @@ pub struct BoardView {
     pub hound_sit_blend: [f32; 3],
     /// Fade weight (0..1) of the objective reticle for the Fox player.
     pub start_target_alpha: f32,
+    /// Fade weight (0..1) of the start-of-match special rule notice on boards that forbid the
+    /// hounds to fall back toward the coop.
+    pub special_rule_notice_alpha: f32,
     /// Seconds the Fox player has been sitting on their turn without acting, used to
     /// bring the objective reticle back as a reminder.
     pub fox_idle_seconds: f32,
@@ -140,6 +226,9 @@ pub struct BoardViewParams<'a> {
     pub origin: Vec2,
     pub scale: f32,
     pub viewport_mouse_pos: Vec2,
+    /// Size of the render viewport in screen pixels. Screen-sized notices use it to stay
+    /// inside the visible area even when the board is wider than the window.
+    pub viewport_size: Vec2,
     pub was_dragging: bool,
     pub sound_manager: &'a SoundManager,
     pub dt: f32,
@@ -210,6 +299,7 @@ impl BoardView {
             ],
             hound_sit_blend: [0.0; 3],
             start_target_alpha: 0.0,
+            special_rule_notice_alpha: 0.0,
             fox_idle_seconds: 0.0,
         }
     }
@@ -287,6 +377,7 @@ impl BoardView {
         self.boat = BoatSimulation::new();
         self.last_waf_sound_time = 0.0;
         self.start_target_alpha = 0.0;
+        self.special_rule_notice_alpha = 0.0;
         self.fox_idle_seconds = 0.0;
     }
 
@@ -423,6 +514,19 @@ impl BoardView {
             dt,
         );
 
+        // 4b. The special rule notice of boards that forbid the hounds to fall back opens the match
+        // and eases out again the moment the player has played their opening move
+        self.special_rule_notice_alpha = approach_fade(
+            self.special_rule_notice_alpha,
+            if should_show_special_rule_notice(state) {
+                1.0
+            } else {
+                0.0
+            },
+            SPECIAL_RULE_NOTICE_FADE_RATE,
+            dt,
+        );
+
         // 5. Draw Graph Nodes & Interactive Indicators
         self.draw_nodes(state, origin, scale, &legal_destinations, t);
 
@@ -434,7 +538,10 @@ impl BoardView {
             sound_manager.play(snd);
         }
 
-        // 8. Handle Player Tap / Click Input (only if not dragging)
+        // 8. Draw the special rule notice of boards that forbid the hounds to fall back
+        self.draw_special_rule_notice(state, origin, scale, params.viewport_size);
+
+        // 9. Handle Player Tap / Click Input (only if not dragging)
         if is_mouse_button_released(MouseButton::Left)
             && !was_dragging
             && state.phase == GamePhase::Playing
@@ -572,6 +679,83 @@ impl BoardView {
                 target_arrow_vertices(center, angle, tip_radius, base_radius, half_width);
             draw_triangle(tip, left, right, with_alpha(START_TARGET_TINT, fade));
         }
+    }
+
+    /// Draws the start-of-match special rule notice ("hounds cannot retreat on this board")
+    /// for boards that forbid the hounds to fall back toward the coop. Like the objective
+    /// reticle it opens the match and eases out once the player has played their opening move
+    /// (see `should_show_special_rule_notice`); the font shrinks for long translations so the
+    /// sentence always stays on the framed field (or on the viewport, whichever is narrower),
+    /// and a dark plate keeps it readable on any artwork.
+    fn draw_special_rule_notice(
+        &self,
+        state: &GameState,
+        origin: Vec2,
+        scale: f32,
+        viewport_size: Vec2,
+    ) {
+        let alpha = self.special_rule_notice_alpha;
+        if alpha <= 0.01 {
+            return;
+        }
+
+        let config = state.variant.config();
+        let text = state.locales.hud.special_rule_notice.as_str();
+        let font = self.font.as_ref();
+
+        // Measure the sentence at the base size, then shrink it until the plate fits the
+        // board's framed field, or the visible width on boards wider than the window
+        let base_size = (SPECIAL_RULE_NOTICE_BASE_FONT_SIZE * scale)
+            .round()
+            .max(1.0) as u16;
+        let base_width = measure_text_styled(text, base_size, font).width;
+        let field_width = config.intro_framing.playable_size.x * scale;
+        let max_width = field_width.min(viewport_size.x) * SPECIAL_RULE_NOTICE_MAX_WIDTH_RATIO
+            - 2.0 * SPECIAL_RULE_NOTICE_PLATE_PADDING * scale;
+        let font_size = fit_special_rule_notice_font_size(base_size, base_width, max_width);
+        let text_dims = measure_text_styled(text, font_size, font);
+
+        let lowest_node_y = state
+            .graph
+            .nodes
+            .iter()
+            .fold(f32::MIN, |lowest, node| lowest.max(node.visual_pos.y));
+        let center = origin
+            + special_rule_notice_center(
+                config.intro_framing,
+                lowest_node_y,
+                config.piece_base_size,
+            ) * scale;
+
+        let pad = SPECIAL_RULE_NOTICE_PLATE_PADDING * scale;
+        let plate_w = text_dims.width + pad * 2.0;
+        let plate_h = text_dims.height + pad * 2.0;
+        let plate_x = center.x - plate_w / 2.0;
+        let plate_y = center.y - plate_h / 2.0;
+
+        draw_rectangle(
+            plate_x,
+            plate_y,
+            plate_w,
+            plate_h,
+            with_alpha(SPECIAL_RULE_NOTICE_PLATE, alpha * 0.82),
+        );
+        draw_rectangle_lines(
+            plate_x,
+            plate_y,
+            plate_w,
+            plate_h,
+            1.2 * scale,
+            with_alpha(SPECIAL_RULE_NOTICE_TINT, alpha * 0.28),
+        );
+        draw_text_styled(
+            text,
+            plate_x + pad,
+            center.y + text_dims.height / 3.0,
+            font_size,
+            with_alpha(SPECIAL_RULE_NOTICE_TINT, alpha),
+            font,
+        );
     }
 
     fn draw_nodes(
@@ -1036,6 +1220,7 @@ mod tests {
             hound_sit_thresholds: [10.0, 10.0, 10.0],
             hound_sit_blend: [0.0; 3],
             start_target_alpha: 0.0,
+            special_rule_notice_alpha: 0.0,
             fox_idle_seconds: 0.0,
         }
     }
@@ -1170,9 +1355,105 @@ mod tests {
         let mut view = test_view();
         view.fox_idle_seconds = 7.5;
         view.start_target_alpha = 0.4;
+        view.special_rule_notice_alpha = 0.6;
         view.reset_simulations();
         assert_eq!(view.fox_idle_seconds, 0.0);
         assert_eq!(view.start_target_alpha, 0.0);
+        assert_eq!(view.special_rule_notice_alpha, 0.0);
+    }
+
+    #[test]
+    fn test_special_rule_notice_opens_the_match_and_leaves_with_the_first_move() {
+        // Classic forbids the hounds to fall back: the notice belongs to the opening turn
+        let mut fox_game = GameState::new();
+        assert!(!fox_game.variant.config().allow_hound_retreat);
+        assert!(!should_show_special_rule_notice(&fox_game)); // still on the title screen
+
+        fox_game.start_game(Faction::Fox, Difficulty::Medium);
+        assert!(should_show_special_rule_notice(&fox_game));
+
+        // A Fox player loses the notice on their own opening move
+        let opening = fox_game.fox_legal_moves();
+        assert!(!opening.is_empty());
+        assert!(fox_game.apply_fox_move(opening[0]).is_ok());
+        assert!(!should_show_special_rule_notice(&fox_game));
+
+        // A Hounds player keeps it for their opening decision: the AI Fox has answered by
+        // then, but the rule is the one they have to play by
+        let mut hound_game = GameState::new();
+        hound_game.start_game(Faction::Hounds, Difficulty::Medium);
+        assert!(should_show_special_rule_notice(&hound_game));
+
+        let opening = hound_game.fox_legal_moves();
+        assert!(hound_game.apply_fox_move(opening[0]).is_ok());
+        assert!(should_show_special_rule_notice(&hound_game));
+
+        let hound_moves = hound_game.all_hound_legal_moves();
+        assert!(!hound_moves.is_empty());
+        assert!(hound_game
+            .apply_hound_move(hound_moves[0].0, hound_moves[0].1)
+            .is_ok());
+        assert!(!should_show_special_rule_notice(&hound_game));
+
+        // Boards with free hound movement never announce it
+        let mut river = GameState::new();
+        river.switch_variant(BoardVariant::RiverCrossing);
+        river.start_game(Faction::Fox, Difficulty::Medium);
+        assert!(river.variant.config().allow_hound_retreat);
+        assert!(river.move_history.is_empty());
+        assert!(!should_show_special_rule_notice(&river));
+
+        // A fresh match on the Classic board brings it back
+        fox_game.start_game(Faction::Fox, Difficulty::Medium);
+        assert!(should_show_special_rule_notice(&fox_game));
+
+        // ...and a finished match keeps it off the board
+        fox_game.phase = GamePhase::GameOver;
+        assert!(!should_show_special_rule_notice(&fox_game));
+    }
+
+    #[test]
+    fn test_special_rule_notice_layout_clears_the_pieces_and_fits_the_field() {
+        let framing = BoardVariant::Classic.config().intro_framing;
+        let piece_size = BoardVariant::Classic.config().piece_base_size;
+
+        // Classic: the notice sits in the clear strip below the hound line (B3 at y = 690)
+        let lowest_node_y = (BoardVariant::Classic.config().build_graph)()
+            .nodes
+            .iter()
+            .fold(f32::MIN, |lowest, node| lowest.max(node.visual_pos.y));
+        assert!((lowest_node_y - 690.0).abs() < 0.01);
+
+        let center = special_rule_notice_center(framing, lowest_node_y, piece_size);
+        let field_bottom = framing.playable_center.y + framing.playable_size.y * 0.5;
+        let piece_bottom = lowest_node_y + piece_size * 0.5 + SPECIAL_RULE_NOTICE_PIECE_CLEARANCE;
+        assert!((center.x - framing.playable_center.x).abs() < 0.01);
+        assert!(center.y > piece_bottom);
+        assert!(center.y < field_bottom);
+
+        // The Classic field leaves enough room below the hound line for the base plate
+        assert!(
+            field_bottom - piece_bottom
+                >= SPECIAL_RULE_NOTICE_BASE_FONT_SIZE + 2.0 * SPECIAL_RULE_NOTICE_PLATE_PADDING
+        );
+
+        // A board whose pieces reach the bottom edge of the field keeps the notice on the field
+        let cramped = special_rule_notice_center(framing, field_bottom + 40.0, piece_size);
+        assert!((cramped.y - field_bottom).abs() < 0.01);
+
+        // A sentence that already fits keeps its base size
+        assert_eq!(fit_special_rule_notice_font_size(20, 120.0, 200.0), 20);
+        assert_eq!(fit_special_rule_notice_font_size(20, 0.0, 200.0), 20);
+
+        // A long translation shrinks until it fits the plate
+        let shrunk = fit_special_rule_notice_font_size(20, 400.0, 200.0);
+        assert!(shrunk < 20);
+        assert!(shrunk >= SPECIAL_RULE_NOTICE_MIN_FONT_SIZE);
+        // ...but never below the legibility floor
+        assert_eq!(
+            fit_special_rule_notice_font_size(20, 10_000.0, 200.0),
+            SPECIAL_RULE_NOTICE_MIN_FONT_SIZE
+        );
     }
 
     #[test]

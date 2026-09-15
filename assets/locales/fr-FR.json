@@ -29,7 +29,8 @@
   "hud": {
     "fox_turn": "Tour du Renard",
     "hounds_turn": "Tour des Chiens",
-    "thinking": "Réflexion..."
+    "thinking": "Réflexion...",
+    "special_rule_notice": "Les chiens ne peuvent pas reculer sur ce plateau"
   },
   "game_over": {
     "victory": "VICTOIRE !",

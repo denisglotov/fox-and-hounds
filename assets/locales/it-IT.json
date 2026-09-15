@@ -29,7 +29,8 @@
   "hud": {
     "fox_turn": "Turno della Volpe",
     "hounds_turn": "Turno dei Segugi",
-    "thinking": "Pensando..."
+    "thinking": "Pensando...",
+    "special_rule_notice": "I segugi non possono arretrare su questo tabellone"
   },
   "game_over": {
     "victory": "VITTORIA!",

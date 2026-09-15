@@ -29,7 +29,8 @@
   "hud": {
     "fox_turn": "Turno del Zorro",
     "hounds_turn": "Turno de los Sabuesos",
-    "thinking": "Pensando..."
+    "thinking": "Pensando...",
+    "special_rule_notice": "Los sabuesos no pueden retroceder en este tablero"
   },
   "game_over": {
     "victory": "¡VICTORIA!",

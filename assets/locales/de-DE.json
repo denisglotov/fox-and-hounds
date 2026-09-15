@@ -29,7 +29,8 @@
   "hud": {
     "fox_turn": "Fuchs am Zug",
     "hounds_turn": "Hunde am Zug",
-    "thinking": "Denkt nach..."
+    "thinking": "Denkt nach...",
+    "special_rule_notice": "Die Hunde können auf diesem Brett nicht zurückweichen"
   },
   "game_over": {
     "victory": "SIEG!",

@@ -1,5 +1,12 @@
+use fox_and_hounds::game::level::BoardVariant;
+use fox_and_hounds::ui::board_view::{
+    special_rule_notice_center, SPECIAL_RULE_NOTICE_BASE_FONT_SIZE,
+    SPECIAL_RULE_NOTICE_MAX_WIDTH_RATIO, SPECIAL_RULE_NOTICE_PIECE_CLEARANCE,
+    SPECIAL_RULE_NOTICE_PLATE_PADDING,
+};
+use fox_and_hounds::ui::camera::ViewportCamera;
 use fox_and_hounds::ui::screens::{GameOverModalLayout, TitleScreenLayout};
-use macroquad::prelude::Rect;
+use macroquad::prelude::{Rect, Vec2};
 
 fn assert_rect_inside(inner: Rect, outer: Rect, name: &str) {
     assert!(inner.w > 0.0, "{name}: inner.w ({}) <= 0", inner.w);
@@ -121,6 +128,84 @@ fn test_game_over_modal_layout_fit() {
             layout.rematch_btn_bounds.y + layout.rematch_btn_bounds.h
                 <= layout.menu_btn_bounds.y + 0.1,
             "Rematch button must be above Menu button without overlap"
+        );
+    }
+}
+
+/// The Classic special rule notice ("hounds cannot retreat on this board") opens a match, so its
+/// plate has to land inside the viewport on every supported resolution: below the hound
+/// line (sprite box plus the clearance kept for their idle sway) and above the bottom edge
+/// of the framed field.
+#[test]
+fn test_classic_special_rule_notice_stays_on_screen() {
+    let variant = BoardVariant::Classic;
+    let config = variant.config();
+    let dims = config.dimensions;
+
+    let resolutions: [(f32, f32); 8] = [
+        (2400.0, 1080.0),
+        (1920.0, 1080.0),
+        (1280.0, 720.0),
+        (960.0, 540.0),
+        (1080.0, 2400.0),
+        (960.0, 1360.0),
+        (720.0, 1280.0),
+        (600.0, 800.0),
+    ];
+
+    let lowest_node_y = (config.build_graph)()
+        .nodes
+        .iter()
+        .fold(f32::MIN, |lowest, node| lowest.max(node.visual_pos.y));
+    let notice =
+        special_rule_notice_center(config.intro_framing, lowest_node_y, config.piece_base_size);
+
+    for (screen_w, screen_h) in resolutions {
+        let viewport = Rect::new(0.0, 0.0, screen_w, screen_h);
+        let board_scale = (viewport.h / dims.image_height).max(0.1);
+        let board_size = Vec2::new(
+            dims.image_width * board_scale,
+            dims.image_height * board_scale,
+        );
+
+        // The framing the intro zoom settles on
+        let mut camera = ViewportCamera::new();
+        camera.start_intro(variant, viewport, board_size, board_scale, 2.0);
+        let (zoom, pan) = match camera.anim {
+            Some(anim) => (anim.target_zoom, anim.target_pan),
+            None => (camera.zoom, camera.pan_offset),
+        };
+        let scale = board_scale * zoom;
+
+        // Worst case of the plate: the base font at its tallest, and the widest the fit
+        // allows - which is the framed field, or the visible width on boards wider than it
+        let plate_w = (config.intro_framing.playable_size.x * scale).min(viewport.w)
+            * SPECIAL_RULE_NOTICE_MAX_WIDTH_RATIO;
+        let plate_h = (SPECIAL_RULE_NOTICE_BASE_FONT_SIZE * 1.3
+            + 2.0 * SPECIAL_RULE_NOTICE_PLATE_PADDING)
+            * scale;
+        let center = pan + notice * scale;
+        let plate = Rect::new(
+            center.x - plate_w / 2.0,
+            center.y - plate_h / 2.0,
+            plate_w,
+            plate_h,
+        );
+
+        assert_rect_inside(
+            plate,
+            viewport,
+            &format!("Classic special rule notice on {screen_w}x{screen_h}"),
+        );
+
+        let piece_bottom = pan.y
+            + (lowest_node_y + config.piece_base_size * 0.5 + SPECIAL_RULE_NOTICE_PIECE_CLEARANCE)
+                * scale;
+        assert!(
+            plate.y >= piece_bottom - 0.1,
+            "Classic special rule notice covers the hounds on {screen_w}x{screen_h}: \
+             plate top {} < piece bottom {piece_bottom}",
+            plate.y
         );
     }
 }

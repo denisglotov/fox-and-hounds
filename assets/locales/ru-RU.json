@@ -29,7 +29,8 @@
   "hud": {
     "fox_turn": "Ход Лиса",
     "hounds_turn": "Ход Гончих",
-    "thinking": "Думает..."
+    "thinking": "Думает...",
+    "special_rule_notice": "Гончие не могут отступать на этой доске"
   },
   "game_over": {
     "victory": "ПОБЕДА!",
