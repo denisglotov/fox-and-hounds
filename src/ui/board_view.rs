@@ -119,8 +119,9 @@ pub fn fit_special_rule_notice_font_size(
     if text_width <= 0.0 || text_width <= max_width {
         return base_font_size;
     }
+    let min_size = SPECIAL_RULE_NOTICE_MIN_FONT_SIZE.min(base_font_size);
     let fitted = f32::from(base_font_size) * max_width / text_width;
-    fitted.max(f32::from(SPECIAL_RULE_NOTICE_MIN_FONT_SIZE)) as u16
+    fitted.clamp(f32::from(min_size), f32::from(base_font_size)) as u16
 }
 
 /// Vertices of one arrowhead of the objective reticle. `angle` is the outward
@@ -1454,6 +1455,10 @@ mod tests {
             fit_special_rule_notice_font_size(20, 10_000.0, 200.0),
             SPECIAL_RULE_NOTICE_MIN_FONT_SIZE
         );
+
+        // Small base sizes below the floor never expand above base size when text overflows
+        assert_eq!(fit_special_rule_notice_font_size(8, 400.0, 200.0), 8);
+        assert_eq!(fit_special_rule_notice_font_size(8, 100.0, 200.0), 8);
     }
 
     #[test]

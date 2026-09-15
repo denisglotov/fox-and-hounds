@@ -155,7 +155,7 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
 pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::FoxAndDogs,
     name: "fox and dogs",
-    description: "Fox and dogs board: dogs start on Row 7, fox must return to C8",
+    description: "Fox and dogs board: dogs start on Row 7, fox must reach C8",
     allow_hound_retreat: true,
     hounds_start_first: false,
     allow_hounds_in_coop: false,
@@ -179,7 +179,7 @@ pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
 pub const FOX_AND_DOGS_MAZE_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::FoxAndDogsMaze,
     name: "fox and dogs",
-    description: "Fox and dogs maze board: dogs start on Row 7, fox must return to C8",
+    description: "Fox and dogs maze board: dogs start on Row 7, fox must reach C8",
     allow_hound_retreat: true,
     hounds_start_first: false,
     allow_hounds_in_coop: false,
