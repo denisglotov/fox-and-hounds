@@ -44,6 +44,10 @@ pub const SPECIAL_RULE_NOTICE_PIECE_CLEARANCE: f32 = 4.0;
 /// Ease rate of the special rule notice fading in with the match and out on the opening move.
 pub const SPECIAL_RULE_NOTICE_FADE_RATE: f32 = 4.0;
 
+/// How long the special rule notice remains on screen after the user clicks on a spot
+/// behind a hound on boards where hounds cannot retreat.
+pub const SPECIAL_RULE_REMINDER_DURATION: f32 = 2.5;
+
 pub fn roll_sit_threshold() -> f32 {
     MIN_IDLE_SIT_SECONDS + macroquad::rand::gen_range(0.0, RANDOM_IDLE_SIT_SECONDS_RANGE)
 }
@@ -76,6 +80,30 @@ pub fn should_show_special_rule_notice(state: &GameState) -> bool {
     state.phase == GamePhase::Playing
         && !state.variant.config().allow_hound_retreat
         && !player_has_moved(state)
+}
+
+/// True when `clicked_node` sits in a row behind the player's hounds (toward the coop)
+/// on boards where hounds cannot retreat.
+pub fn is_hound_retreat_click(state: &GameState, clicked_node: u8) -> bool {
+    if state.variant.config().allow_hound_retreat {
+        return false;
+    }
+    let Some(clicked) = state.graph.node(clicked_node) else {
+        return false;
+    };
+    if let Some(hound_idx) = state.selected_hound_idx {
+        state
+            .hounds_pos
+            .get(hound_idx as usize)
+            .and_then(|&p| state.graph.node(p))
+            .is_some_and(|hound| clicked.row < hound.row)
+    } else {
+        state
+            .hounds_pos
+            .iter()
+            .filter_map(|&p| state.graph.node(p))
+            .any(|hound| clicked.row < hound.row)
+    }
 }
 
 /// True once the faction the player controls has made a move of its own. Every board opens
@@ -212,6 +240,8 @@ pub struct BoardView {
     /// Fade weight (0..1) of the start-of-match special rule notice on boards that forbid the
     /// hounds to fall back toward the coop.
     pub special_rule_notice_alpha: f32,
+    /// Seconds remaining to display the special rule notice when triggered as an illegal retreat reminder.
+    pub special_rule_reminder_seconds: f32,
     /// Seconds the Fox player has been sitting on their turn without acting, used to
     /// bring the objective reticle back as a reminder.
     pub fox_idle_seconds: f32,
@@ -301,6 +331,7 @@ impl BoardView {
             hound_sit_blend: [0.0; 3],
             start_target_alpha: 0.0,
             special_rule_notice_alpha: 0.0,
+            special_rule_reminder_seconds: 0.0,
             fox_idle_seconds: 0.0,
         }
     }
@@ -379,7 +410,14 @@ impl BoardView {
         self.last_waf_sound_time = 0.0;
         self.start_target_alpha = 0.0;
         self.special_rule_notice_alpha = 0.0;
+        self.special_rule_reminder_seconds = 0.0;
         self.fox_idle_seconds = 0.0;
+    }
+
+    /// Triggers the start-of-match special rule notice to show again as a reminder
+    /// (e.g. when the player clicks on a spot behind their dog on a no-retreat board).
+    pub fn trigger_special_rule_reminder(&mut self) {
+        self.special_rule_reminder_seconds = SPECIAL_RULE_REMINDER_DURATION;
     }
 
     /// Advances the Fox idle timer that brings the objective reticle back as a reminder.
@@ -516,14 +554,15 @@ impl BoardView {
         );
 
         // 4b. The special rule notice of boards that forbid the hounds to fall back opens the match
-        // and eases out again the moment the player has played their opening move
+        // and eases out again the moment the player has played their opening move, or resurfaces
+        // as a reminder when the user attempts an illegal retreat move.
+        self.special_rule_reminder_seconds = (self.special_rule_reminder_seconds - dt).max(0.0);
+        let wants_special_rule_notice = state.phase == GamePhase::Playing
+            && !state.variant.config().allow_hound_retreat
+            && (should_show_special_rule_notice(state) || self.special_rule_reminder_seconds > 0.0);
         self.special_rule_notice_alpha = approach_fade(
             self.special_rule_notice_alpha,
-            if should_show_special_rule_notice(state) {
-                1.0
-            } else {
-                0.0
-            },
+            if wants_special_rule_notice { 1.0 } else { 0.0 },
             SPECIAL_RULE_NOTICE_FADE_RATE,
             dt,
         );
@@ -600,9 +639,15 @@ impl BoardView {
                             Some(SoundTrigger::InvalidMove)
                         }
                     } else {
+                        if is_hound_retreat_click(state, clicked_node) {
+                            self.trigger_special_rule_reminder();
+                        }
                         Some(SoundTrigger::InvalidMove)
                     }
                 } else {
+                    if is_hound_retreat_click(state, clicked_node) {
+                        self.trigger_special_rule_reminder();
+                    }
                     Some(SoundTrigger::InvalidMove)
                 }
             }
@@ -1222,6 +1267,7 @@ mod tests {
             hound_sit_blend: [0.0; 3],
             start_target_alpha: 0.0,
             special_rule_notice_alpha: 0.0,
+            special_rule_reminder_seconds: 0.0,
             fox_idle_seconds: 0.0,
         }
     }
@@ -1357,10 +1403,56 @@ mod tests {
         view.fox_idle_seconds = 7.5;
         view.start_target_alpha = 0.4;
         view.special_rule_notice_alpha = 0.6;
+        view.special_rule_reminder_seconds = 2.0;
         view.reset_simulations();
         assert_eq!(view.fox_idle_seconds, 0.0);
         assert_eq!(view.start_target_alpha, 0.0);
         assert_eq!(view.special_rule_notice_alpha, 0.0);
+        assert_eq!(view.special_rule_reminder_seconds, 0.0);
+    }
+
+    #[test]
+    fn test_special_rule_notice_resurfaces_on_retreat_click() {
+        let mut state = GameState::new();
+        state.start_game(Faction::Hounds, Difficulty::Medium);
+
+        let m0 = state.graph.find_id_by_name("M0").unwrap();
+        let m1 = state.graph.find_id_by_name("M1").unwrap();
+        let m2 = state.graph.find_id_by_name("M2").unwrap();
+        let m3 = state.graph.find_id_by_name("M3").unwrap();
+
+        // AI Fox opens at M3, player moves dog from M0 to M1 (row 0 -> row 1)
+        assert!(state.apply_fox_move(m3).is_ok());
+        let m0_idx = state.hounds_pos.iter().position(|&p| p == m0).unwrap() as u8;
+        assert!(state.apply_hound_move(m0_idx, m1).is_ok());
+        assert!(!should_show_special_rule_notice(&state));
+
+        // Now hound at M1 (row 1) has neighbor M0 (row 0).
+        // Clicking M0 (behind M1) is detected as an attempted retreat move
+        state.selected_hound_idx = Some(m0_idx);
+        assert!(is_hound_retreat_click(&state, m0));
+
+        // Clicking forward to M2 (row 2) is a forward advance, not retreat
+        assert!(!is_hound_retreat_click(&state, m2));
+
+        // Even when no hound is actively selected, clicking M0 detects the retreat
+        state.selected_hound_idx = None;
+        assert!(is_hound_retreat_click(&state, m0));
+
+        // Boards with retreat enabled never flag retreat clicks
+        let mut river = GameState::new();
+        river.switch_variant(BoardVariant::RiverCrossing);
+        river.start_game(Faction::Hounds, Difficulty::Medium);
+        assert!(!is_hound_retreat_click(&river, 0));
+
+        // Verify reminder timer trigger
+        let mut view = test_view();
+        assert_eq!(view.special_rule_reminder_seconds, 0.0);
+        view.trigger_special_rule_reminder();
+        assert_eq!(
+            view.special_rule_reminder_seconds,
+            SPECIAL_RULE_REMINDER_DURATION
+        );
     }
 
     #[test]
