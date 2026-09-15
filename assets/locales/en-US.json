@@ -29,7 +29,8 @@
   "hud": {
     "fox_turn": "Fox Turn",
     "hounds_turn": "Hounds Turn",
-    "thinking": "Thinking..."
+    "thinking": "Thinking...",
+    "special_rule_notice": "Dogs cannot retreat here"
   },
   "game_over": {
     "victory": "VICTORY!",

@@ -29,7 +29,8 @@
   "hud": {
     "fox_turn": "Turno da Raposa",
     "hounds_turn": "Turno dos Sabujos",
-    "thinking": "Pensando..."
+    "thinking": "Pensando...",
+    "special_rule_notice": "Os cães não podem recuar aqui"
   },
   "game_over": {
     "victory": "VITORIA!",

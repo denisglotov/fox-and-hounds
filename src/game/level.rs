@@ -155,10 +155,10 @@ pub const RIVER_CROSSING_CONFIG: VariantConfig = VariantConfig {
 pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::FoxAndDogs,
     name: "fox and dogs",
-    description: "Fox and dogs board: dogs start on Row 7 and move first, fox must return to C8",
+    description: "Fox and dogs board: dogs start on Row 7, fox must reach C8",
     allow_hound_retreat: true,
-    hounds_start_first: true,
-    allow_hounds_in_coop: true,
+    hounds_start_first: false,
+    allow_hounds_in_coop: false,
     dimensions: FOX_AND_DOGS_DIMENSIONS,
     intro_framing: BoardIntroFraming {
         playable_center: Vec2::new(510.0, 517.0),
@@ -167,7 +167,7 @@ pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
     },
     board_image_filename: "fox_and_dogs_board.png",
     carousel_button_bytes: include_bytes!("../../assets/carousel_btn_fox_and_dogs.png"),
-    fox_start_node: "C8",
+    fox_start_node: "C4",
     fox_free_entry: false,
     hounds_start_nodes: &["R7", "C7", "L7"],
     target_coop_node: "C8",
@@ -176,16 +176,13 @@ pub const FOX_AND_DOGS_CONFIG: VariantConfig = VariantConfig {
     build_graph: build_fox_and_dogs_graph,
 };
 
-pub const FOX_AND_DOGS_SYMMETRIC_CONFIG: VariantConfig = FOX_AND_DOGS_CONFIG;
-
 pub const FOX_AND_DOGS_MAZE_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::FoxAndDogsMaze,
     name: "fox and dogs",
-    description:
-        "Fox and dogs maze board: dogs start on Row 7 and move first, fox must return to C8",
+    description: "Fox and dogs maze board: dogs start on Row 7, fox must reach C8",
     allow_hound_retreat: true,
-    hounds_start_first: true,
-    allow_hounds_in_coop: true,
+    hounds_start_first: false,
+    allow_hounds_in_coop: false,
     dimensions: FOX_AND_DOGS_MAZE_DIMENSIONS,
     intro_framing: BoardIntroFraming {
         playable_center: Vec2::new(512.0, 556.0),
@@ -194,7 +191,7 @@ pub const FOX_AND_DOGS_MAZE_CONFIG: VariantConfig = VariantConfig {
     },
     board_image_filename: "fox_and_dogs_sketch_board.png",
     carousel_button_bytes: include_bytes!("../../assets/carousel_btn_fox_and_dogs_maze.png"),
-    fox_start_node: "C8",
+    fox_start_node: "C3",
     fox_free_entry: false,
     hounds_start_nodes: &["R7", "C7", "L7"],
     target_coop_node: "C8",

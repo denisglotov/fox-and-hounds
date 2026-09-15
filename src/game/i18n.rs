@@ -64,6 +64,7 @@ pub struct HudStrings {
     pub fox_turn: String,
     pub hounds_turn: String,
     pub thinking: String,
+    pub special_rule_notice: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -458,6 +459,7 @@ mod tests {
             assert!(!loc.hud.fox_turn.is_empty());
             assert!(!loc.hud.hounds_turn.is_empty());
             assert!(!loc.hud.thinking.is_empty());
+            assert!(!loc.hud.special_rule_notice.is_empty());
 
             // Game over
             assert!(!loc.game_over.victory.is_empty());
@@ -699,6 +701,7 @@ mod tests {
                 &loc.hud.fox_turn,
                 &loc.hud.hounds_turn,
                 &loc.hud.thinking,
+                &loc.hud.special_rule_notice,
                 &loc.game_over.victory,
                 &loc.game_over.defeat,
                 &loc.game_over.fox_won_msg,

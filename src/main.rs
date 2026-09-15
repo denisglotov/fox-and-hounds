@@ -174,6 +174,7 @@ async fn main() {
                         origin: camera_ctx.pan_offset,
                         scale: camera_ctx.effective_scale,
                         viewport_mouse_pos: viewport_mouse,
+                        viewport_size: Vec2::new(viewport_rect.w, viewport_rect.h),
                         was_dragging: camera_ctx.was_dragging,
                         sound_manager: &sound_manager,
                         dt,

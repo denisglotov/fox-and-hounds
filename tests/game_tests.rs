@@ -284,51 +284,90 @@ fn test_fox_ai_pathfinding_and_goal_seeking() {
 
 #[test]
 fn test_fox_and_dogs_symmetric_and_maze_rules() {
+    let config = BoardVariant::FoxAndDogs.config();
+    // The fox no longer starts inside its coop: C4 -> C8 is a race, not a return trip
+    assert_eq!(config.fox_start_node, "C4");
+    assert_eq!(config.target_coop_node, "C8");
+
     let mut state = GameState::new();
     state.switch_variant(BoardVariant::FoxAndDogs);
     state.start_game(Faction::Fox, Difficulty::Medium);
 
-    // Dogs start first
-    assert_eq!(state.current_turn, Faction::Hounds);
-    let c8 = state.graph.find_id_by_name("C8").unwrap();
-    let c7 = state.graph.find_id_by_name("C7").unwrap();
+    let c4 = state.graph.find_id_by_name("C4").unwrap();
+    let c5 = state.graph.find_id_by_name("C5").unwrap();
     let c6 = state.graph.find_id_by_name("C6").unwrap();
+    let c7 = state.graph.find_id_by_name("C7").unwrap();
+    let c8 = state.graph.find_id_by_name("C8").unwrap();
+    let l5 = state.graph.find_id_by_name("L5").unwrap();
+    let r5 = state.graph.find_id_by_name("R5").unwrap();
     let l7 = state.graph.find_id_by_name("L7").unwrap();
+    let r7 = state.graph.find_id_by_name("R7").unwrap();
 
-    // Dogs cannot enter C8 while Fox is on C8
-    for h in 0..3 {
+    // Fox opens the game from C4; dogs hold Row 7
+    assert_eq!(state.current_turn, Faction::Fox);
+    assert_eq!(state.fox_pos, c4);
+    assert_eq!(state.coop_pos, c8);
+    assert!(state.hounds_pos.contains(&l7));
+    assert!(state.hounds_pos.contains(&c7));
+    assert!(state.hounds_pos.contains(&r7));
+
+    // C8 is the Fox's destination, not its den: no dog may enter it, even while it is empty
+    assert!(!state.hounds_pos.contains(&c8));
+    for h in 0..state.hounds_pos.len() as u8 {
         assert!(!state.hound_legal_moves(h).contains(&c8));
     }
 
-    // Dogs move C7 -> C6
+    // Dogs keep their free movement (retreat included) but never onto the coop node
     let c7_idx = state.hounds_pos.iter().position(|&p| p == c7).unwrap() as u8;
-    assert!(state.apply_hound_move(c7_idx, c6).is_ok());
+    let c7_moves = state.hound_legal_moves(c7_idx);
+    assert!(c7_moves.contains(&c6));
+    assert!(!c7_moves.contains(&c8));
 
-    // Fox moves C8 -> C7
+    // Fox advances toward the coop: C4 -> C5 -> C6 -> C7 -> C8
+    assert!(state.apply_fox_move(c5).is_ok());
+
+    // Dog retreats R7 -> R5 to cut the lane
+    let r7_idx = state.hounds_pos.iter().position(|&p| p == r7).unwrap() as u8;
+    assert!(state.apply_hound_move(r7_idx, r5).is_ok());
+
+    assert!(state.apply_fox_move(c6).is_ok());
+
+    // C7 dog is boxed in by the Fox and its pack: only R7 is left (C8 stays forbidden)
+    let c7_dog = state.hounds_pos.iter().position(|&p| p == c7).unwrap() as u8;
+    let c7_moves = state.hound_legal_moves(c7_dog);
+    assert!(c7_moves.contains(&r7));
+    assert!(!c7_moves.contains(&c8));
+    assert!(state.apply_hound_move(c7_dog, r7).is_ok());
+
     assert!(state.apply_fox_move(c7).is_ok());
-    assert!(state.fox_has_left_start);
 
-    // C8 is now empty: adjacent dogs can jump to C8
-    let l7_idx = state.hounds_pos.iter().position(|&p| p == l7).unwrap() as u8;
-    assert!(state.hound_legal_moves(l7_idx).contains(&c8));
+    // L7 dog steps aside, opening the final approach
+    let l7_dog = state.hounds_pos.iter().position(|&p| p == l7).unwrap() as u8;
+    assert!(state.apply_hound_move(l7_dog, l5).is_ok());
 
-    // Fox returns to C8 -> Fox victory
-    state.current_turn = Faction::Fox;
+    // Fox steps onto C8 -> Fox victory
     assert!(state.apply_fox_move(c8).is_ok());
     assert_eq!(state.result, GameResult::FoxWon);
     assert_eq!(state.phase, GamePhase::GameOver);
 
-    // Maze variant opening & AI move
+    // Maze variant opening: the Fox moves first, the AI answers with a fox move,
+    // and the dogs are left with a reply of their own
     let mut maze = GameState::new();
     maze.switch_variant(BoardVariant::FoxAndDogsMaze);
     maze.start_game(Faction::Fox, Difficulty::Hard);
-    assert_eq!(maze.current_turn, Faction::Hounds);
-    let dog_ai = find_best_move(&maze).expect("AI should find opening hound move");
-    if let PieceMove::HoundMove { hound_idx, to, .. } = dog_ai {
-        assert!(maze.apply_hound_move(hound_idx, to).is_ok());
-        assert!(!maze.fox_legal_moves().is_empty());
+    assert_eq!(maze.current_turn, Faction::Fox);
+    let fox_ai = find_best_move(&maze).expect("AI should find opening fox move");
+    if let PieceMove::FoxMove { to } = fox_ai {
+        assert!(maze.apply_fox_move(to).is_ok());
+        assert!(!maze.all_hound_legal_moves().is_empty());
     } else {
-        panic!("Expected HoundMove");
+        panic!("Expected FoxMove");
+    }
+
+    // Maze dogs are barred from the coop node just like on the symmetric board
+    let maze_c8 = maze.graph.find_id_by_name("C8").unwrap();
+    for h in 0..maze.hounds_pos.len() as u8 {
+        assert!(!maze.hound_legal_moves(h).contains(&maze_c8));
     }
 }
 

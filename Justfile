@@ -19,6 +19,9 @@ install-wasm: build-wasm
     cp target/wasm32-unknown-unknown/release/foxandhounds.wasm web/fox-and-hounds.wasm
     @test -L web/assets || ln -s ../assets web/assets
 
+zip-wasm: install-wasm
+    zip -r fox-and-hounds.zip web
+
 # Build android image
 build-android:
     cargo quad-apk build --release
