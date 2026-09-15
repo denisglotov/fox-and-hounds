@@ -93,7 +93,7 @@ if [ -n "$R8_CMD" ] && [ -f "$PROGUARD_RULES" ] && [ -d "$BIN_DIR/build/obj" ]; 
   CLASS_FILES=$(find "$BIN_DIR/build/obj" -name "*.class")
   
   $R8_CMD --release \
-    --min-api 23 \
+    --min-api 24 \
     --lib "$ANDROID_JAR" \
     --pg-conf "$PROGUARD_RULES" \
     --pg-map-output "$APK_OUT_DIR/mapping.txt" \
