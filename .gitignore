@@ -3,7 +3,7 @@
 **/*.rs.bk
 _cargo_apk_main*
 /scratch/
-TODO.md
+fox-and-hounds.zip
 
 # WebAssembly build outputs
 *.wasm
