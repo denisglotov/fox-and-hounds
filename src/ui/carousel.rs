@@ -549,6 +549,11 @@ impl BoardCarousel {
     }
 }
 
+/// The carousel keeps its scroll state private, so its navigation and smoothing behaviour is
+/// checked here rather than through the public API: a drag guard that stopped honouring
+/// `is_dragging`, or a smoothing step that overshot `scroll_pos`, would not be observable from
+/// outside this module. The geometry assertions that used to sit here were dropped: they
+/// re-derived the drawing formulas from local literals instead of calling the real ones.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -592,44 +597,5 @@ mod tests {
         }
         assert_eq!(carousel.current_index(), 1);
         assert!((carousel.scroll_pos - 1.0).abs() < 0.05);
-    }
-
-    #[test]
-    fn test_carousel_geometry_and_clipping() {
-        // 1. Button gap math
-        let scale = 1.5;
-        let button_gap = 10.0 * scale;
-        let card_w = 200.0 * scale;
-        let card_step = card_w * (1.0 + FLANKING_SCALE) * 0.5 + button_gap;
-        let center_cx = 300.0;
-        let center_right = center_cx + card_w * 0.5;
-        let flank_cx = center_cx + card_step;
-        let flank_w = card_w * FLANKING_SCALE;
-        let flank_left = flank_cx - flank_w * 0.5;
-        assert!((flank_left - center_right - button_gap).abs() < 0.001);
-
-        // 2. Clip math
-        let clip_left = 50.0;
-        let clip_right = 250.0;
-        let draw_x1 = (20.0f32).max(clip_left);
-        let draw_x2 = (120.0f32).min(clip_right);
-        assert_eq!(draw_x1, 50.0);
-        assert_eq!(draw_x2, 120.0);
-
-        let draw2_x1 = (180.0f32).max(clip_left);
-        let draw2_x2 = (290.0f32).min(clip_right);
-        assert_eq!(draw2_x1, 180.0);
-        assert_eq!(draw2_x2, 250.0);
-
-        // 3. Text strict boundary enforcement
-        let right_pad = 8.0 * scale;
-        let content_right = draw2_x2 - right_pad;
-        let text_x = 220.0;
-        let max_text_w = content_right - text_x; // 250 - 12 - 220 = 18.0
-        let full_title_width = 110.0;
-        let fit_ratio = max_text_w / full_title_width;
-        // Text should be rejected when it cannot fit within 80% scaling
-        assert!(fit_ratio < 0.80);
-        assert!(max_text_w < 40.0 * scale);
     }
 }
