@@ -43,9 +43,7 @@ async fn restart_board_session(
     board_view: &mut BoardView,
     camera: &mut ViewportCamera,
     variant: fox_and_hounds::game::level::BoardVariant,
-    viewport_rect: Rect,
-    board_size: Vec2,
-    board_scale: f32,
+    (viewport_rect, board_scale, board_size): (Rect, f32, Vec2),
 ) {
     board_view.ensure_board_loaded(variant).await;
     board_view.reset_simulations();
@@ -130,21 +128,14 @@ async fn main() {
                     sound_manager.play(snd);
                 }
                 if state.phase == GamePhase::Playing {
-                    let (viewport_rect, board_scale, board_size) = compute_board_layout(
+                    let layout = compute_board_layout(
                         screen_w,
                         screen_h,
                         scale,
                         &state.variant.config().dimensions,
                     );
-                    restart_board_session(
-                        &mut board_view,
-                        &mut camera,
-                        state.variant,
-                        viewport_rect,
-                        board_size,
-                        board_scale,
-                    )
-                    .await;
+                    restart_board_session(&mut board_view, &mut camera, state.variant, layout)
+                        .await;
                 }
             }
             GamePhase::Playing | GamePhase::GameOver => {
@@ -203,9 +194,7 @@ async fn main() {
                             &mut board_view,
                             &mut camera,
                             state.variant,
-                            viewport_rect,
-                            board_size,
-                            board_scale,
+                            (viewport_rect, board_scale, board_size),
                         )
                         .await;
                     }
@@ -231,9 +220,7 @@ async fn main() {
                                 &mut board_view,
                                 &mut camera,
                                 state.variant,
-                                viewport_rect,
-                                board_size,
-                                board_scale,
+                                (viewport_rect, board_scale, board_size),
                             )
                             .await;
                         }

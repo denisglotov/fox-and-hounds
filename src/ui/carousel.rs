@@ -1,10 +1,9 @@
 use crate::audio::SoundTrigger;
 use crate::game::i18n::LocaleStrings;
-use crate::game::level::BoardVariant;
+use crate::game::level::{BoardVariant, VARIANT_COUNT};
 use crate::ui::{draw_text_styled, measure_text_styled};
 use macroquad::prelude::*;
 
-pub const VARIANT_COUNT: usize = BoardVariant::all().len();
 const FLANKING_SCALE: f32 = 0.85;
 const FLANKING_ALPHA: f32 = 0.50;
 const DRAG_CLICK_THRESHOLD: f32 = 6.0;

@@ -388,3 +388,74 @@ fn test_the_red_hunt_rules_and_ai() {
     assert!(!state.fox_legal_moves().is_empty());
     assert!(find_best_move(&state).is_some());
 }
+
+#[test]
+fn test_move_errors_and_display() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::RiverCrossing);
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    // 1. Error Display formatting
+    assert_eq!(format!("{}", MoveError::NotYourTurn), "Not your turn");
+    assert_eq!(format!("{}", MoveError::IllegalMove), "Illegal move");
+    assert_eq!(
+        format!("{}", MoveError::InvalidHound),
+        "Invalid hound index"
+    );
+
+    // 2. NotYourTurn: hounds cannot move during Fox turn
+    assert_eq!(state.current_turn, Faction::Fox);
+    assert_eq!(state.apply_hound_move(0, 0), Err(MoveError::NotYourTurn));
+
+    // 3. IllegalMove for Fox: trying to jump across the board
+    let m0 = state.graph.find_id_by_name("M0").unwrap();
+    assert_eq!(state.apply_fox_move(m0), Err(MoveError::IllegalMove));
+
+    // Valid Fox move
+    let m8 = state.graph.find_id_by_name("M8").unwrap();
+    assert!(state.apply_fox_move(m8).is_ok());
+    assert_eq!(state.current_turn, Faction::Hounds);
+
+    // 4. NotYourTurn: Fox cannot move during Hounds turn
+    assert_eq!(state.apply_fox_move(m8), Err(MoveError::NotYourTurn));
+
+    // 5. InvalidHound: out-of-bounds hound index
+    assert_eq!(state.apply_hound_move(10, 0), Err(MoveError::InvalidHound));
+
+    // 6. IllegalMove for Hound: moving to non-adjacent node
+    let m9 = state.graph.find_id_by_name("M9").unwrap();
+    assert_eq!(state.apply_hound_move(0, m9), Err(MoveError::IllegalMove));
+}
+
+#[test]
+fn test_switch_variant_and_set_locale_caching() {
+    let mut state = GameState::new();
+    assert_eq!(state.variant, BoardVariant::Classic);
+
+    // Switch to River Crossing
+    state.switch_variant(BoardVariant::RiverCrossing);
+    assert_eq!(state.variant, BoardVariant::RiverCrossing);
+    assert_eq!(state.graph.node_count(), 24);
+
+    // Idempotent switch does not re-reset board
+    state.turn_count = 5;
+    state.switch_variant(BoardVariant::RiverCrossing);
+    assert_eq!(state.turn_count, 5);
+
+    // Set locale when game is ongoing: cached_game_over_stats stays None
+    state.set_locale("ru-RU");
+    assert_eq!(state.locales.locale, "ru-RU");
+    assert!(state.cached_game_over_stats.is_none());
+
+    // Finish game by moving fox to coop and evaluating result
+    state.fox_pos = state.coop_pos;
+    state.fox_has_left_start = true;
+    state.evaluate_game_result();
+    assert_eq!(state.result, GameResult::FoxWon);
+    assert!(state.cached_game_over_stats.is_some());
+
+    state.set_locale("es-ES");
+    assert_eq!(state.locales.locale, "es-ES");
+    let cached_es = state.cached_game_over_stats.as_ref().unwrap();
+    assert!(cached_es.contains(state.variant.localized_name(state.locales)));
+}

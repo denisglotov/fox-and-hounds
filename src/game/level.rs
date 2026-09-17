@@ -66,8 +66,6 @@ pub enum BoardVariant {
     TheRedHunt,
 }
 
-pub use BoardVariant::FoxAndDogs as FoxAndDogsSymmetric;
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoardIntroFraming {
     pub playable_center: Vec2,
@@ -95,8 +93,6 @@ pub struct VariantConfig {
     pub piece_base_size: f32,
     pub build_graph: fn() -> Graph,
 }
-
-pub type LevelConfig = VariantConfig;
 
 pub const DEFAULT_MOVE_DURATION: f32 = 0.26;
 pub const RED_HUNT_MOVE_SLOWNESS: f32 = 1.5;
@@ -687,8 +683,6 @@ pub fn build_fox_and_dogs_graph() -> Graph {
 
     build_graph_from_specs(&raw_nodes, &raw_edges)
 }
-
-pub use build_fox_and_dogs_graph as build_arthur_symmetric_graph;
 
 pub fn build_fox_and_dogs_maze_graph() -> Graph {
     let raw_nodes = [
