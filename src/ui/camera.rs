@@ -60,6 +60,12 @@ pub struct CameraContext {
     pub pan_offset: Vec2,
     pub effective_scale: f32,
     pub was_dragging: bool,
+    /// True once the match-start intro zoom has settled, so overlay furniture that would fight
+    /// the flying board (the special rule notice) can wait for the framing. An absent camera
+    /// animation means the intro landed - or that the player grabbed the board mid-flight,
+    /// which counts as settled too, since the notice must not be withheld once the camera
+    /// answers to their finger.
+    pub intro_settled: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -455,6 +461,9 @@ impl ViewportCamera {
             pan_offset: self.pan_offset,
             effective_scale,
             was_dragging,
+            // `anim` is only ever installed by `start_intro`, so its absence means the opening
+            // framing has landed (or the player took the camera over mid-flight).
+            intro_settled: self.anim.is_none(),
         }
     }
 

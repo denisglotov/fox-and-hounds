@@ -82,6 +82,22 @@ pub fn should_show_special_rule_notice(state: &GameState) -> bool {
         && !player_has_moved(state)
 }
 
+/// Whether the special rule notice belongs on screen right now, given how long its
+/// illegal-retreat reminder has left to run and whether the opening camera zoom has settled.
+/// The announcement that opens a match waits for `intro_settled`: a plate riding a board that
+/// is still flying into frame is unreadable, so it fades in once the framing has landed. A
+/// reminder raised by an illegal retreat click is a direct answer to the player and shows
+/// without waiting.
+pub fn wants_special_rule_notice(
+    state: &GameState,
+    reminder_seconds: f32,
+    intro_settled: bool,
+) -> bool {
+    state.phase == GamePhase::Playing
+        && !state.variant.config().allow_hound_retreat
+        && (reminder_seconds > 0.0 || (intro_settled && should_show_special_rule_notice(state)))
+}
+
 /// True when `clicked_node` sits in a row behind the player's hounds (toward the coop)
 /// on boards where hounds cannot retreat.
 pub fn is_hound_retreat_click(state: &GameState, clicked_node: u8) -> bool {
@@ -262,6 +278,9 @@ pub struct BoardViewParams<'a> {
     /// inside the visible area even when the board is wider than the window.
     pub viewport_size: Vec2,
     pub was_dragging: bool,
+    /// True once the opening camera zoom has settled. The special rule notice waits for it so
+    /// the sentence is not thrown at the player while the board is still flying into frame.
+    pub intro_settled: bool,
     pub sound_manager: &'a SoundManager,
     pub dt: f32,
 }
@@ -558,15 +577,18 @@ impl BoardView {
         );
 
         // 4b. The special rule notice of boards that forbid the hounds to fall back opens the match
-        // and eases out again the moment the player has played their opening move, or resurfaces
-        // as a reminder when the user attempts an illegal retreat move.
+        // once the opening camera zoom has settled (a plate riding the flying board would be
+        // unreadable), and eases out again the moment the player has played their opening move,
+        // or resurfaces as a reminder when the user attempts an illegal retreat move.
         self.special_rule_reminder_seconds = (self.special_rule_reminder_seconds - dt).max(0.0);
-        let wants_special_rule_notice = state.phase == GamePhase::Playing
-            && !state.variant.config().allow_hound_retreat
-            && (should_show_special_rule_notice(state) || self.special_rule_reminder_seconds > 0.0);
+        let show_special_rule_notice = wants_special_rule_notice(
+            state,
+            self.special_rule_reminder_seconds,
+            params.intro_settled,
+        );
         self.special_rule_notice_alpha = approach_fade(
             self.special_rule_notice_alpha,
-            if wants_special_rule_notice { 1.0 } else { 0.0 },
+            if show_special_rule_notice { 1.0 } else { 0.0 },
             SPECIAL_RULE_NOTICE_FADE_RATE,
             dt,
         );
@@ -733,10 +755,10 @@ impl BoardView {
 
     /// Draws the start-of-match special rule notice ("hounds cannot retreat on this board")
     /// for boards that forbid the hounds to fall back toward the coop. Like the objective
-    /// reticle it opens the match and eases out once the player has played their opening move
-    /// (see `should_show_special_rule_notice`); the font shrinks for long translations so the
-    /// sentence always stays on the framed field (or on the viewport, whichever is narrower),
-    /// and a dark plate keeps it readable on any artwork.
+    /// reticle it opens the match and eases out once the player has played their opening move,
+    /// but only after the intro zoom has settled (see `wants_special_rule_notice`); the font
+    /// shrinks for long translations so the sentence always stays on the framed field (or on
+    /// the viewport, whichever is narrower), and a dark plate keeps it readable on any artwork.
     fn draw_special_rule_notice(
         &self,
         state: &GameState,
@@ -1540,6 +1562,57 @@ mod tests {
         // ...and a finished match keeps it off the board
         fox_game.phase = GamePhase::GameOver;
         assert!(!should_show_special_rule_notice(&fox_game));
+    }
+
+    #[test]
+    fn test_special_rule_notice_waits_for_the_opening_zoom() {
+        let mut game = GameState::new();
+        game.start_game(Faction::Fox, Difficulty::Medium);
+        assert!(should_show_special_rule_notice(&game));
+
+        // The intro zoom owns the screen while it flies into the field: the notice waits for
+        // the framing to settle and only then fades in
+        assert!(!wants_special_rule_notice(&game, 0.0, false));
+        assert!(wants_special_rule_notice(&game, 0.0, true));
+
+        // An illegal retreat click is a direct answer to the player, so its reminder does not
+        // wait for the camera
+        assert!(wants_special_rule_notice(
+            &game,
+            SPECIAL_RULE_REMINDER_DURATION,
+            false
+        ));
+
+        // The player's own opening move retires the announcement for good
+        let opening = game.fox_legal_moves();
+        assert!(!opening.is_empty());
+        assert!(game.apply_fox_move(opening[0]).is_ok());
+        assert!(!wants_special_rule_notice(&game, 0.0, true));
+
+        // ...though a later illegal retreat click still brings it back as a reminder
+        assert!(wants_special_rule_notice(
+            &game,
+            SPECIAL_RULE_REMINDER_DURATION,
+            true
+        ));
+
+        // Boards with free hound movement never announce a rule, reminder or not
+        let mut river = GameState::new();
+        river.switch_variant(BoardVariant::RiverCrossing);
+        river.start_game(Faction::Fox, Difficulty::Medium);
+        assert!(!wants_special_rule_notice(
+            &river,
+            SPECIAL_RULE_REMINDER_DURATION,
+            true
+        ));
+
+        // A finished match keeps it off the board too
+        game.phase = GamePhase::GameOver;
+        assert!(!wants_special_rule_notice(
+            &game,
+            SPECIAL_RULE_REMINDER_DURATION,
+            true
+        ));
     }
 
     #[test]

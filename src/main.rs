@@ -176,6 +176,7 @@ async fn main() {
                         viewport_mouse_pos: viewport_mouse,
                         viewport_size: Vec2::new(viewport_rect.w, viewport_rect.h),
                         was_dragging: camera_ctx.was_dragging,
+                        intro_settled: camera_ctx.intro_settled,
                         sound_manager: &sound_manager,
                         dt,
                     },
