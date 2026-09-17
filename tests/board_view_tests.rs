@@ -1,32 +1,24 @@
 //! Board hints, notices and reticle geometry for `ui::board_view`.
 //!
-//! Every rule here is driven through the public `BoardViewHints` state and the free layout
-//! helpers, so no renderer, texture or match window is involved: the idle timers, the objective
-//! reticle window and the special rule notice lifecycle are all pure functions of the game state.
+//! Everything here is a pure function of the public game state - the idle-timer window, the
+//! special rule notice lifecycle and the notice/reticle layout - so no renderer, texture or
+//! `BoardView` instance is involved. The tests that do need a headless `BoardView` (the hound sit
+//! timing, the Fox idle timer, the reminder timer and the private fade easing) stay in the unit
+//! tests beside the code they cover.
 
 use fox_and_hounds::game::level::BoardVariant;
-use fox_and_hounds::game::state::{Difficulty, Faction, GamePhase, GameState, MoveAnimation};
+use fox_and_hounds::game::state::{Difficulty, Faction, GamePhase, GameState};
 use fox_and_hounds::ui::board_view::{
     fit_special_rule_notice_font_size, is_hound_retreat_click, roll_sit_threshold,
     should_highlight_fox_objective, should_show_special_rule_notice, special_rule_notice_center,
-    target_arrow_vertices, wants_special_rule_notice, BoardViewHints,
-    FOX_OBJECTIVE_HINT_IDLE_SECONDS, MIN_IDLE_SIT_SECONDS, RANDOM_IDLE_SIT_SECONDS_RANGE,
-    SPECIAL_RULE_NOTICE_MIN_FONT_SIZE, SPECIAL_RULE_NOTICE_PIECE_CLEARANCE,
-    SPECIAL_RULE_REMINDER_DURATION,
+    target_arrow_vertices, wants_special_rule_notice, FOX_OBJECTIVE_HINT_IDLE_SECONDS,
+    MIN_IDLE_SIT_SECONDS, RANDOM_IDLE_SIT_SECONDS_RANGE, SPECIAL_RULE_NOTICE_MIN_FONT_SIZE,
+    SPECIAL_RULE_NOTICE_PIECE_CLEARANCE, SPECIAL_RULE_REMINDER_DURATION,
 };
 use macroquad::prelude::Vec2;
 
-/// A fresh hints state with deterministic settle thresholds, so a hound's sit timing is pinned
-/// rather than the random wait `BoardViewHints::new` rolls for it.
-fn hints_with_fixed_sit_thresholds() -> BoardViewHints {
-    BoardViewHints {
-        hound_sit_thresholds: [MIN_IDLE_SIT_SECONDS; 3],
-        ..BoardViewHints::new()
-    }
-}
-
 #[test]
-fn test_hound_idle_bounds_safety_and_settle_thresholds() {
+fn test_sit_threshold_stays_inside_the_idle_window() {
     // Every hound gets its own wait inside the documented window, so one can settle early and
     // another late on the same board
     for _ in 0..64 {
@@ -37,55 +29,6 @@ fn test_hound_idle_bounds_safety_and_settle_thresholds() {
             "sit threshold {threshold} outside the idle window"
         );
     }
-
-    let mut hints = hints_with_fixed_sit_thresholds();
-    assert_eq!(hints.hound_idle_times, [0.0; 3]);
-    assert_eq!(hints.hound_sit_blend, [0.0; 3]);
-
-    // A hound that idles past its own threshold settles down to sit
-    assert!(!hints.is_hound_sitting(0));
-    hints.update_hound_idle(0, false, 12.0);
-    assert!(hints.is_hound_sitting(0));
-
-    // Acting again clears the wait and rolls a fresh threshold for the next time it rests
-    hints.update_hound_idle(0, true, 0.0);
-    assert!(!hints.is_hound_sitting(0));
-    assert_eq!(hints.hound_idle_times[0], 0.0);
-    assert!(hints.hound_sit_thresholds[0] >= MIN_IDLE_SIT_SECONDS);
-
-    // Out-of-range indices are never sitting and never update, rather than panicking
-    assert!(!hints.is_hound_sitting(3));
-    assert!(!hints.is_hound_sitting(10));
-    hints.update_hound_idle(3, false, 12.0);
-    hints.update_hound_idle(99, true, 1.0);
-    assert_eq!(hints.hound_idle_times, [0.0; 3]);
-    // ...and they leave the hounds that do exist untouched
-    assert_eq!(&hints.hound_sit_thresholds[1..], &[MIN_IDLE_SIT_SECONDS; 2]);
-}
-
-#[test]
-fn test_reset_clears_the_fades_but_keeps_hounds_settled() {
-    let mut hints = hints_with_fixed_sit_thresholds();
-    hints.update_hound_idle(1, false, 12.0);
-    hints.hound_sit_blend[1] = 1.0;
-    hints.start_target_alpha = 0.4;
-    hints.special_rule_notice_alpha = 0.6;
-    hints.special_rule_reminder_seconds = SPECIAL_RULE_REMINDER_DURATION;
-    hints.fox_idle_seconds = 7.5;
-
-    hints.reset();
-
-    // A new match inherits none of the fades or waits the previous one left behind
-    assert_eq!(hints.start_target_alpha, 0.0);
-    assert_eq!(hints.special_rule_notice_alpha, 0.0);
-    assert_eq!(hints.special_rule_reminder_seconds, 0.0);
-    assert_eq!(hints.fox_idle_seconds, 0.0);
-
-    // ...but a hound that was already sitting must not stand up and re-roll under the player
-    assert!(hints.is_hound_sitting(1));
-    assert_eq!(hints.hound_idle_times[1], 12.0);
-    assert_eq!(hints.hound_sit_blend[1], 1.0);
-    assert_eq!(hints.hound_sit_thresholds[1], MIN_IDLE_SIT_SECONDS);
 }
 
 #[test]
@@ -139,59 +82,6 @@ fn test_objective_hint_on_opening_move_and_after_fox_idles() {
     titled.phase = GamePhase::TitleScreen;
     assert!(!should_highlight_fox_objective(&titled, IDLE * 100.0));
 }
-
-#[test]
-fn test_fox_idle_timer_accrues_only_while_fox_waits() {
-    let mut fox_game = GameState::new();
-    fox_game.start_game(Faction::Fox, Difficulty::Medium);
-
-    // Idling on the Fox turn accumulates the wait
-    let mut hints = BoardViewHints::new();
-    hints.update_fox_idle(&fox_game, 4.0);
-    assert!((hints.fox_idle_seconds - 4.0).abs() < 1e-6);
-    hints.update_fox_idle(&fox_game, 6.5);
-    assert!((hints.fox_idle_seconds - 10.5).abs() < 1e-6);
-    assert!(should_highlight_fox_objective(
-        &fox_game,
-        hints.fox_idle_seconds
-    ));
-
-    // Moving the fox hands the turn to the hounds and clears the wait
-    let opening = fox_game.fox_legal_moves();
-    assert!(fox_game.apply_fox_move(opening[0]).is_ok());
-    hints.update_fox_idle(&fox_game, 1.0);
-    assert_eq!(hints.fox_idle_seconds, 0.0);
-
-    // Nor does it run while a piece is still gliding, or once the match is over
-    let mut gliding = GameState::new();
-    gliding.start_game(Faction::Fox, Difficulty::Medium);
-    gliding.active_anim = Some(MoveAnimation {
-        from: Vec2::ZERO,
-        to: Vec2::ZERO,
-        progress: 0.5,
-        duration: 1.0,
-        faction: Faction::Fox,
-        hound_idx: None,
-    });
-    hints.fox_idle_seconds = 3.0;
-    hints.update_fox_idle(&gliding, 1.0);
-    assert_eq!(hints.fox_idle_seconds, 0.0);
-
-    let mut over = GameState::new();
-    over.start_game(Faction::Fox, Difficulty::Medium);
-    over.phase = GamePhase::GameOver;
-    hints.fox_idle_seconds = 3.0;
-    hints.update_fox_idle(&over, 1.0);
-    assert_eq!(hints.fox_idle_seconds, 0.0);
-
-    // A negative dt can never rewind the wait while the fox is on the clock
-    let mut fresh = GameState::new();
-    fresh.start_game(Faction::Fox, Difficulty::Medium);
-    hints.fox_idle_seconds = 3.0;
-    hints.update_fox_idle(&fresh, -1.0);
-    assert!((hints.fox_idle_seconds - 3.0).abs() < 1e-6);
-}
-
 #[test]
 fn test_special_rule_notice_resurfaces_on_retreat_click() {
     let mut state = GameState::new();
@@ -225,15 +115,6 @@ fn test_special_rule_notice_resurfaces_on_retreat_click() {
     river.switch_variant(BoardVariant::RiverCrossing);
     river.start_game(Faction::Hounds, Difficulty::Medium);
     assert!(!is_hound_retreat_click(&river, 0));
-
-    // The click raises a reminder that runs for its full duration
-    let mut hints = BoardViewHints::new();
-    assert_eq!(hints.special_rule_reminder_seconds, 0.0);
-    hints.trigger_special_rule_reminder();
-    assert_eq!(
-        hints.special_rule_reminder_seconds,
-        SPECIAL_RULE_REMINDER_DURATION
-    );
 }
 
 #[test]
@@ -285,7 +166,6 @@ fn test_special_rule_notice_opens_the_match_and_leaves_with_the_first_move() {
     fox_game.phase = GamePhase::GameOver;
     assert!(!should_show_special_rule_notice(&fox_game));
 }
-
 #[test]
 fn test_special_rule_notice_waits_for_the_opening_zoom() {
     let mut game = GameState::new();
@@ -336,7 +216,6 @@ fn test_special_rule_notice_waits_for_the_opening_zoom() {
         true
     ));
 }
-
 #[test]
 fn test_special_rule_notice_layout_clears_the_pieces_and_fits_the_field() {
     let framing = BoardVariant::Classic.config().intro_framing;
@@ -379,7 +258,6 @@ fn test_special_rule_notice_layout_clears_the_pieces_and_fits_the_field() {
     assert_eq!(fit_special_rule_notice_font_size(8, 400.0, 200.0), 8);
     assert_eq!(fit_special_rule_notice_font_size(8, 100.0, 200.0), 8);
 }
-
 #[test]
 fn test_reticle_arrow_geometry_points_at_the_node() {
     let center = Vec2::new(300.0, 200.0);
