@@ -17,8 +17,9 @@ build-wasm:
 
 install-wasm: build-wasm
     cp target/wasm32-unknown-unknown/release/foxandhounds.wasm web/fox-and-hounds.wasm
-    @test -L web/assets || ln -s ../assets web/assets
+    @test -e web/assets || ln -s ../assets web/assets
 
+# Package the whole web/ directory (wasm binary + assets) into fox-and-hounds.zip
 zip-wasm: install-wasm
     zip -r fox-and-hounds.zip web
 

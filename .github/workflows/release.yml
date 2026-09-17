@@ -39,6 +39,10 @@ jobs:
           # Replace symlink with real directory content for self-contained static hosting
           rm -rf web/assets
           cp -r assets web/assets
+          # Package the distributable web bundle (fox-and-hounds.zip).
+          # The recipe's install-wasm dependency is a no-op here: the wasm binary is
+          # already in web/ and web/assets is already a real directory.
+          just zip-wasm
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -52,13 +56,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: foxandhounds-wasm
-          path: web/fox-and-hounds.wasm
+          path: |
+            web/fox-and-hounds.wasm
+            fox-and-hounds.zip
 
-      - name: Attach WASM to GitHub Release
+      - name: Attach WASM & Web Bundle to GitHub Release
         uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: web/fox-and-hounds.wasm
+          files: |
+            web/fox-and-hounds.wasm
+            fox-and-hounds.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
