@@ -116,11 +116,10 @@ impl BoardCarousel {
     }
 
     pub fn load_textures(&mut self) {
-        let variants = BoardVariant::all();
-        for (i, variant) in variants.iter().enumerate() {
-            if i < VARIANT_COUNT {
-                self.textures[i] = load_variant_texture(variant.config().carousel_button_bytes);
-            }
+        for variant in BoardVariant::all() {
+            // Keyed by the variant's cache slot, like `board_textures` over in `ui::board_view`.
+            self.textures[variant.index()] =
+                load_variant_texture(variant.config().carousel_button_bytes);
         }
         self.textures_loaded = true;
     }
@@ -143,11 +142,10 @@ impl BoardCarousel {
             return;
         }
         self.last_synced_variant = Some(variant);
-        let variants = BoardVariant::all();
-        if let Some(target_idx) = variants.iter().position(|&v| v == variant) {
-            if target_idx != self.current_index() {
-                self.set_target_index(target_idx);
-            }
+        // `index()` is the one variant -> carousel-position map, so it is not recomputed here.
+        let target_idx = variant.index();
+        if target_idx != self.current_index() {
+            self.set_target_index(target_idx);
         }
     }
 
@@ -321,7 +319,10 @@ impl BoardCarousel {
             if visible_count < visible_cards.len() {
                 visible_cards[visible_count] = VisibleCard {
                     variant,
-                    tex_idx: card_idx_i as usize,
+                    // Keyed by the variant's dense slot (`BoardVariant::index`) rather than by its
+                    // position on the track, so the card art cannot drift from the slot-based
+                    // texture caches over in `ui::board_view`.
+                    tex_idx: variant.index(),
                     relative_offset: rel_offset,
                     center_x,
                     scale_factor,
@@ -561,9 +562,41 @@ mod tests {
     fn test_carousel_navigation_wrapping_and_sync() {
         assert_eq!(VARIANT_COUNT, BoardVariant::all().len());
 
+        // The carousel walks `BoardVariant::all()` from left to right, so this order is the one the
+        // player sees on the title screen.
+        assert_eq!(
+            BoardVariant::all(),
+            &[
+                BoardVariant::FoxAndDogsMaze,
+                BoardVariant::Classic,
+                BoardVariant::TheRedHunt,
+                BoardVariant::RiverCrossing,
+                BoardVariant::FoxAndDogs,
+            ]
+        );
+        // `index()` is the enum declaration position while the carousel walks `all()`, so the two
+        // orders have to agree or `sync_variant` would settle on the wrong card. The bitmask also
+        // catches a duplicated entry, which would put two boards on one texture slot.
+        let mut slots_seen = 0u32;
+        for (i, variant) in BoardVariant::all().iter().enumerate() {
+            let slot = variant.index();
+            assert_eq!(slot, i, "{variant:?} is declared after its carousel card");
+            let bit = 1u32 << slot;
+            assert_eq!(
+                slots_seen & bit,
+                0,
+                "{variant:?} reuses texture slot {slot}"
+            );
+            slots_seen |= bit;
+        }
+        assert_eq!(slots_seen, (1u32 << VARIANT_COUNT) - 1);
+        // The title screen centres the carousel on the selected board, so the first card of the
+        // carousel must also be the default selection.
+        assert_eq!(BoardVariant::default(), BoardVariant::all()[0]);
+
         let mut carousel = BoardCarousel::new();
         assert_eq!(carousel.current_index(), 0);
-        assert_eq!(carousel.current_variant(), BoardVariant::Classic);
+        assert_eq!(carousel.current_variant(), BoardVariant::FoxAndDogsMaze);
 
         // Step forward and direct index targeting
         carousel.step(1.0);

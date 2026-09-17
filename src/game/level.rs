@@ -57,13 +57,14 @@ pub const BOARD_TOTAL_WIDTH: f32 = RIVER_CROSSING_DIMENSIONS.total_width();
 pub const BOARD_COMPOSITION_CENTER_X: f32 = RIVER_CROSSING_DIMENSIONS.composition_center_x();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[repr(u8)]
 pub enum BoardVariant {
     #[default]
+    FoxAndDogsMaze,
     Classic,
+    TheRedHunt,
     RiverCrossing,
     FoxAndDogs,
-    FoxAndDogsMaze,
-    TheRedHunt,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -224,13 +225,7 @@ pub const VARIANT_COUNT: usize = BoardVariant::all().len();
 
 impl BoardVariant {
     pub const fn index(self) -> usize {
-        match self {
-            BoardVariant::Classic => 0,
-            BoardVariant::RiverCrossing => 1,
-            BoardVariant::FoxAndDogs => 2,
-            BoardVariant::FoxAndDogsMaze => 3,
-            BoardVariant::TheRedHunt => 4,
-        }
+        self as usize
     }
 
     pub const fn move_duration(self) -> f32 {
@@ -249,13 +244,16 @@ impl BoardVariant {
         }
     }
 
+    /// Presentation order of the title-screen carousel: the labyrinth board leads, followed by
+    /// Classic, The Red Hunt, River crossing and the tranquil glade. Has to stay in step with the
+    /// enum declaration, since `index()` (the discriminant) maps a variant back to its card.
     pub const fn all() -> &'static [BoardVariant] {
         &[
+            BoardVariant::FoxAndDogsMaze,
             BoardVariant::Classic,
+            BoardVariant::TheRedHunt,
             BoardVariant::RiverCrossing,
             BoardVariant::FoxAndDogs,
-            BoardVariant::FoxAndDogsMaze,
-            BoardVariant::TheRedHunt,
         ]
     }
 

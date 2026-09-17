@@ -64,6 +64,7 @@ fn test_graph_structures_and_metrics() {
 fn test_initial_state_legal_moves_and_free_entry() {
     // 1. Classic variant: Fox opening free entry (coop and hound nodes excluded)
     let mut state = GameState::new();
+    state.switch_variant(BoardVariant::Classic);
     state.start_game(Faction::Fox, Difficulty::Medium);
     assert_eq!(state.variant, BoardVariant::Classic);
     assert_eq!(state.current_turn, Faction::Fox);
@@ -101,6 +102,7 @@ fn test_initial_state_legal_moves_and_free_entry() {
 fn test_victory_and_defeat_conditions() {
     // 1. Fox reaches coop in Classic
     let mut classic = GameState::new();
+    classic.switch_variant(BoardVariant::Classic);
     classic.start_game(Faction::Fox, Difficulty::Medium);
     let m1 = classic.graph.find_id_by_name("M1").unwrap();
     let m0 = classic.graph.find_id_by_name("M0").unwrap();
@@ -117,6 +119,7 @@ fn test_victory_and_defeat_conditions() {
 
     // 2. Fox trapped by Hounds (checkmate)
     let mut trapped = GameState::new();
+    trapped.switch_variant(BoardVariant::Classic);
     trapped.start_game(Faction::Hounds, Difficulty::Medium);
     trapped.fox_pos = classic.graph.find_id_by_name("M4").unwrap();
     trapped.fox_pending = false;
@@ -128,6 +131,7 @@ fn test_victory_and_defeat_conditions() {
 
     // 3. Hound stalemate -> Fox victory
     let mut stale = GameState::new();
+    stale.switch_variant(BoardVariant::Classic);
     stale.start_game(Faction::Hounds, Difficulty::Hard);
     stale.hounds_pos = classic.hounds_pos;
     stale.fox_pos = classic.graph.find_id_by_name("M4").unwrap();
@@ -153,6 +157,7 @@ fn test_victory_and_defeat_conditions() {
 fn test_movement_rules_and_retreat_restrictions() {
     // 1. Classic: Hounds cannot retreat
     let mut classic = GameState::new();
+    classic.switch_variant(BoardVariant::Classic);
     classic.start_game(Faction::Hounds, Difficulty::Medium);
     let m1 = classic.graph.find_id_by_name("M1").unwrap();
     let m2 = classic.graph.find_id_by_name("M2").unwrap();
@@ -249,6 +254,7 @@ fn test_hound_ai_pursuit_and_surrounding() {
 fn test_fox_ai_pathfinding_and_goal_seeking() {
     // 1. Fox AI finds immediate winning move
     let mut state = GameState::new();
+    state.switch_variant(BoardVariant::Classic);
     state.start_game(Faction::Hounds, Difficulty::Hard);
     let m1 = state.graph.find_id_by_name("M1").unwrap();
     let m0 = state.graph.find_id_by_name("M0").unwrap();
@@ -264,6 +270,7 @@ fn test_fox_ai_pathfinding_and_goal_seeking() {
 
     // 2. Classic Fox AI chooses entry move close to coop (row <= 2)
     let mut classic = GameState::new();
+    classic.switch_variant(BoardVariant::Classic);
     classic.start_game(Faction::Hounds, Difficulty::Medium);
     if let Some(PieceMove::FoxMove { to }) = find_best_move(&classic) {
         assert!(classic.graph.node(to).unwrap().row <= 2);
@@ -430,7 +437,11 @@ fn test_move_errors_and_display() {
 #[test]
 fn test_switch_variant_and_set_locale_caching() {
     let mut state = GameState::new();
-    assert_eq!(state.variant, BoardVariant::Classic);
+    // A fresh match uses `BoardVariant::default()`, which is also the first card of the
+    // title-screen carousel: the fox-and-dogs labyrinth.
+    assert_eq!(state.variant, BoardVariant::default());
+    assert_eq!(state.variant, BoardVariant::FoxAndDogsMaze);
+    assert_eq!(state.variant, BoardVariant::all()[0]);
 
     // Switch to River Crossing
     state.switch_variant(BoardVariant::RiverCrossing);

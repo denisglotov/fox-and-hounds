@@ -69,6 +69,7 @@ fn test_objective_hint_on_opening_move_and_after_fox_idles() {
 #[test]
 fn test_special_rule_notice_resurfaces_on_retreat_click() {
     let mut state = GameState::new();
+    state.switch_variant(BoardVariant::Classic);
     state.start_game(Faction::Hounds, Difficulty::Medium);
 
     let m0 = state.graph.find_id_by_name("M0").unwrap();
@@ -105,6 +106,7 @@ fn test_special_rule_notice_resurfaces_on_retreat_click() {
 fn test_special_rule_notice_opens_the_match_and_leaves_with_the_first_move() {
     // Classic forbids the hounds to fall back: the notice belongs to the opening turn
     let mut fox_game = GameState::new();
+    fox_game.switch_variant(BoardVariant::Classic);
     assert!(!fox_game.variant.config().allow_hound_retreat);
     assert!(!should_show_special_rule_notice(&fox_game)); // still on the title screen
 
@@ -120,6 +122,7 @@ fn test_special_rule_notice_opens_the_match_and_leaves_with_the_first_move() {
     // A Hounds player keeps it for their opening decision: the AI Fox has answered by
     // then, but the rule is the one they have to play by
     let mut hound_game = GameState::new();
+    hound_game.switch_variant(BoardVariant::Classic);
     hound_game.start_game(Faction::Hounds, Difficulty::Medium);
     assert!(should_show_special_rule_notice(&hound_game));
 
@@ -153,6 +156,7 @@ fn test_special_rule_notice_opens_the_match_and_leaves_with_the_first_move() {
 #[test]
 fn test_special_rule_notice_waits_for_the_opening_zoom() {
     let mut game = GameState::new();
+    game.switch_variant(BoardVariant::Classic);
     game.start_game(Faction::Fox, Difficulty::Medium);
     assert!(should_show_special_rule_notice(&game));
 

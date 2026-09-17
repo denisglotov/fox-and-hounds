@@ -113,7 +113,7 @@ impl GameState {
     pub fn new() -> Self {
         let detected = detect_locale_tag();
         let locales = resolve_locale(&detected);
-        let variant = BoardVariant::Classic;
+        let variant = BoardVariant::default();
         let graph = (variant.config().build_graph)();
 
         let mut state = Self {
