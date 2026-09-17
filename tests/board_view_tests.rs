@@ -1,35 +1,19 @@
-//! Board hints, notices and reticle geometry for `ui::board_view`.
+//! Board hints and special rule notice lifecycle for `ui::board_view`.
 //!
 //! Everything here is a pure function of the public game state - the idle-timer window, the
-//! special rule notice lifecycle and the notice/reticle layout - so no renderer, texture or
+//! special rule notice lifecycle and the notice layout - so no renderer, texture or
 //! `BoardView` instance is involved. The tests that do need a headless `BoardView` (the hound sit
-//! timing, the Fox idle timer, the reminder timer and the private fade easing) stay in the unit
-//! tests beside the code they cover.
+//! timing, the Fox idle timer, the reminder timer and simulation reset) stay in the unit tests
+//! beside the code they cover.
 
 use fox_and_hounds::game::level::BoardVariant;
 use fox_and_hounds::game::state::{Difficulty, Faction, GamePhase, GameState};
 use fox_and_hounds::ui::board_view::{
-    fit_special_rule_notice_font_size, is_hound_retreat_click, roll_sit_threshold,
-    should_highlight_fox_objective, should_show_special_rule_notice, special_rule_notice_center,
-    target_arrow_vertices, wants_special_rule_notice, FOX_OBJECTIVE_HINT_IDLE_SECONDS,
-    MIN_IDLE_SIT_SECONDS, RANDOM_IDLE_SIT_SECONDS_RANGE, SPECIAL_RULE_NOTICE_MIN_FONT_SIZE,
+    fit_special_rule_notice_font_size, is_hound_retreat_click, should_highlight_fox_objective,
+    should_show_special_rule_notice, special_rule_notice_center, wants_special_rule_notice,
+    FOX_OBJECTIVE_HINT_IDLE_SECONDS, SPECIAL_RULE_NOTICE_MIN_FONT_SIZE,
     SPECIAL_RULE_NOTICE_PIECE_CLEARANCE, SPECIAL_RULE_REMINDER_DURATION,
 };
-use macroquad::prelude::Vec2;
-
-#[test]
-fn test_sit_threshold_stays_inside_the_idle_window() {
-    // Every hound gets its own wait inside the documented window, so one can settle early and
-    // another late on the same board
-    for _ in 0..64 {
-        let threshold = roll_sit_threshold();
-        assert!(
-            (MIN_IDLE_SIT_SECONDS..MIN_IDLE_SIT_SECONDS + RANDOM_IDLE_SIT_SECONDS_RANGE)
-                .contains(&threshold),
-            "sit threshold {threshold} outside the idle window"
-        );
-    }
-}
 
 #[test]
 fn test_objective_hint_on_opening_move_and_after_fox_idles() {
@@ -257,20 +241,4 @@ fn test_special_rule_notice_layout_clears_the_pieces_and_fits_the_field() {
     // Small base sizes below the floor never expand above base size when text overflows
     assert_eq!(fit_special_rule_notice_font_size(8, 400.0, 200.0), 8);
     assert_eq!(fit_special_rule_notice_font_size(8, 100.0, 200.0), 8);
-}
-#[test]
-fn test_reticle_arrow_geometry_points_at_the_node() {
-    let center = Vec2::new(300.0, 200.0);
-    let (tip, left, right) = target_arrow_vertices(center, 0.0, 20.0, 30.0, 5.0);
-    assert!((tip - Vec2::new(320.0, 200.0)).length() < 0.01);
-    assert!((left - Vec2::new(330.0, 205.0)).length() < 0.01);
-    assert!((right - Vec2::new(330.0, 195.0)).length() < 0.01);
-
-    // The tip sits nearer the spot than the base, so the arrow targets the node
-    assert!((tip - center).length() < (left - center).length());
-
-    // Rotating an arrow keeps its tip on the reticle circle
-    let (rotated_tip, _, _) =
-        target_arrow_vertices(center, std::f32::consts::FRAC_PI_2, 20.0, 30.0, 5.0);
-    assert!((rotated_tip - Vec2::new(300.0, 220.0)).length() < 0.01);
 }

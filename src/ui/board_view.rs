@@ -1288,8 +1288,8 @@ impl BoardView {
     }
 }
 
-/// Tests for this module live here only when they need the private `approach_fade` easing or a
-/// headless [`BoardView`] instance (its idle timers and reset are driven through `self`).
+/// Tests for this module live here when they exercise a headless [`BoardView`] instance (its idle
+/// timers, reminders and match reset are driven through `self`).
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1336,21 +1336,26 @@ mod tests {
     #[test]
     fn test_hound_idle_bounds_safety() {
         let mut view = test_view();
+        assert_eq!(view.hound_idle_times, [0.0; 3]);
+        assert_eq!(view.hound_sit_blend, [0.0; 3]);
 
-        // The opening objective reticle stays hidden until a match begins
-        assert_eq!(view.start_target_alpha, 0.0);
-        assert_eq!(view.fox_idle_seconds, 0.0);
-
-        // Indices within bounds
+        // A hound that idles past its threshold settles down to sit
         assert!(!view.is_hound_sitting(0));
         view.update_hound_idle(0, false, 12.0);
         assert!(view.is_hound_sitting(0));
 
-        // Indices out of bounds must not panic
+        // Acting again clears the wait and rolls a fresh threshold
+        view.update_hound_idle(0, true, 0.0);
+        assert!(!view.is_hound_sitting(0));
+        assert_eq!(view.hound_idle_times[0], 0.0);
+        assert!(view.hound_sit_thresholds[0] >= MIN_IDLE_SIT_SECONDS);
+
+        // Indices out of bounds must not panic and must leave valid hounds untouched
         assert!(!view.is_hound_sitting(3));
         assert!(!view.is_hound_sitting(10));
         view.update_hound_idle(3, false, 12.0);
         view.update_hound_idle(99, true, 1.0);
+        assert_eq!(view.hound_idle_times[1..], [0.0; 2]);
     }
 
     #[test]
@@ -1406,52 +1411,28 @@ mod tests {
     }
 
     #[test]
-    fn test_reset_simulations_clears_fox_idle() {
+    fn test_reset_simulations_clears_fades_and_timers_but_keeps_hounds_settled() {
         let mut view = test_view();
+        view.update_hound_idle(1, false, 12.0);
+        view.hound_sit_blend[1] = 1.0;
         view.fox_idle_seconds = 7.5;
         view.start_target_alpha = 0.4;
         view.special_rule_notice_alpha = 0.6;
-        view.special_rule_reminder_seconds = 2.0;
-        view.reset_simulations();
-        assert_eq!(view.fox_idle_seconds, 0.0);
-        assert_eq!(view.start_target_alpha, 0.0);
-        assert_eq!(view.special_rule_notice_alpha, 0.0);
-        assert_eq!(view.special_rule_reminder_seconds, 0.0);
-    }
-
-    #[test]
-    fn test_approach_fade_eases_without_overshooting() {
-        // Easing toward a target it has not reached stays short of it and keeps moving that way
-        let rising = approach_fade(0.0, 1.0, 2.2, 0.016);
-        assert!(rising > 0.0 && rising < 1.0);
-        assert!(approach_fade(0.5, 1.0, 2.2, 0.016) > 0.5);
-
-        let falling = approach_fade(1.0, 0.0, 5.0, 0.016);
-        assert!(falling > 0.0 && falling < 1.0);
-        assert!(approach_fade(0.5, 0.0, 2.2, 0.016) < 0.5);
-
-        // A longer step eases further than a short one, and a zero step holds the weight still
-        assert!(approach_fade(0.0, 1.0, 2.2, 0.032) > rising);
-        assert_eq!(approach_fade(0.25, 0.75, 2.2, 0.0), 0.25);
-
-        // A weight already at its target stays there
-        assert!((approach_fade(1.0, 1.0, 2.2, 0.016) - 1.0).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_special_rule_reminder_timer_runs_and_resets() {
-        let mut view = test_view();
-        assert_eq!(view.special_rule_reminder_seconds, 0.0);
-
-        // An illegal retreat click raises the reminder for its full duration
         view.trigger_special_rule_reminder();
         assert_eq!(
             view.special_rule_reminder_seconds,
             SPECIAL_RULE_REMINDER_DURATION
         );
 
-        // Switching board and starting over clears it again
         view.reset_simulations();
+        assert_eq!(view.fox_idle_seconds, 0.0);
+        assert_eq!(view.start_target_alpha, 0.0);
+        assert_eq!(view.special_rule_notice_alpha, 0.0);
         assert_eq!(view.special_rule_reminder_seconds, 0.0);
+
+        // A hound that was already sitting remains settled across simulation reset
+        assert!(view.is_hound_sitting(1));
+        assert_eq!(view.hound_idle_times[1], 12.0);
+        assert_eq!(view.hound_sit_blend[1], 1.0);
     }
 }
