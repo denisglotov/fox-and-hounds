@@ -241,6 +241,7 @@ pub struct BoardView {
     pub boat_texture: Option<Texture2D>,
     pub bridge_texture: Option<Texture2D>,
     pub no_reverse_dog_texture: Option<Texture2D>,
+    pub fox_rotate_texture: Option<Texture2D>,
     pub hound_angles: [f32; 3],
     pub fox_angle: f32,
     pub hover_node_id: Option<u8>,
@@ -323,6 +324,7 @@ impl BoardView {
         let bridge_texture = load_texture(include_bytes!("../../assets/fox_and_dogs_bridge.png"));
         let no_reverse_dog_texture =
             load_texture(include_bytes!("../../assets/no_reverse_dog.png"));
+        let fox_rotate_texture = load_texture(include_bytes!("../../assets/fox_rotate.png"));
 
         Self {
             board_textures,
@@ -339,6 +341,7 @@ impl BoardView {
             boat_texture,
             bridge_texture,
             no_reverse_dog_texture,
+            fox_rotate_texture,
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
             hover_node_id: None,
@@ -817,7 +820,7 @@ impl BoardView {
         let font = self.font.as_ref();
 
         let icon_tex = if state.is_c8_mode {
-            None
+            self.fox_rotate_texture.as_ref()
         } else {
             self.no_reverse_dog_texture.as_ref()
         };
@@ -843,12 +846,27 @@ impl BoardView {
         let font_size = fit_special_rule_notice_font_size(base_size, base_width, max_width);
         let text_dims = measure_text_styled(text, font_size, font);
 
+        let pad = SPECIAL_RULE_NOTICE_PLATE_PADDING * scale;
+        let content_w = text_dims.width + icon_extra_w;
+        let content_h = text_dims
+            .height
+            .max(if icon_tex.is_some() { icon_size } else { 0.0 });
+        let plate_w = content_w + pad * 2.0;
+        let plate_h = content_h + pad * 2.0;
+
         let center = if state.is_c8_mode {
-            origin
-                + Vec2::new(
-                    config.intro_framing.playable_center.x,
-                    config.dimensions.image_height - 30.0,
-                ) * scale
+            let (fox_x, fox_y) = state
+                .graph
+                .node(state.fox_pos)
+                .map_or((config.intro_framing.playable_center.x, 952.0), |n| {
+                    (n.visual_pos.x, n.visual_pos.y)
+                });
+            let fox_top_screen = origin.y + (fox_y - config.piece_base_size * 0.5) * scale;
+            let center_y = fox_top_screen - 12.0 * scale - plate_h * 0.5;
+            let half_w = plate_w * 0.5;
+            let center_x = (origin.x + fox_x * scale)
+                .clamp(half_w + 8.0 * scale, viewport_size.x - half_w - 8.0 * scale);
+            Vec2::new(center_x, center_y)
         } else {
             let lowest_node_y = state
                 .graph
@@ -863,13 +881,6 @@ impl BoardView {
                 ) * scale
         };
 
-        let pad = SPECIAL_RULE_NOTICE_PLATE_PADDING * scale;
-        let content_w = text_dims.width + icon_extra_w;
-        let content_h = text_dims
-            .height
-            .max(if icon_tex.is_some() { icon_size } else { 0.0 });
-        let plate_w = content_w + pad * 2.0;
-        let plate_h = content_h + pad * 2.0;
         let plate_x = center.x - plate_w / 2.0;
         let plate_y = center.y - plate_h / 2.0;
 
@@ -1367,6 +1378,7 @@ mod tests {
             boat_texture: None,
             bridge_texture: None,
             no_reverse_dog_texture: None,
+            fox_rotate_texture: None,
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
             hover_node_id: None,
