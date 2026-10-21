@@ -59,3 +59,8 @@ codegen-units = 1
 panic = "abort"
 debug = 1
 strip = false
+
+# Miniquad owns the Android activity used by Macroquad. Keep its Android 15
+# edge-to-edge compatibility fix in-tree until it is available upstream.
+[patch.crates-io]
+miniquad = { path = "third_party/miniquad" }
