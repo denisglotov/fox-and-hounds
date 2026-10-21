@@ -42,13 +42,7 @@ pub fn measure_text_styled(text: &str, font_size: u16, font: Option<&Font>) -> T
     measure_text(text, font, font_size, 1.0)
 }
 
-pub fn draw_loading_overlay(
-    screen_w: f32,
-    screen_h: f32,
-    scale: f32,
-    hero_texture: Option<&Texture2D>,
-    time: f32,
-) {
+pub fn draw_loading_overlay(screen_w: f32, screen_h: f32, scale: f32, time: f32) {
     // 1. Full-screen background (#0b1118)
     draw_rectangle(
         0.0,
@@ -124,33 +118,6 @@ pub fn draw_loading_overlay(
             2.0 * scale,
             45.0,
             inner_color,
-        );
-    }
-
-    // 6. Spinner core (.spinner-core: 60px, radial gradient #1e293b, core-pulse)
-    let core_scale = 0.96 + pulse * 0.08;
-    let core_r = 30.0 * scale * core_scale;
-    draw_circle(cx, cy, core_r, Color::from_rgba(30, 41, 59, 255));
-    draw_circle_lines(
-        cx,
-        cy,
-        core_r,
-        1.5 * scale,
-        Color::from_rgba(255, 255, 255, 25),
-    );
-
-    // 7. Center icon (.spinner-icon: 42px)
-    if let Some(tex) = hero_texture {
-        let icon_size = 40.0 * scale * core_scale;
-        draw_texture_ex(
-            tex,
-            cx - icon_size / 2.0,
-            cy - icon_size / 2.0,
-            WHITE,
-            DrawTextureParams {
-                dest_size: Some(Vec2::new(icon_size, icon_size)),
-                ..Default::default()
-            },
         );
     }
 }

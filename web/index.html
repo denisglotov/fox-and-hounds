@@ -162,29 +162,6 @@
         border: 2px dashed rgba(56, 189, 248, 0.35);
         animation: spin-counter-clockwise 3.6s linear infinite;
       }
-      .spinner-core {
-        position: relative;
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
-        box-shadow:
-          0 0 20px rgba(0, 0, 0, 0.6),
-          inset 0 0 8px rgba(255, 255, 255, 0.06);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        animation: core-pulse 2.2s ease-in-out infinite;
-      }
-      .spinner-icon {
-        width: 42px;
-        height: 42px;
-        object-fit: contain;
-        border-radius: 8px;
-        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-      }
-
       @keyframes spin-clockwise {
         from {
           transform: rotate(0deg);
@@ -201,17 +178,6 @@
           transform: rotate(0deg);
         }
       }
-      @keyframes core-pulse {
-        0%,
-        100% {
-          transform: scale(0.96);
-          box-shadow: 0 0 15px rgba(249, 115, 22, 0.2);
-        }
-        50% {
-          transform: scale(1.04);
-          box-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
-        }
-      }
     </style>
   </head>
   <body>
@@ -222,9 +188,6 @@
         <div class="spinner-track"></div>
         <div class="spinner-arc"></div>
         <div class="spinner-arc-inner"></div>
-        <div class="spinner-core">
-          <img src="icon-192.png" alt="Fox and Hounds" class="spinner-icon" />
-        </div>
       </div>
     </div>
 
