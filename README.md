@@ -229,3 +229,11 @@ cargo fmt
    prevents the Fox from crossing the river.
 3. **Corner Containment**: Drive the Fox toward boundary nodes (`L` or `R`) and collapse
    adjacent degrees of freedom to achieve checkmate (0 legal moves).
+
+
+## TODO
+* New level from https://mats-winther.github.io/bg/haregames.htm
+* Fix macroquad (https://github.com/denisglotov/fox-and-hounds/pull/15)
+* Ease AI logic - add mistakes for hounds
+* Cloudflare pages
+* Banner Live Video

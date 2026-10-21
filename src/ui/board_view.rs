@@ -424,6 +424,19 @@ impl BoardView {
         }
     }
 
+    pub fn is_board_loaded(&self, variant: BoardVariant) -> bool {
+        self.board_textures[variant.index()].is_some()
+    }
+
+    pub fn set_board_texture(&mut self, variant: BoardVariant, tex: Texture2D) {
+        let idx = variant.index();
+        tex.set_filter(FilterMode::Linear);
+        self.board_textures[idx] = Some(tex.clone());
+        self.current_variant = Some(variant);
+        self.board_texture = Some(tex);
+        self.river.set_path(RiverPath::for_variant(variant));
+    }
+
     pub async fn ensure_board_loaded(&mut self, variant: BoardVariant) {
         let idx = variant.index();
         if self.board_textures[idx].is_none() {
@@ -1789,5 +1802,13 @@ mod tests {
         let snd_hud = view.handle_board_nav_input(&mut state, &mut nav, &mut back_input2, true);
         assert_eq!(snd_hud, Some(SoundTrigger::Select));
         assert_eq!(nav.ingame_focus, InGameFocus::Hud(HudButton::Menu));
+    }
+
+    #[test]
+    fn test_board_loaded_state() {
+        let view = test_view();
+        for &variant in BoardVariant::all() {
+            assert!(!view.is_board_loaded(variant));
+        }
     }
 }

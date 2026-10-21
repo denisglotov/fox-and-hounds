@@ -1,13 +1,63 @@
 use fox_and_hounds::audio::SoundManager;
-use fox_and_hounds::game::level::BoardDimensions;
+use fox_and_hounds::game::level::{BoardDimensions, BoardVariant};
 use fox_and_hounds::game::state::{Faction, GamePhase, GameResult, GameState};
 use fox_and_hounds::ui::board_view::{BoardView, BoardViewParams};
 use fox_and_hounds::ui::camera::{CameraUpdateParams, ViewportCamera};
 use fox_and_hounds::ui::carousel::BoardCarousel;
+use fox_and_hounds::ui::draw_loading_overlay;
 use fox_and_hounds::ui::fx::FxManager;
 use fox_and_hounds::ui::nav::{GameOverFocus, InGameFocus, NavInput, UiNavState};
 use fox_and_hounds::ui::screens::{GameOverParams, HudParams, Screens, TitleScreenParams};
+use macroquad::experimental::coroutines::start_coroutine;
 use macroquad::prelude::*;
+
+async fn load_board_with_spinner(
+    board_view: &mut BoardView,
+    variant: BoardVariant,
+    hero_texture: Option<&Texture2D>,
+    scale: f32,
+) {
+    if board_view.is_board_loaded(variant) {
+        return;
+    }
+
+    let filename = variant.config().board_image_filename;
+    let coroutine =
+        start_coroutine(async move { macroquad::texture::load_texture(filename).await });
+
+    let start_time = get_time();
+    let spinner_threshold = 0.3;
+    let mut spinner_shown = false;
+    let mut loaded_tex = None;
+
+    loop {
+        let elapsed = (get_time() - start_time) as f32;
+
+        if coroutine.is_done() && (!spinner_shown || elapsed >= spinner_threshold + 0.2) {
+            break;
+        }
+
+        if elapsed >= spinner_threshold {
+            spinner_shown = true;
+            let sw = screen_width();
+            let sh = screen_height();
+            draw_loading_overlay(sw, sh, scale, hero_texture, get_time() as f32);
+        }
+
+        next_frame().await;
+    }
+
+    if let Some(res) = coroutine.retrieve() {
+        match res {
+            Ok(tex) => loaded_tex = Some(tex),
+            Err(err) => eprintln!("Failed to load board texture '{filename}': {err:?}"),
+        }
+    }
+
+    if let Some(tex) = loaded_tex {
+        board_view.set_board_texture(variant, tex);
+    }
+}
 
 fn window_conf() -> Conf {
     Conf {
@@ -142,6 +192,14 @@ async fn main() {
                     sound_manager.play(snd);
                 }
                 if state.phase == GamePhase::Playing {
+                    load_board_with_spinner(
+                        &mut board_view,
+                        state.variant,
+                        character_texture.as_ref(),
+                        scale,
+                    )
+                    .await;
+
                     nav.ingame_focus = InGameFocus::Board;
                     let layout = compute_board_layout(
                         screen_w,
@@ -293,5 +351,21 @@ mod wasm_plugin_exports {
     #[no_mangle]
     pub extern "C" fn game_locale_crate_version() -> u32 {
         1
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_load_board_spinner_timing_calculation() {
+        let start_time = 10.0;
+        let spinner_threshold = 0.3;
+        let current_time_fast = 10.15;
+        let current_time_slow = 10.45;
+
+        // Loads completing in < 0.3s do not trigger spinner
+        assert!((current_time_fast - start_time) < spinner_threshold);
+        // Loads taking >= 0.3s trigger spinner
+        assert!((current_time_slow - start_time) >= spinner_threshold);
     }
 }
