@@ -76,6 +76,7 @@ pub struct CameraUpdateParams<'a> {
     pub scale: f32,
     pub dt: f32,
     pub dims: &'a BoardDimensions,
+    pub focus_board_pos: Option<Vec2>,
 }
 
 pub struct ViewportCamera {
@@ -410,8 +411,34 @@ impl ViewportCamera {
             self.is_dragging = false;
         }
 
-        // 6. Dynamic Boundary Clamping based on effective board and extension sizes
+        // 5b. Smooth Auto-Pan to Keep D-Pad Focused Board Node Inside Safe Viewport
         let effective_scale = base_board_scale * self.zoom;
+        if self.anim.is_none() && !self.is_dragging && !is_pinching {
+            if let Some(focus_pos) = params.focus_board_pos {
+                let screen_pos = self.pan_offset + focus_pos * effective_scale;
+                let margin_top = (84.0 * scale).min(viewport_rect.h * 0.35);
+                let margin_bottom = (64.0 * scale).min(viewport_rect.h * 0.30);
+                let margin_x = (64.0 * scale).min(viewport_rect.w * 0.30);
+
+                let mut target_pan = self.pan_offset;
+                if screen_pos.x < margin_x {
+                    target_pan.x += margin_x - screen_pos.x;
+                } else if screen_pos.x > viewport_rect.w - margin_x {
+                    target_pan.x -= screen_pos.x - (viewport_rect.w - margin_x);
+                }
+
+                if screen_pos.y < margin_top {
+                    target_pan.y += margin_top - screen_pos.y;
+                } else if screen_pos.y > viewport_rect.h - margin_bottom {
+                    target_pan.y -= screen_pos.y - (viewport_rect.h - margin_bottom);
+                }
+
+                let follow_factor = (1.0 - (-10.0 * dt).exp()).clamp(0.0, 1.0);
+                self.pan_offset = self.pan_offset.lerp(target_pan, follow_factor);
+            }
+        }
+
+        // 6. Dynamic Boundary Clamping based on effective board and extension sizes
         let cur_board_h = base_board_size.y * self.zoom;
         let (min_x, max_x) = horizontal_pan_bounds(viewport_rect.w, effective_scale, dims);
         let (min_y, max_y) = vertical_pan_bounds(viewport_rect.h, cur_board_h);

@@ -3,6 +3,10 @@ use crate::game::graph::NodeType;
 use crate::game::level::{BoardIntroFraming, BoardVariant, VARIANT_COUNT};
 use crate::game::state::{Faction, GamePhase, GameResult, GameState, PieceMove};
 use crate::ui::boat::BoatSimulation;
+use crate::ui::nav::{
+    default_turn_cursor_node, step_board_cursor, BoardNavStep, HudButton, InGameFocus, NavInput,
+    UiNavState,
+};
 use crate::ui::river::{RiverPath, RiverSimulation};
 use crate::ui::rover::RoverSimulation;
 use crate::ui::train::TrainSimulation;
@@ -245,6 +249,8 @@ pub struct BoardView {
     pub hound_angles: [f32; 3],
     pub fox_angle: f32,
     pub hover_node_id: Option<u8>,
+    pub cursor_node_id: Option<u8>,
+    pub last_cursor_turn: Option<(Faction, usize)>,
     pub font: Option<Font>,
     pub river: RiverSimulation,
     pub train: TrainSimulation,
@@ -287,6 +293,8 @@ pub struct BoardViewParams<'a> {
     pub intro_settled: bool,
     pub sound_manager: &'a SoundManager,
     pub dt: f32,
+    pub nav: &'a mut UiNavState,
+    pub nav_input: &'a mut NavInput,
 }
 
 impl BoardView {
@@ -345,6 +353,8 @@ impl BoardView {
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
             hover_node_id: None,
+            cursor_node_id: None,
+            last_cursor_turn: None,
             font,
             river: RiverSimulation::for_variant(BoardVariant::Classic),
             train: TrainSimulation::new(),
@@ -443,6 +453,31 @@ impl BoardView {
         self.special_rule_reminder_seconds = 0.0;
         self.fox_idle_seconds = 0.0;
         self.c8_click_timer = 0.0;
+        self.cursor_node_id = None;
+        self.last_cursor_turn = None;
+    }
+
+    /// Synchronizes the D-pad cursor node with the active piece at the start of each player turn.
+    pub fn sync_cursor_for_turn(&mut self, state: &GameState) {
+        let cursor_invalid = self
+            .cursor_node_id
+            .is_none_or(|id| state.graph.node(id).is_none());
+        let turn_key = (state.current_turn, state.turn_count);
+        if cursor_invalid || (self.last_cursor_turn != Some(turn_key) && !state.is_ai_turn()) {
+            self.cursor_node_id = default_turn_cursor_node(state);
+            self.last_cursor_turn = Some(turn_key);
+        }
+    }
+
+    /// Returns the board-space position of the currently focused node when D-pad focus is active.
+    pub fn focused_board_pos(&mut self, state: &GameState, nav: &UiNavState) -> Option<Vec2> {
+        self.sync_cursor_for_turn(state);
+        if !nav.focus_visible || nav.ingame_focus != InGameFocus::Board {
+            return None;
+        }
+        self.cursor_node_id
+            .and_then(|id| state.graph.node(id))
+            .map(|n| n.visual_pos)
     }
 
     /// Triggers the start-of-match special rule notice to show again as a reminder
@@ -462,7 +497,7 @@ impl BoardView {
         }
     }
 
-    pub fn draw_and_handle_input(&mut self, state: &mut GameState, params: &BoardViewParams) {
+    pub fn draw_and_handle_input(&mut self, state: &mut GameState, params: &mut BoardViewParams) {
         let origin = params.origin;
         let scale = params.scale;
         let viewport_mouse_pos = params.viewport_mouse_pos;
@@ -478,6 +513,8 @@ impl BoardView {
             self.river.set_path(RiverPath::for_variant(state.variant));
             self.reset_simulations();
         }
+
+        self.sync_cursor_for_turn(state);
 
         let dims = state.active_config().dimensions;
 
@@ -612,14 +649,31 @@ impl BoardView {
             sound_manager.play(snd);
         }
 
+        // 7b. Draw D-Pad / Keyboard Focus Reticle on Board Node
+        if params.nav.focus_visible && params.nav.ingame_focus == InGameFocus::Board {
+            self.draw_board_cursor(state, origin, scale, t);
+        }
+
         // 8. Draw the special rule notice of boards that forbid the hounds to fall back
         self.draw_special_rule_notice(state, origin, scale, params.viewport_size);
 
-        // 9. Handle Player Tap / Click Input (only if not dragging)
+        // 9. Handle Player Tap / Click Input (only if not dragging) & D-Pad Board Input
         self.c8_click_timer = (self.c8_click_timer - dt).max(0.0);
         let is_pre_move_fox_and_dogs =
             state.variant.is_fox_and_dogs() && state.move_history.is_empty();
         let allow_input = !state.is_ai_turn() || is_pre_move_fox_and_dogs;
+
+        if params.nav.ingame_focus == InGameFocus::Board
+            && state.phase == GamePhase::Playing
+            && state.result == GameResult::Ongoing
+        {
+            if let Some(snd) =
+                self.handle_board_nav_input(state, params.nav, params.nav_input, allow_input)
+            {
+                sound_manager.play(snd);
+            }
+        }
+
         if is_mouse_button_released(MouseButton::Left)
             && !was_dragging
             && state.phase == GamePhase::Playing
@@ -627,10 +681,155 @@ impl BoardView {
             && state.result == GameResult::Ongoing
         {
             if let Some(clicked_node) = self.hover_node_id {
+                self.cursor_node_id = Some(clicked_node);
                 if let Some(snd) = self.handle_node_click(state, clicked_node) {
                     sound_manager.play(snd);
                 }
             }
+        }
+    }
+
+    pub fn handle_board_nav_input(
+        &mut self,
+        state: &mut GameState,
+        nav: &mut UiNavState,
+        nav_input: &mut NavInput,
+        allow_input: bool,
+    ) -> Option<SoundTrigger> {
+        if nav_input.back {
+            nav_input.back = false;
+            if !state.is_ai_turn()
+                && state.player_faction == Faction::Hounds
+                && state.selected_hound_idx.is_some()
+            {
+                if let Some(h_idx) = state.selected_hound_idx {
+                    if let Some(&pos) = state.hounds_pos.get(h_idx as usize) {
+                        self.cursor_node_id = Some(pos);
+                    }
+                }
+                state.selected_hound_idx = None;
+                return Some(SoundTrigger::Select);
+            }
+            nav.ingame_focus = InGameFocus::Hud(HudButton::Menu);
+            return Some(SoundTrigger::Select);
+        }
+
+        if let Some(dir) = nav_input.dir.take() {
+            let cur_id = self
+                .cursor_node_id
+                .or_else(|| default_turn_cursor_node(state))?;
+            self.cursor_node_id = Some(cur_id);
+            match step_board_cursor(state, cur_id, dir) {
+                BoardNavStep::Node(next_id) => {
+                    self.cursor_node_id = Some(next_id);
+                }
+                BoardNavStep::ToHud => {
+                    nav.ingame_focus = InGameFocus::Hud(HudButton::Menu);
+                }
+                BoardNavStep::Stay => {}
+            }
+            return None;
+        }
+
+        if nav_input.confirm {
+            nav_input.confirm = false;
+            if !allow_input {
+                return None;
+            }
+            let cur_id = self
+                .cursor_node_id
+                .or_else(|| default_turn_cursor_node(state))?;
+            self.cursor_node_id = Some(cur_id);
+
+            let prev_c8 = state.is_c8_mode;
+            let was_fox_on_own_pos = !state.is_ai_turn()
+                && state.player_faction == Faction::Fox
+                && cur_id == state.fox_pos;
+            let snd = self.handle_node_click(state, cur_id);
+
+            if state.is_c8_mode != prev_c8 {
+                self.last_cursor_turn = Some((state.current_turn, state.turn_count));
+            } else if was_fox_on_own_pos && state.fox_pos == cur_id {
+                // Pressing Confirm directly on the Fox snaps cursor to its best legal move toward target
+                let target_pos = state
+                    .graph
+                    .node(state.active_target_node())
+                    .map_or(Vec2::ZERO, |n| n.visual_pos);
+                if let Some(best_legal) = state.fox_legal_moves().into_iter().min_by(|&a, &b| {
+                    let da = state
+                        .graph
+                        .node(a)
+                        .map_or(f32::MAX, |n| (n.visual_pos - target_pos).length_squared());
+                    let db = state
+                        .graph
+                        .node(b)
+                        .map_or(f32::MAX, |n| (n.visual_pos - target_pos).length_squared());
+                    da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+                }) {
+                    self.cursor_node_id = Some(best_legal);
+                }
+            }
+            return snd;
+        }
+
+        None
+    }
+
+    fn draw_board_cursor(&self, state: &GameState, origin: Vec2, scale: f32, t: f32) {
+        let Some(node_id) = self.cursor_node_id else {
+            return;
+        };
+        let Some(node) = state.graph.node(node_id) else {
+            return;
+        };
+        let pos = origin + node.visual_pos * scale;
+        let pulse = (t * 4.5).sin() * 0.5 + 0.5;
+        let radius = (29.0 + pulse * 3.5) * scale;
+
+        // Outer dark contrast backing ring for legibility across all board artworks
+        draw_circle_lines(
+            pos.x,
+            pos.y,
+            radius,
+            5.0 * scale,
+            Color::from_rgba(10, 16, 26, 225),
+        );
+        // High-contrast gold focus ring
+        draw_circle_lines(
+            pos.x,
+            pos.y,
+            radius,
+            2.8 * scale,
+            Color::from_rgba(255, 224, 130, 255),
+        );
+
+        // Four cardinal reticle ticks around the ring
+        let tick_inner = radius + 2.0 * scale;
+        let tick_outer = radius + 7.5 * scale;
+        for dir in [
+            Vec2::new(1.0, 0.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(0.0, -1.0),
+        ] {
+            let p0 = pos + dir * tick_inner;
+            let p1 = pos + dir * tick_outer;
+            draw_line(
+                p0.x,
+                p0.y,
+                p1.x,
+                p1.y,
+                4.5 * scale,
+                Color::from_rgba(10, 16, 26, 225),
+            );
+            draw_line(
+                p0.x,
+                p0.y,
+                p1.x,
+                p1.y,
+                2.5 * scale,
+                Color::from_rgba(255, 224, 130, 255),
+            );
         }
     }
 
@@ -1382,6 +1581,8 @@ mod tests {
             hound_angles: [0.0; 3],
             fox_angle: 0.0,
             hover_node_id: None,
+            cursor_node_id: None,
+            last_cursor_turn: None,
             font: None,
             river: RiverSimulation::for_variant(BoardVariant::Classic),
             train: TrainSimulation::new(),
@@ -1543,5 +1744,50 @@ mod tests {
         let snd_toggle = view.handle_node_click(&mut state, c8);
         assert_eq!(snd_toggle, Some(SoundTrigger::ButtonClick));
         assert!(!state.is_c8_mode);
+    }
+
+    #[test]
+    fn test_dpad_board_navigation_and_back_behavior() {
+        let mut view = test_view();
+        let mut state = GameState::new();
+        let mut nav = UiNavState::new();
+        nav.focus_visible = true;
+
+        state.switch_variant(BoardVariant::Classic);
+        state.start_game(Faction::Hounds, Difficulty::Medium);
+        let ai_dest = state.fox_legal_moves()[0];
+        state.apply_fox_move(ai_dest).unwrap();
+        state.active_anim = None;
+
+        view.sync_cursor_for_turn(&state);
+        assert_eq!(view.cursor_node_id, Some(state.hounds_pos[1]));
+
+        // Confirm on Hound 1 selects it
+        let mut confirm_input = NavInput {
+            confirm: true,
+            ..Default::default()
+        };
+        let snd = view.handle_board_nav_input(&mut state, &mut nav, &mut confirm_input, true);
+        assert_eq!(snd, Some(SoundTrigger::Select));
+        assert_eq!(state.selected_hound_idx, Some(1));
+
+        // Pressing Back while a Hound is selected deselects it and stays on Board
+        let mut back_input = NavInput {
+            back: true,
+            ..Default::default()
+        };
+        let snd_back = view.handle_board_nav_input(&mut state, &mut nav, &mut back_input, true);
+        assert_eq!(snd_back, Some(SoundTrigger::Select));
+        assert_eq!(state.selected_hound_idx, None);
+        assert_eq!(nav.ingame_focus, InGameFocus::Board);
+
+        // Pressing Back again with no Hound selected focuses the top HUD bar
+        let mut back_input2 = NavInput {
+            back: true,
+            ..Default::default()
+        };
+        let snd_hud = view.handle_board_nav_input(&mut state, &mut nav, &mut back_input2, true);
+        assert_eq!(snd_hud, Some(SoundTrigger::Select));
+        assert_eq!(nav.ingame_focus, InGameFocus::Hud(HudButton::Menu));
     }
 }

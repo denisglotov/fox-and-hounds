@@ -80,6 +80,13 @@ mkdir -p "$TMP_DIR/bundle_root/manifest" "$TMP_DIR/bundle_root/dex" "$TMP_DIR/r8
 
 METADATA_ARGS=()
 
+# Inject Android TV LEANBACK_LAUNCHER intent category if not already present
+if ! grep -q "android.intent.category.LEANBACK_LAUNCHER" "$BIN_DIR/AndroidManifest.xml"; then
+  sed -i '' \
+    's|<category android:name="android.intent.category.LAUNCHER" />|<category android:name="android.intent.category.LAUNCHER" />\n                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />|' \
+    "$BIN_DIR/AndroidManifest.xml"
+fi
+
 # 1. Compile resources into proto format for AAB
 "$AAPT2" compile --dir res -o "$TMP_DIR/compiled_res.zip"
 "$AAPT2" link --proto-format -o "$TMP_DIR/base_linked.apk" \

@@ -29,6 +29,15 @@ pub enum Faction {
     Hounds,
 }
 
+impl Faction {
+    pub const fn toggle(self) -> Self {
+        match self {
+            Self::Fox => Self::Hounds,
+            Self::Hounds => Self::Fox,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Difficulty {
     Easy,
@@ -37,6 +46,24 @@ pub enum Difficulty {
 }
 
 impl Difficulty {
+    pub const ALL: [Self; 3] = [Self::Easy, Self::Medium, Self::Hard];
+
+    pub const fn cycle_prev(self) -> Self {
+        match self {
+            Self::Easy => Self::Hard,
+            Self::Medium => Self::Easy,
+            Self::Hard => Self::Medium,
+        }
+    }
+
+    pub const fn cycle_next(self) -> Self {
+        match self {
+            Self::Easy => Self::Medium,
+            Self::Medium => Self::Hard,
+            Self::Hard => Self::Easy,
+        }
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             Difficulty::Easy => "Easy",

@@ -25,6 +25,7 @@ pub struct CarouselDrawConfig<'a> {
     pub bounds: Rect,
     pub clip_bounds: Rect,
     pub scale: f32,
+    pub is_focused: bool,
     pub font: Option<&'a Font>,
     pub locales: &'a LocaleStrings,
     pub dt: f32,
@@ -423,6 +424,9 @@ impl BoardCarousel {
             };
 
             draw_clipped_border(rect, clip_left, clip_right, border_thick, border_color);
+            if is_center && config.is_focused {
+                crate::ui::nav::draw_focus_rect(rect, config.scale * s, get_time() as f32);
+            }
 
             // Right side: Localized Name and Subtitle
             let graph_area_w = rect.w * 0.38;

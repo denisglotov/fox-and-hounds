@@ -3,6 +3,7 @@ pub mod boat;
 pub mod camera;
 pub mod carousel;
 pub mod fx;
+pub mod nav;
 pub mod river;
 pub mod rover;
 pub mod screens;

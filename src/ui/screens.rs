@@ -2,6 +2,10 @@ use crate::audio::SoundTrigger;
 use crate::game::level::BoardVariant;
 use crate::game::state::{Difficulty, Faction, GamePhase, GameResult, GameState};
 use crate::ui::carousel::{BoardCarousel, CarouselDrawConfig};
+use crate::ui::nav::{
+    draw_focus_rect, request_app_exit, GameOverFocus, HudButton, InGameFocus, NavDir, NavInput,
+    TitleFocus, UiNavState,
+};
 use crate::ui::{draw_text_styled, measure_text_styled};
 use macroquad::prelude::*;
 
@@ -10,6 +14,7 @@ pub struct SelectableButtonConfig<'a> {
     pub title: &'a str,
     pub subtitle: &'a str,
     pub is_selected: bool,
+    pub is_focused: bool,
     pub accent_color: Color,
     pub scale: f32,
     pub font: Option<&'a Font>,
@@ -18,6 +23,7 @@ pub struct SelectableButtonConfig<'a> {
 pub struct ActionButtonConfig<'a> {
     pub bounds: Rect,
     pub text: &'a str,
+    pub is_focused: bool,
     pub normal_color: Color,
     pub hover_color: Color,
     pub scale: f32,
@@ -27,8 +33,35 @@ pub struct ActionButtonConfig<'a> {
 pub struct IconButtonConfig<'a> {
     pub bounds: Rect,
     pub icon: &'a str,
+    pub is_focused: bool,
     pub scale: f32,
     pub font: Option<&'a Font>,
+}
+
+pub struct TitleScreenParams<'a> {
+    pub screen_w: f32,
+    pub screen_h: f32,
+    pub scale: f32,
+    pub font: Option<&'a Font>,
+    pub hero_texture: Option<&'a Texture2D>,
+    pub nav_input: NavInput,
+}
+
+pub struct HudParams<'a> {
+    pub screen_w: f32,
+    pub screen_h: f32,
+    pub scale: f32,
+    pub is_muted: bool,
+    pub font: Option<&'a Font>,
+    pub nav_input: NavInput,
+}
+
+pub struct GameOverParams<'a> {
+    pub screen_w: f32,
+    pub screen_h: f32,
+    pub scale: f32,
+    pub font: Option<&'a Font>,
+    pub nav_input: NavInput,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -378,12 +411,14 @@ impl Screens {
     pub fn draw_title_screen(
         state: &mut GameState,
         carousel: &mut BoardCarousel,
-        screen_w: f32,
-        screen_h: f32,
-        scale: f32,
-        font: Option<&Font>,
-        hero_texture: Option<&Texture2D>,
+        nav: &mut UiNavState,
+        params: &TitleScreenParams,
     ) -> Option<SoundTrigger> {
+        let screen_w = params.screen_w;
+        let screen_h = params.screen_h;
+        let scale = params.scale;
+        let font = params.font;
+        let hero_texture = params.hero_texture;
         let t = get_time() as f32;
 
         // Dark Atmospheric Background Plate
@@ -532,7 +567,7 @@ impl Screens {
 
             // 3-5. Right Column: Variant, Faction, Difficulty, and Start Controls
             let right_center_x = right.x + right.w / 2.0;
-            Self::draw_title_controls(state, carousel, &layout, right_center_x, scale, font)
+            Self::draw_title_controls(state, carousel, nav, &layout, right_center_x, params)
         } else {
             let card_x = layout.card_bounds.x;
             let card_y = layout.card_bounds.y;
@@ -613,7 +648,7 @@ impl Screens {
             }
 
             // 3-5. Variant, Faction, Difficulty, and Start Controls
-            Self::draw_title_controls(state, carousel, &layout, center_x, scale, font)
+            Self::draw_title_controls(state, carousel, nav, &layout, center_x, params)
         };
 
         // Re-draw outer card border to ensure it stays pristine on top of any clipped controls
@@ -632,13 +667,63 @@ impl Screens {
     fn draw_title_controls(
         state: &mut GameState,
         carousel: &mut BoardCarousel,
+        nav: &mut UiNavState,
         layout: &TitleScreenLayout,
         header_center_x: f32,
-        scale: f32,
-        font: Option<&Font>,
+        params: &TitleScreenParams,
     ) -> Option<SoundTrigger> {
         let mut sound_trigger = None;
+        let scale = params.scale;
+        let font = params.font;
+        let nav_input = params.nav_input;
         let label_size = (12.0 * scale) as u16;
+
+        // Handle D-pad / Keyboard Navigation on Title Screen
+        if nav_input.back {
+            request_app_exit();
+        } else if let Some(dir) = nav_input.dir {
+            match dir {
+                NavDir::Up | NavDir::Down => {
+                    nav.title_focus = nav.title_focus.step_vertical(dir);
+                    sound_trigger = Some(SoundTrigger::ButtonClick);
+                }
+                NavDir::Left | NavDir::Right => match nav.title_focus {
+                    TitleFocus::VariantCarousel => {
+                        let delta = if dir == NavDir::Left { -1.0 } else { 1.0 };
+                        carousel.step(delta);
+                        let new_v = carousel.current_variant();
+                        carousel.sync_variant(new_v);
+                        state.switch_variant(new_v);
+                        sound_trigger = Some(SoundTrigger::ButtonClick);
+                    }
+                    TitleFocus::Faction => {
+                        state.player_faction = state.player_faction.toggle();
+                        sound_trigger = Some(SoundTrigger::ButtonClick);
+                    }
+                    TitleFocus::Difficulty => {
+                        state.difficulty = if dir == NavDir::Left {
+                            state.difficulty.cycle_prev()
+                        } else {
+                            state.difficulty.cycle_next()
+                        };
+                        sound_trigger = Some(SoundTrigger::ButtonClick);
+                    }
+                    TitleFocus::StartButton => {}
+                },
+            }
+        } else if nav_input.confirm {
+            match nav.title_focus {
+                TitleFocus::VariantCarousel | TitleFocus::StartButton => {
+                    state.start_game(state.player_faction, state.difficulty);
+                    nav.ingame_focus = InGameFocus::Board;
+                    sound_trigger = Some(SoundTrigger::ButtonClick);
+                }
+                TitleFocus::Faction | TitleFocus::Difficulty => {
+                    nav.title_focus = TitleFocus::StartButton;
+                    sound_trigger = Some(SoundTrigger::ButtonClick);
+                }
+            }
+        }
 
         // Board Variant Selection
         let variant_label = &state.locales.title_screen.board_variant;
@@ -658,6 +743,7 @@ impl Screens {
             bounds: layout.variant_card_bounds,
             clip_bounds: layout.carousel_clip_bounds,
             scale,
+            is_focused: nav.focus_visible && nav.title_focus == TitleFocus::VariantCarousel,
             font,
             locales: state.locales,
             dt: get_frame_time(),
@@ -667,6 +753,7 @@ impl Screens {
         }
         if outcome.start_game {
             state.start_game(state.player_faction, state.difficulty);
+            nav.ingame_focus = InGameFocus::Board;
         }
         if let Some(snd) = outcome.sound_trigger {
             sound_trigger = Some(snd);
@@ -705,6 +792,7 @@ impl Screens {
             title: &state.locales.title_screen.fox_title,
             subtitle: &state.locales.title_screen.fox_subtitle,
             is_selected: is_fox,
+            is_focused: nav.focus_visible && nav.title_focus == TitleFocus::Faction && is_fox,
             accent_color: Color::from_rgba(230, 81, 0, 255),
             scale,
             font,
@@ -720,6 +808,7 @@ impl Screens {
             title: &state.locales.title_screen.hounds_title,
             subtitle: &state.locales.title_screen.hounds_subtitle,
             is_selected: is_hound,
+            is_focused: nav.focus_visible && nav.title_focus == TitleFocus::Faction && is_hound,
             accent_color: Color::from_rgba(25, 118, 210, 255),
             scale,
             font,
@@ -741,14 +830,16 @@ impl Screens {
             font,
         );
 
-        let difficulties = [Difficulty::Easy, Difficulty::Medium, Difficulty::Hard];
-        for (idx, &diff) in difficulties.iter().enumerate() {
+        for (idx, &diff) in Difficulty::ALL.iter().enumerate() {
             let is_sel = state.difficulty == diff;
             let clicked = Self::draw_selectable_button(&SelectableButtonConfig {
                 bounds: layout.difficulty_btn_bounds[idx],
                 title: diff.localized_name(state.locales),
                 subtitle: "",
                 is_selected: is_sel,
+                is_focused: nav.focus_visible
+                    && nav.title_focus == TitleFocus::Difficulty
+                    && is_sel,
                 accent_color: Color::from_rgba(78, 52, 46, 255),
                 scale,
                 font,
@@ -763,6 +854,7 @@ impl Screens {
         let start_clicked = Self::draw_action_button(&ActionButtonConfig {
             bounds: layout.start_btn_bounds,
             text: &state.locales.title_screen.start_match,
+            is_focused: nav.focus_visible && nav.title_focus == TitleFocus::StartButton,
             normal_color: Color::from_rgba(46, 125, 50, 255),
             hover_color: Color::from_rgba(76, 175, 80, 255),
             scale,
@@ -770,6 +862,7 @@ impl Screens {
         });
         if start_clicked {
             state.start_game(state.player_faction, state.difficulty);
+            nav.ingame_focus = InGameFocus::Board;
             sound_trigger = Some(SoundTrigger::ButtonClick);
         }
 
@@ -778,17 +871,61 @@ impl Screens {
 
     pub fn draw_ingame_hud(
         state: &mut GameState,
-        screen_w: f32,
-        _screen_h: f32,
-        scale: f32,
-        is_muted: bool,
-        font: Option<&Font>,
+        nav: &mut UiNavState,
+        params: &HudParams,
     ) -> (Option<SoundTrigger>, bool) {
         let mut sound_trigger = None;
         let mut toggle_mute_requested = false;
+        let screen_w = params.screen_w;
+        let screen_h = params.screen_h;
+        let scale = params.scale;
+        let is_muted = params.is_muted;
+        let font = params.font;
+        let nav_input = params.nav_input;
 
+        // Apply TV overscan safe margins on wide landscape displays
+        let is_wide_landscape = screen_w > screen_h * 1.1;
         let hud_h = 56.0 * scale;
-        let pad = 12.0 * scale;
+        let top_offset = if is_wide_landscape {
+            (screen_h * 0.025).max(8.0 * scale)
+        } else {
+            0.0
+        };
+        let pad = if is_wide_landscape {
+            (screen_w * 0.03).max(16.0 * scale)
+        } else {
+            12.0 * scale
+        };
+
+        // Handle D-pad / Keyboard Navigation when top HUD bar is focused
+        if state.phase == GamePhase::Playing {
+            if let InGameFocus::Hud(cur_btn) = nav.ingame_focus {
+                if nav_input.back || nav_input.dir == Some(NavDir::Down) {
+                    nav.ingame_focus = InGameFocus::Board;
+                    sound_trigger = Some(SoundTrigger::ButtonClick);
+                } else if let Some(dir @ (NavDir::Left | NavDir::Right)) = nav_input.dir {
+                    nav.ingame_focus = InGameFocus::Hud(cur_btn.step_horizontal(dir));
+                    sound_trigger = Some(SoundTrigger::ButtonClick);
+                } else if nav_input.confirm {
+                    match cur_btn {
+                        HudButton::Mute => {
+                            toggle_mute_requested = true;
+                            sound_trigger = Some(SoundTrigger::ButtonClick);
+                        }
+                        HudButton::Restart => {
+                            state.reset_board();
+                            nav.ingame_focus = InGameFocus::Board;
+                            sound_trigger = Some(SoundTrigger::ButtonClick);
+                        }
+                        HudButton::Menu => {
+                            state.phase = GamePhase::TitleScreen;
+                            nav.ingame_focus = InGameFocus::Board;
+                            sound_trigger = Some(SoundTrigger::ButtonClick);
+                        }
+                    }
+                }
+            }
+        }
 
         // 1. Turn Badge Pill (Left)
         let is_ai = state.is_ai_turn();
@@ -821,7 +958,7 @@ impl Screens {
         let text_h = icon_dims.height.max(title_dims.height);
         let badge_w = text_w + 20.0 * scale;
         let badge_h = 36.0 * scale;
-        let badge_y = (hud_h - badge_h) / 2.0;
+        let badge_y = top_offset + (hud_h - badge_h) / 2.0;
         let badge_x = pad;
 
         draw_rectangle(badge_x, badge_y, badge_w, badge_h, badge_color);
@@ -848,19 +985,23 @@ impl Screens {
 
         // 2. Right Action Buttons: Mute, Restart, Menu
         let btn_size = 36.0 * scale;
-        let btn_y = (hud_h - btn_size) / 2.0;
+        let btn_y = top_offset + (hud_h - btn_size) / 2.0;
         let btn_spacing = 8.0 * scale;
+        let hud_focus =
+            (nav.focus_visible && state.phase == GamePhase::Playing).then_some(nav.ingame_focus);
 
         // Menu Button
         let menu_x = screen_w - pad - btn_size;
         let menu_clicked = Self::draw_icon_button(&IconButtonConfig {
             bounds: Rect::new(menu_x, btn_y, btn_size, btn_size),
             icon: "🏠",
+            is_focused: hud_focus == Some(InGameFocus::Hud(HudButton::Menu)),
             scale,
             font,
         });
         if menu_clicked {
             state.phase = GamePhase::TitleScreen;
+            nav.ingame_focus = InGameFocus::Board;
             sound_trigger = Some(SoundTrigger::ButtonClick);
         }
 
@@ -869,11 +1010,13 @@ impl Screens {
         let restart_clicked = Self::draw_icon_button(&IconButtonConfig {
             bounds: Rect::new(restart_x, btn_y, btn_size, btn_size),
             icon: "🔄",
+            is_focused: hud_focus == Some(InGameFocus::Hud(HudButton::Restart)),
             scale,
             font,
         });
         if restart_clicked {
             state.reset_board();
+            nav.ingame_focus = InGameFocus::Board;
             sound_trigger = Some(SoundTrigger::ButtonClick);
         }
 
@@ -883,6 +1026,7 @@ impl Screens {
         let mute_clicked = Self::draw_icon_button(&IconButtonConfig {
             bounds: Rect::new(mute_x, btn_y, btn_size, btn_size),
             icon: mute_icon,
+            is_focused: hud_focus == Some(InGameFocus::Hud(HudButton::Mute)),
             scale,
             font,
         });
@@ -896,12 +1040,36 @@ impl Screens {
 
     pub fn draw_game_over_modal(
         state: &mut GameState,
-        screen_w: f32,
-        screen_h: f32,
-        scale: f32,
-        font: Option<&Font>,
+        nav: &mut UiNavState,
+        params: &GameOverParams,
     ) -> Option<SoundTrigger> {
         let mut sound_trigger = None;
+        let screen_w = params.screen_w;
+        let screen_h = params.screen_h;
+        let scale = params.scale;
+        let font = params.font;
+        let nav_input = params.nav_input;
+
+        if nav_input.back {
+            state.phase = GamePhase::TitleScreen;
+            sound_trigger = Some(SoundTrigger::ButtonClick);
+        } else if nav_input.dir.is_some() {
+            nav.game_over_focus = nav.game_over_focus.toggle();
+            sound_trigger = Some(SoundTrigger::ButtonClick);
+        } else if nav_input.confirm {
+            match nav.game_over_focus {
+                GameOverFocus::PlayAgain => {
+                    state.reset_board();
+                    state.phase = GamePhase::Playing;
+                    nav.ingame_focus = InGameFocus::Board;
+                    sound_trigger = Some(SoundTrigger::ButtonClick);
+                }
+                GameOverFocus::MainMenu => {
+                    state.phase = GamePhase::TitleScreen;
+                    sound_trigger = Some(SoundTrigger::ButtonClick);
+                }
+            }
+        }
 
         let layout = GameOverModalLayout::compute(screen_w, screen_h, scale);
         let modal = layout.modal_bounds;
@@ -999,6 +1167,7 @@ impl Screens {
         let rematch_clicked = Self::draw_action_button(&ActionButtonConfig {
             bounds: layout.rematch_btn_bounds,
             text: &state.locales.game_over.play_again,
+            is_focused: nav.focus_visible && nav.game_over_focus == GameOverFocus::PlayAgain,
             normal_color: Color::from_rgba(25, 118, 210, 128),
             hover_color: Color::from_rgba(66, 165, 245, 128),
             scale,
@@ -1007,6 +1176,7 @@ impl Screens {
         if rematch_clicked {
             state.reset_board();
             state.phase = GamePhase::Playing;
+            nav.ingame_focus = InGameFocus::Board;
             sound_trigger = Some(SoundTrigger::ButtonClick);
         }
 
@@ -1014,6 +1184,7 @@ impl Screens {
         let menu_clicked = Self::draw_action_button(&ActionButtonConfig {
             bounds: layout.menu_btn_bounds,
             text: &state.locales.game_over.main_menu,
+            is_focused: nav.focus_visible && nav.game_over_focus == GameOverFocus::MainMenu,
             normal_color: Color::from_rgba(55, 71, 79, 128),
             hover_color: Color::from_rgba(96, 125, 139, 128),
             scale,
@@ -1050,7 +1221,7 @@ impl Screens {
 
         let bg_color = if cfg.is_selected {
             cfg.accent_color
-        } else if is_hovered {
+        } else if is_hovered || cfg.is_focused {
             Color::from_rgba(38, 50, 68, 255)
         } else {
             Color::from_rgba(26, 35, 50, 255)
@@ -1078,6 +1249,9 @@ impl Screens {
             1.5 * cfg.scale,
             border_color,
         );
+        if cfg.is_focused {
+            draw_focus_rect(cfg.bounds, cfg.scale, get_time() as f32);
+        }
 
         let (title_size, title_dims) = Self::fit_font_size(
             cfg.title,
@@ -1127,7 +1301,7 @@ impl Screens {
         let is_hovered = cfg.bounds.contains(mouse_pos);
         let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
 
-        let bg_color = if is_hovered {
+        let bg_color = if is_hovered || cfg.is_focused {
             cfg.hover_color
         } else {
             cfg.normal_color
@@ -1147,6 +1321,9 @@ impl Screens {
             1.5 * cfg.scale,
             Color::from_rgba(255, 255, 255, 80),
         );
+        if cfg.is_focused {
+            draw_focus_rect(cfg.bounds, cfg.scale, get_time() as f32);
+        }
 
         let (font_size, dims) = Self::fit_font_size(
             cfg.text,
@@ -1172,7 +1349,7 @@ impl Screens {
         let is_hovered = cfg.bounds.contains(mouse_pos);
         let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
 
-        let bg_color = if is_hovered {
+        let bg_color = if is_hovered || cfg.is_focused {
             Color::from_rgba(45, 60, 80, 255)
         } else {
             Color::from_rgba(26, 35, 50, 220)
@@ -1192,6 +1369,9 @@ impl Screens {
             1.0 * cfg.scale,
             Color::from_rgba(255, 255, 255, 40),
         );
+        if cfg.is_focused {
+            draw_focus_rect(cfg.bounds, cfg.scale, get_time() as f32);
+        }
 
         let font_size = (16.0 * cfg.scale) as u16;
         let dims = measure_text_styled(cfg.icon, font_size, cfg.font);

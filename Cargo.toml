@@ -32,9 +32,25 @@ build_targets = ["aarch64-linux-android"]
 
 [package.metadata.android.application_attributes]
 "android:localeConfig" = "@xml/locales_config"
+"android:banner" = "@drawable/banner"
+"android:isGame" = "true"
+"android:appCategory" = "game"
 
 [package.metadata.android.activity_attributes]
 "android:exported" = "true"
+"android:configChanges" = "orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode"
+
+[[package.metadata.android.feature]]
+name = "android.hardware.touchscreen"
+required = false
+
+[[package.metadata.android.feature]]
+name = "android.software.leanback"
+required = false
+
+[[package.metadata.android.feature]]
+name = "android.hardware.gamepad"
+required = false
 
 [profile.release]
 opt-level = "z"
