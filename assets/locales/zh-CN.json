@@ -30,7 +30,8 @@
     "fox_turn": "狐狸回合",
     "hounds_turn": "猎犬回合",
     "thinking": "思考中...",
-    "special_rule_notice": "猎犬在此不能后退"
+    "special_rule_notice": "猎犬在此不能后退",
+    "c8_secret_notice": "狐狸在此开始并返回鸡舍"
   },
   "game_over": {
     "victory": "胜利！",

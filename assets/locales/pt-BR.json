@@ -30,7 +30,8 @@
     "fox_turn": "Turno da Raposa",
     "hounds_turn": "Turno dos Sabujos",
     "thinking": "Pensando...",
-    "special_rule_notice": "Os cães não podem recuar aqui"
+    "special_rule_notice": "Os cães não podem recuar aqui",
+    "c8_secret_notice": "Nível secreto: a raposa começa e deve retornar aqui"
   },
   "game_over": {
     "victory": "VITORIA!",

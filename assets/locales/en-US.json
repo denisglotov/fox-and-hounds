@@ -30,7 +30,8 @@
     "fox_turn": "Fox Turn",
     "hounds_turn": "Hounds Turn",
     "thinking": "Thinking...",
-    "special_rule_notice": "Dogs cannot retreat here"
+    "special_rule_notice": "Dogs cannot retreat here",
+    "c8_secret_notice": "Secret level: fox starts and must return to here"
   },
   "game_over": {
     "victory": "VICTORY!",

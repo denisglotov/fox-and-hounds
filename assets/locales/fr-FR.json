@@ -30,7 +30,8 @@
     "fox_turn": "Tour du Renard",
     "hounds_turn": "Tour des Chiens",
     "thinking": "Réflexion...",
-    "special_rule_notice": "Les chiens ne peuvent pas reculer ici"
+    "special_rule_notice": "Les chiens ne peuvent pas reculer ici",
+    "c8_secret_notice": "Niveau secret : le renard commence et doit revenir ici"
   },
   "game_over": {
     "victory": "VICTOIRE !",

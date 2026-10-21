@@ -65,6 +65,7 @@ pub struct HudStrings {
     pub hounds_turn: String,
     pub thinking: String,
     pub special_rule_notice: String,
+    pub c8_secret_notice: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

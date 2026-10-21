@@ -246,3 +246,37 @@ fn test_special_rule_notice_layout_clears_the_pieces_and_fits_the_field() {
     assert_eq!(fit_special_rule_notice_font_size(8, 400.0, 200.0), 8);
     assert_eq!(fit_special_rule_notice_font_size(8, 100.0, 200.0), 8);
 }
+
+#[test]
+fn test_c8_secret_special_rule_notice_behavior() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::FoxAndDogsMaze);
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    // Default Fox and Dogs has no rule notice
+    assert!(!should_show_special_rule_notice(&state));
+    assert!(!wants_special_rule_notice(&state, 0.0, true));
+
+    // Enabling C8 secret variant activates the special rule notice
+    state.set_c8_mode(true);
+    assert!(should_show_special_rule_notice(&state));
+    assert!(wants_special_rule_notice(&state, 0.0, true));
+
+    // Notice stays while intro zoom has not settled unless reminder_seconds > 0
+    assert!(!wants_special_rule_notice(&state, 0.0, false));
+    assert!(wants_special_rule_notice(&state, 1.5, false));
+
+    // Hounds move first in C8; Fox notice stays on screen while Fox player hasn't moved
+    let c7 = state.graph.find_id_by_name("C7").unwrap();
+    let c6 = state.graph.find_id_by_name("C6").unwrap();
+    let c7_dog = state.hounds_pos.iter().position(|&p| p == c7).unwrap() as u8;
+    assert!(state.apply_hound_move(c7_dog, c6).is_ok());
+    assert!(should_show_special_rule_notice(&state));
+
+    // Fox player moves: notice leaves the board
+    assert!(state.apply_fox_move(c7).is_ok());
+    assert!(!should_show_special_rule_notice(&state));
+
+    // Reminder can bring it back momentarily even after the opening move
+    assert!(wants_special_rule_notice(&state, 2.0, true));
+}

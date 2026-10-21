@@ -72,14 +72,14 @@ impl BoardSnapshot {
             fox_pos: state.fox_pos,
             fox_pending: state.fox_pending,
             fox_has_left_start: state.fox_has_left_start,
-            is_coop_start: state.variant.config().fox_start_node
-                == state.variant.config().target_coop_node,
+            is_coop_start: state.active_config().fox_start_node
+                == state.active_config().target_coop_node,
             hounds_pos: hounds,
             hounds_count: count as u8,
             coop_pos: state.coop_pos,
             current_turn: state.current_turn,
-            allow_hound_retreat: state.variant.config().allow_hound_retreat,
-            allow_hounds_in_coop: state.variant.config().allow_hounds_in_coop,
+            allow_hound_retreat: state.active_config().allow_hound_retreat,
+            allow_hounds_in_coop: state.active_config().allow_hounds_in_coop,
         }
     }
 

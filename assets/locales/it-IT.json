@@ -30,7 +30,8 @@
     "fox_turn": "Turno della Volpe",
     "hounds_turn": "Turno dei Segugi",
     "thinking": "Pensando...",
-    "special_rule_notice": "I cani non possono arretrare qui"
+    "special_rule_notice": "I cani non possono arretrare qui",
+    "c8_secret_notice": "Livello segreto: la volpe parte e deve tornare qui"
   },
   "game_over": {
     "victory": "VITTORIA!",

@@ -84,6 +84,7 @@ pub struct MoveAnimation {
 pub struct GameState {
     pub graph: Graph,
     pub variant: BoardVariant,
+    pub is_c8_mode: bool,
     pub fox_pos: u8,
     pub fox_pending: bool,
     pub fox_has_left_start: bool,
@@ -119,6 +120,7 @@ impl GameState {
         let mut state = Self {
             graph,
             variant,
+            is_c8_mode: false,
             fox_pos: 0,
             fox_pending: false,
             fox_has_left_start: false,
@@ -155,8 +157,33 @@ impl GameState {
     pub fn switch_variant(&mut self, variant: BoardVariant) {
         if self.variant != variant {
             self.variant = variant;
+            self.is_c8_mode = false;
             self.graph = (variant.config().build_graph)();
             self.reset_board();
+        }
+    }
+
+    #[inline]
+    pub fn active_config(&self) -> &'static super::level::VariantConfig {
+        if self.is_c8_mode {
+            match self.variant {
+                BoardVariant::FoxAndDogsMaze => &super::level::FOX_AND_DOGS_MAZE_C8_CONFIG,
+                BoardVariant::FoxAndDogs => &super::level::FOX_AND_DOGS_C8_CONFIG,
+                _ => self.variant.config(),
+            }
+        } else {
+            self.variant.config()
+        }
+    }
+
+    pub fn set_c8_mode(&mut self, enable: bool) {
+        if !self.variant.is_fox_and_dogs() {
+            return;
+        }
+        self.is_c8_mode = enable;
+        self.apply_current_config();
+        if enable && self.is_ai_turn() {
+            self.ai_think_delay = 1.0;
         }
     }
 
@@ -168,7 +195,12 @@ impl GameState {
     }
 
     pub fn reset_board(&mut self) {
-        let config = self.variant.config();
+        self.is_c8_mode = false;
+        self.apply_current_config();
+    }
+
+    fn apply_current_config(&mut self) {
+        let config = self.active_config();
         self.fox_pos = self
             .graph
             .find_id_by_name(config.fox_start_node)
@@ -200,7 +232,7 @@ impl GameState {
 
     #[inline]
     pub fn move_duration(&self) -> f32 {
-        self.variant.config().move_duration
+        self.active_config().move_duration
     }
 
     pub fn is_ai_turn(&self) -> bool {
@@ -226,8 +258,8 @@ impl GameState {
     }
 
     pub fn hound_legal_moves(&self, hound_idx: u8) -> Vec<u8> {
-        let allow_retreat = self.variant.config().allow_hound_retreat;
-        let allow_coop = self.variant.config().allow_hounds_in_coop;
+        let allow_retreat = self.active_config().allow_hound_retreat;
+        let allow_coop = self.active_config().allow_hounds_in_coop;
         self.hounds_pos
             .get(hound_idx as usize)
             .map_or_else(Vec::new, |&pos| {
@@ -356,7 +388,7 @@ impl GameState {
 
     pub fn evaluate_game_result(&mut self) {
         let is_coop_start =
-            self.variant.config().fox_start_node == self.variant.config().target_coop_node;
+            self.active_config().fox_start_node == self.active_config().target_coop_node;
         let fox_won = if self.fox_pos == self.coop_pos {
             if is_coop_start {
                 self.fox_has_left_start

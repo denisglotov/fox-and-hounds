@@ -470,3 +470,78 @@ fn test_switch_variant_and_set_locale_caching() {
     let cached_es = state.cached_game_over_stats.as_ref().unwrap();
     assert!(cached_es.contains(state.variant.localized_name(state.locales)));
 }
+
+#[test]
+fn test_c8_secret_variant_rules_and_flow() {
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::FoxAndDogsMaze);
+    state.start_game(Faction::Fox, Difficulty::Medium);
+
+    // 1. In default Fox and Dogs Maze, Fox starts on C3 and moves first
+    let c3 = state.graph.find_id_by_name("C3").unwrap();
+    let c8 = state.graph.find_id_by_name("C8").unwrap();
+    let c7 = state.graph.find_id_by_name("C7").unwrap();
+    let c6 = state.graph.find_id_by_name("C6").unwrap();
+    assert_eq!(state.fox_pos, c3);
+    assert_eq!(state.current_turn, Faction::Fox);
+    assert!(!state.active_config().hounds_start_first);
+    assert!(!state.active_config().allow_hounds_in_coop);
+
+    // 2. Enable C8 secret variant
+    state.set_c8_mode(true);
+    assert!(state.is_c8_mode);
+    assert_eq!(state.fox_pos, c8);
+    assert_eq!(state.current_turn, Faction::Hounds);
+    assert!(state.active_config().hounds_start_first);
+    assert!(state.active_config().allow_hounds_in_coop);
+    assert!(!state.fox_has_left_start);
+
+    // 3. Dogs cannot jump into C8 while Fox is on C8
+    for h in 0..state.hounds_pos.len() as u8 {
+        assert!(!state.hound_legal_moves(h).contains(&c8));
+    }
+
+    // 4. Dog at C7 moves to C6
+    let c7_dog = state.hounds_pos.iter().position(|&p| p == c7).unwrap() as u8;
+    assert!(state.apply_hound_move(c7_dog, c6).is_ok());
+    assert_eq!(state.current_turn, Faction::Fox);
+
+    // 5. Fox moves C8 -> C7 (leaves start)
+    assert!(state.apply_fox_move(c7).is_ok());
+    assert_eq!(state.fox_pos, c7);
+    assert!(state.fox_has_left_start);
+    assert_eq!(state.result, GameResult::Ongoing);
+
+    // 6. C8 is now vacant, so adjacent hounds CAN enter C8 in C8 variant
+    assert_eq!(state.current_turn, Faction::Hounds);
+    let l7 = state.graph.find_id_by_name("L7").unwrap();
+    let l7_dog = state.hounds_pos.iter().position(|&p| p == l7).unwrap() as u8;
+    assert!(state.hound_legal_moves(l7_dog).contains(&c8));
+
+    // 7. Hound moves elsewhere (e.g. C6 -> C5)
+    let c5 = state.graph.find_id_by_name("C5").unwrap();
+    assert!(state.apply_hound_move(c7_dog, c5).is_ok());
+
+    // 8. Fox moves back to C8 -> Fox victory!
+    assert_eq!(state.current_turn, Faction::Fox);
+    assert!(state.apply_fox_move(c8).is_ok());
+    assert_eq!(state.result, GameResult::FoxWon);
+    assert_eq!(state.phase, GamePhase::GameOver);
+
+    // 9. Switching variant resets C8 mode
+    state.switch_variant(BoardVariant::Classic);
+    assert!(!state.is_c8_mode);
+
+    // 10. Resetting the board restores the classic rules
+    state.switch_variant(BoardVariant::FoxAndDogsMaze);
+    state.set_c8_mode(true);
+    assert!(state.is_c8_mode);
+    assert_eq!(state.fox_pos, c8);
+
+    state.reset_board();
+    assert!(!state.is_c8_mode);
+    assert_eq!(state.fox_pos, c3);
+    assert_eq!(state.current_turn, Faction::Fox);
+    assert!(!state.active_config().hounds_start_first);
+    assert!(!state.active_config().allow_hounds_in_coop);
+}

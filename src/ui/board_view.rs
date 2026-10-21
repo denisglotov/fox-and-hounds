@@ -73,35 +73,36 @@ pub fn should_highlight_fox_objective(state: &GameState, fox_idle_seconds: f32) 
 }
 
 /// The special rule notice announces a board's own rule as the match opens. Classic is the
-/// board that has one today: its hounds may not fall back toward the coop
-/// (`allow_hound_retreat == false`). Like the objective reticle it belongs to the opening
-/// decision only: it leaves as soon as the player has played their first move.
+/// board that has one by default: its hounds may not fall back toward the coop
+/// (`allow_hound_retreat == false`). The C8 secret variant also announces its special rule.
+/// Like the objective reticle it belongs to the opening decision only: it leaves as soon as the
+/// player has played their first move.
 pub fn should_show_special_rule_notice(state: &GameState) -> bool {
-    state.phase == GamePhase::Playing
-        && !state.variant.config().allow_hound_retreat
-        && !player_has_moved(state)
+    let has_rule_notice = !state.active_config().allow_hound_retreat || state.is_c8_mode;
+    state.phase == GamePhase::Playing && has_rule_notice && !player_has_moved(state)
 }
 
 /// Whether the special rule notice belongs on screen right now, given how long its
-/// illegal-retreat reminder has left to run and whether the opening camera zoom has settled.
+/// reminder has left to run and whether the opening camera zoom has settled.
 /// The announcement that opens a match waits for `intro_settled`: a plate riding a board that
 /// is still flying into frame is unreadable, so it fades in once the framing has landed. A
-/// reminder raised by an illegal retreat click is a direct answer to the player and shows
+/// reminder raised by a player interaction is a direct answer to the player and shows
 /// without waiting.
 pub fn wants_special_rule_notice(
     state: &GameState,
     reminder_seconds: f32,
     intro_settled: bool,
 ) -> bool {
+    let has_rule_notice = !state.active_config().allow_hound_retreat || state.is_c8_mode;
     state.phase == GamePhase::Playing
-        && !state.variant.config().allow_hound_retreat
+        && has_rule_notice
         && (reminder_seconds > 0.0 || (intro_settled && should_show_special_rule_notice(state)))
 }
 
 /// True when `clicked_node` sits in a row behind the player's hounds (toward the coop)
 /// on boards where hounds cannot retreat.
 pub fn is_hound_retreat_click(state: &GameState, clicked_node: u8) -> bool {
-    if state.variant.config().allow_hound_retreat {
+    if state.active_config().allow_hound_retreat {
         return false;
     }
     let Some(clicked) = state.graph.node(clicked_node) else {
@@ -262,6 +263,8 @@ pub struct BoardView {
     /// Seconds the Fox player has been sitting on their turn without acting, used to
     /// bring the objective reticle back as a reminder.
     pub fox_idle_seconds: f32,
+    /// Timer for double-clicking C8 to unlock the C8 secret variant before opening move.
+    pub c8_click_timer: f32,
 }
 
 fn lerp_angle(current: f32, target: f32, speed: f32, dt: f32) -> f32 {
@@ -356,6 +359,7 @@ impl BoardView {
             special_rule_notice_alpha: 0.0,
             special_rule_reminder_seconds: 0.0,
             fox_idle_seconds: 0.0,
+            c8_click_timer: 0.0,
         }
     }
 
@@ -435,6 +439,7 @@ impl BoardView {
         self.special_rule_notice_alpha = 0.0;
         self.special_rule_reminder_seconds = 0.0;
         self.fox_idle_seconds = 0.0;
+        self.c8_click_timer = 0.0;
     }
 
     /// Triggers the start-of-match special rule notice to show again as a reminder
@@ -471,7 +476,7 @@ impl BoardView {
             self.reset_simulations();
         }
 
-        let dims = state.variant.config().dimensions;
+        let dims = state.active_config().dimensions;
 
         // 1. Draw Background Board Image (exact natural 1:1 proportions, no distortion)
         if let Some(tex) = &self.board_texture {
@@ -608,10 +613,14 @@ impl BoardView {
         self.draw_special_rule_notice(state, origin, scale, params.viewport_size);
 
         // 9. Handle Player Tap / Click Input (only if not dragging)
+        self.c8_click_timer = (self.c8_click_timer - dt).max(0.0);
+        let is_pre_move_fox_and_dogs =
+            state.variant.is_fox_and_dogs() && state.move_history.is_empty();
+        let allow_input = !state.is_ai_turn() || is_pre_move_fox_and_dogs;
         if is_mouse_button_released(MouseButton::Left)
             && !was_dragging
             && state.phase == GamePhase::Playing
-            && !state.is_ai_turn()
+            && allow_input
             && state.result == GameResult::Ongoing
         {
             if let Some(clicked_node) = self.hover_node_id {
@@ -627,6 +636,34 @@ impl BoardView {
         state: &mut GameState,
         clicked_node: u8,
     ) -> Option<SoundTrigger> {
+        let is_c8 = state
+            .graph
+            .find_id_by_name("C8")
+            .is_some_and(|id| id == clicked_node);
+
+        if state.variant.is_fox_and_dogs() && state.move_history.is_empty() && is_c8 {
+            if self.c8_click_timer > 0.0 {
+                self.c8_click_timer = 0.0;
+                let new_mode = !state.is_c8_mode;
+                state.set_c8_mode(new_mode);
+                if new_mode {
+                    self.trigger_special_rule_reminder();
+                } else {
+                    self.special_rule_reminder_seconds = 0.0;
+                    self.special_rule_notice_alpha = 0.0;
+                }
+                return Some(SoundTrigger::ButtonClick);
+            } else {
+                self.c8_click_timer = 0.8;
+                return Some(SoundTrigger::Select);
+            }
+        } else {
+            self.c8_click_timer = 0.0;
+        }
+
+        if state.is_ai_turn() {
+            return None;
+        }
         match state.player_faction {
             Faction::Fox => {
                 let legal = state.fox_legal_moves();
@@ -771,11 +808,19 @@ impl BoardView {
             return;
         }
 
-        let config = state.variant.config();
-        let text = state.locales.hud.special_rule_notice.as_str();
+        let config = state.active_config();
+        let text = if state.is_c8_mode {
+            state.locales.hud.c8_secret_notice.as_str()
+        } else {
+            state.locales.hud.special_rule_notice.as_str()
+        };
         let font = self.font.as_ref();
 
-        let icon_tex = self.no_reverse_dog_texture.as_ref();
+        let icon_tex = if state.is_c8_mode {
+            None
+        } else {
+            self.no_reverse_dog_texture.as_ref()
+        };
         let icon_size = (SPECIAL_RULE_NOTICE_BASE_FONT_SIZE * 1.75 * scale).round();
         let icon_gap = if icon_tex.is_some() { 8.0 * scale } else { 0.0 };
         let icon_extra_w = if icon_tex.is_some() {
@@ -798,17 +843,25 @@ impl BoardView {
         let font_size = fit_special_rule_notice_font_size(base_size, base_width, max_width);
         let text_dims = measure_text_styled(text, font_size, font);
 
-        let lowest_node_y = state
-            .graph
-            .nodes
-            .iter()
-            .fold(f32::MIN, |lowest, node| lowest.max(node.visual_pos.y));
-        let center = origin
-            + special_rule_notice_center(
-                config.intro_framing,
-                lowest_node_y,
-                config.piece_base_size,
-            ) * scale;
+        let center = if state.is_c8_mode {
+            origin
+                + Vec2::new(
+                    config.intro_framing.playable_center.x,
+                    config.dimensions.image_height - 30.0,
+                ) * scale
+        } else {
+            let lowest_node_y = state
+                .graph
+                .nodes
+                .iter()
+                .fold(f32::MIN, |lowest, node| lowest.max(node.visual_pos.y));
+            origin
+                + special_rule_notice_center(
+                    config.intro_framing,
+                    lowest_node_y,
+                    config.piece_base_size,
+                ) * scale
+        };
 
         let pad = SPECIAL_RULE_NOTICE_PLATE_PADDING * scale;
         let content_w = text_dims.width + icon_extra_w;
@@ -1330,6 +1383,7 @@ mod tests {
             special_rule_notice_alpha: 0.0,
             special_rule_reminder_seconds: 0.0,
             fox_idle_seconds: 0.0,
+            c8_click_timer: 0.0,
         }
     }
 
@@ -1434,5 +1488,48 @@ mod tests {
         assert!(view.is_hound_sitting(1));
         assert_eq!(view.hound_idle_times[1], 12.0);
         assert_eq!(view.hound_sit_blend[1], 1.0);
+    }
+
+    #[test]
+    fn test_c8_secret_double_click_interaction() {
+        let mut view = test_view();
+        let mut state = GameState::new();
+        state.switch_variant(BoardVariant::FoxAndDogsMaze);
+        state.start_game(Faction::Fox, Difficulty::Medium);
+
+        let c8 = state.graph.find_id_by_name("C8").unwrap();
+        let c0 = state.graph.find_id_by_name("C0").unwrap();
+
+        // Single click on C8 primes the timer and plays Select
+        assert_eq!(view.c8_click_timer, 0.0);
+        let snd1 = view.handle_node_click(&mut state, c8);
+        assert_eq!(snd1, Some(SoundTrigger::Select));
+        assert!(view.c8_click_timer > 0.0);
+        assert!(!state.is_c8_mode);
+
+        // Clicking a different node clears the double-click timer
+        let _ = view.handle_node_click(&mut state, c0);
+        assert_eq!(view.c8_click_timer, 0.0);
+        assert!(!state.is_c8_mode);
+
+        // First click again
+        let snd1 = view.handle_node_click(&mut state, c8);
+        assert_eq!(snd1, Some(SoundTrigger::Select));
+        assert!(view.c8_click_timer > 0.0);
+
+        // Second click on C8 within window activates C8 mode and plays ButtonClick
+        let snd2 = view.handle_node_click(&mut state, c8);
+        assert_eq!(snd2, Some(SoundTrigger::ButtonClick));
+        assert_eq!(view.c8_click_timer, 0.0);
+        assert!(state.is_c8_mode);
+        assert_eq!(state.fox_pos, c8);
+        assert_eq!(state.current_turn, Faction::Hounds);
+        assert!(view.special_rule_reminder_seconds > 0.0);
+
+        // Second double-click toggles back to standard
+        let _ = view.handle_node_click(&mut state, c8);
+        let snd_toggle = view.handle_node_click(&mut state, c8);
+        assert_eq!(snd_toggle, Some(SoundTrigger::ButtonClick));
+        assert!(!state.is_c8_mode);
     }
 }

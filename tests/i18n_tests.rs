@@ -90,6 +90,7 @@ fn required_strings(loc: &LocaleStrings) -> Vec<(&'static str, &str)> {
         ("hud.hounds_turn", &loc.hud.hounds_turn),
         ("hud.thinking", &loc.hud.thinking),
         ("hud.special_rule_notice", &loc.hud.special_rule_notice),
+        ("hud.c8_secret_notice", &loc.hud.c8_secret_notice),
         ("game_over.victory", &loc.game_over.victory),
         ("game_over.defeat", &loc.game_over.defeat),
         ("game_over.fox_won_msg", &loc.game_over.fox_won_msg),

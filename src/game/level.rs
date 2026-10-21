@@ -197,6 +197,23 @@ pub const FOX_AND_DOGS_MAZE_CONFIG: VariantConfig = VariantConfig {
     build_graph: build_fox_and_dogs_maze_graph,
 };
 
+pub const FOX_AND_DOGS_C8_CONFIG: VariantConfig = VariantConfig {
+    description: "Fox and dogs board: dogs start on Row 7 and move first, fox must return to C8",
+    hounds_start_first: true,
+    allow_hounds_in_coop: true,
+    fox_start_node: "C8",
+    ..FOX_AND_DOGS_CONFIG
+};
+
+pub const FOX_AND_DOGS_MAZE_C8_CONFIG: VariantConfig = VariantConfig {
+    description:
+        "Fox and dogs maze board: dogs start on Row 7 and move first, fox must return to C8",
+    hounds_start_first: true,
+    allow_hounds_in_coop: true,
+    fox_start_node: "C8",
+    ..FOX_AND_DOGS_MAZE_CONFIG
+};
+
 pub const THE_RED_HUNT_CONFIG: VariantConfig = VariantConfig {
     id: BoardVariant::TheRedHunt,
     name: "The Red Hunt",
@@ -259,6 +276,13 @@ impl BoardVariant {
 
     pub const fn is_red_hunt(self) -> bool {
         matches!(self, BoardVariant::TheRedHunt)
+    }
+
+    pub const fn is_fox_and_dogs(self) -> bool {
+        matches!(
+            self,
+            BoardVariant::FoxAndDogsMaze | BoardVariant::FoxAndDogs
+        )
     }
 
     pub fn localized_name(self, locales: &crate::game::i18n::LocaleStrings) -> &str {
