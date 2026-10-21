@@ -80,12 +80,24 @@ mkdir -p "$TMP_DIR/bundle_root/manifest" "$TMP_DIR/bundle_root/dex" "$TMP_DIR/r8
 
 METADATA_ARGS=()
 
-# Inject Android TV LEANBACK_LAUNCHER intent category if not already present
-if ! grep -q "android.intent.category.LEANBACK_LAUNCHER" "$BIN_DIR/AndroidManifest.xml"; then
-  sed -i '' \
-    's|<category android:name="android.intent.category.LAUNCHER" />|<category android:name="android.intent.category.LAUNCHER" />\n                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />|' \
-    "$BIN_DIR/AndroidManifest.xml"
-fi
+# Inject Android TV LEANBACK_LAUNCHER intent category and configChanges if not already present
+python3 -c "
+path = '$BIN_DIR/AndroidManifest.xml'
+with open(path, 'r', encoding='utf-8') as f:
+    manifest = f.read()
+
+launcher_tag = '<category android:name=\"android.intent.category.LAUNCHER\" />'
+leanback_tag = '<category android:name=\"android.intent.category.LEANBACK_LAUNCHER\" />'
+if 'LEANBACK_LAUNCHER' not in manifest and launcher_tag in manifest:
+    manifest = manifest.replace(launcher_tag, f'{launcher_tag}\n                {leanback_tag}')
+
+old_cfg = 'android:configChanges=\"orientation|keyboardHidden|screenSize\"'
+new_cfg = 'android:configChanges=\"orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode\"'
+manifest = manifest.replace(old_cfg, new_cfg)
+
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(manifest)
+"
 
 # 1. Compile resources into proto format for AAB
 "$AAPT2" compile --dir res -o "$TMP_DIR/compiled_res.zip"

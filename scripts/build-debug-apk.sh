@@ -15,10 +15,15 @@ cp "$CARGO_TOML" "${CARGO_TOML}.bak"
 trap 'mv "${CARGO_TOML}.bak" "$CARGO_TOML"' EXIT
 
 # Patch package_name and label for the debug variant
-sed -i '' \
-  -e 's/^package_name = "org\.dymka\.foxandhounds"$/package_name = "org.dymka.debug.foxandhounds"/' \
-  -e 's/^label = "Fox and Hounds"$/label = "Fox and Hounds (Debug)"/' \
-  "$CARGO_TOML"
+python3 -c "
+path = '$CARGO_TOML'
+with open(path, 'r', encoding='utf-8') as f:
+    c = f.read()
+c = c.replace('package_name = \"org.dymka.foxandhounds\"', 'package_name = \"org.dymka.debug.foxandhounds\"')
+c = c.replace('label = \"Fox and Hounds\"', 'label = \"Fox and Hounds (Debug)\"')
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(c)
+"
 
 echo "==> Building debug APK (org.dymka.debug.foxandhounds)..."
 cargo quad-apk build

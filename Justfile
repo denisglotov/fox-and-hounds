@@ -59,9 +59,10 @@ test *args:
 serve: install-wasm
     python3 -m http.server 8080 -d web
 
-# Run complete CI test suite (formatting, clippy, tests, wasm target check)
+# Run complete CI test suite (formatting, clippy, tests, wasm target check, android target check)
 ci: fmt-check clippy test
     cargo check --target wasm32-unknown-unknown
+    cargo check --target aarch64-linux-android
 
 # Re-subset font from system Arial Unicode MS for all current locale strings
 subset-font:
