@@ -388,7 +388,6 @@ pub mod window {
     /// This should be called when the text cursor moves to keep the IME
     /// candidate window near the insertion point.
     pub fn set_ime_position(x: i32, y: i32) {
-        let d = native_display().lock().unwrap();
         #[cfg(target_os = "android")]
         {
             let _ = (x, y); // IME position not applicable on Android
@@ -396,6 +395,7 @@ pub mod window {
 
         #[cfg(not(target_os = "android"))]
         {
+            let d = native_display().lock().unwrap();
             d.native_requests
                 .send(native::Request::SetImePosition { x, y })
                 .unwrap();
@@ -410,7 +410,6 @@ pub mod window {
     /// # Arguments
     /// * `enabled` - `true` to enable IME (for text input), `false` to disable (for game controls)
     pub fn set_ime_enabled(enabled: bool) {
-        let d = native_display().lock().unwrap();
         #[cfg(target_os = "android")]
         {
             let _ = enabled; // IME control not applicable on Android
@@ -418,6 +417,7 @@ pub mod window {
 
         #[cfg(not(target_os = "android"))]
         {
+            let d = native_display().lock().unwrap();
             d.native_requests
                 .send(native::Request::SetImeEnabled(enabled))
                 .unwrap();
