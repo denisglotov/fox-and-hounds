@@ -61,6 +61,29 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
     <link rel="manifest" href="manifest.json" />
 
+    <!-- Preload critical WebAssembly binary and JavaScript engine -->
+    <script>
+      const APP_VERSION = '1.5.0';
+
+      function addPreload(href, as, type, crossOrigin) {
+        const link = document.createElement('link');
+        link.rel = 'preload';
+        link.href = href;
+        link.as = as;
+        if (type) link.type = type;
+        if (crossOrigin) link.crossOrigin = crossOrigin;
+        document.head.appendChild(link);
+      }
+
+      addPreload(
+        `fox-and-hounds.wasm?v=${APP_VERSION}`,
+        'fetch',
+        'application/wasm',
+        'anonymous'
+      );
+      addPreload(`mq_js_bundle.js?v=${APP_VERSION}`, 'script');
+    </script>
+
     <style>
       * {
         margin: 0;
@@ -206,8 +229,6 @@
     </div>
 
     <script>
-      const APP_VERSION = '1.5.0';
-
       window.gameAudioCtx = null;
       window.gameAudioUnlocked = false;
 
