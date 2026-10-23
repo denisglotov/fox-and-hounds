@@ -545,3 +545,79 @@ fn test_c8_secret_variant_rules_and_flow() {
     assert!(!state.active_config().hounds_start_first);
     assert!(!state.active_config().allow_hounds_in_coop);
 }
+
+#[test]
+fn test_hound_ai_mistakes_and_fox_viability() {
+    // 1. Difficulty::Hard determinism vs Easy variety in engagement
+    let mut state = GameState::new();
+    state.switch_variant(BoardVariant::Classic);
+    state.start_game(Faction::Fox, Difficulty::Hard);
+    // Fox at M2, Hounds at T1, M1, B1 (adjacent / distance <= 3)
+    let m2 = state.graph.find_id_by_name("M2").unwrap();
+    state.fox_pos = m2;
+    state.fox_pending = false;
+    state.current_turn = Faction::Hounds;
+
+    // Hard difficulty always produces the exact same move
+    let first_hard = find_best_move(&state);
+    assert!(first_hard.is_some());
+    for _ in 0..15 {
+        assert_eq!(find_best_move(&state), first_hard);
+    }
+
+    // Easy difficulty with mistakes produces multiple distinct moves over 30 samples
+    state.difficulty = Difficulty::Easy;
+    let first_easy = find_best_move(&state);
+    let has_alternative = (0..30).any(|_| find_best_move(&state) != first_easy);
+    assert!(
+        has_alternative,
+        "Easy hound AI should explore multiple moves due to controlled mistakes"
+    );
+
+    // 2. Play matches where Fox (Hard AI) plays against Easy Hounds
+    // Ensure that Fox can achieve victory thanks to hound mistakes
+    let mut fox_wins = 0;
+    for _ in 0..10 {
+        let mut sim = GameState::new();
+        sim.switch_variant(BoardVariant::Classic);
+        sim.start_game(Faction::Fox, Difficulty::Easy); // Hounds use Easy
+        let f_entry = find_best_move(&sim).unwrap();
+        if let PieceMove::FoxMove { to } = f_entry {
+            assert!(sim.apply_fox_move(to).is_ok());
+        }
+
+        let mut turn = 0;
+        while sim.result == GameResult::Ongoing && turn < 60 {
+            turn += 1;
+            let current_move = if sim.current_turn == Faction::Fox {
+                sim.difficulty = Difficulty::Hard;
+                let mv = find_best_move(&sim);
+                sim.difficulty = Difficulty::Easy;
+                mv
+            } else {
+                find_best_move(&sim)
+            };
+
+            match current_move {
+                Some(PieceMove::FoxMove { to }) => {
+                    let _ = sim.apply_fox_move(to);
+                }
+                Some(PieceMove::HoundMove { hound_idx, to, .. }) => {
+                    let _ = sim.apply_hound_move(hound_idx, to);
+                }
+                None => {
+                    sim.evaluate_game_result();
+                    break;
+                }
+            }
+        }
+
+        if sim.result == GameResult::FoxWon {
+            fox_wins += 1;
+        }
+    }
+    assert!(
+        fox_wins > 0,
+        "Fox should be able to win games against Easy Hounds with mistakes (won {fox_wins}/10)"
+    );
+}

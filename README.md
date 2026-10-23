@@ -234,6 +234,5 @@ cargo fmt
 ## TODO
 * New level from https://mats-winther.github.io/bg/haregames.htm
 * Fix macroquad (https://github.com/denisglotov/fox-and-hounds/pull/15)
-* Ease AI logic - add mistakes for hounds
 * Cloudflare pages
 * Banner Live Video

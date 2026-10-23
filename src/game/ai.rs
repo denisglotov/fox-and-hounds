@@ -183,14 +183,52 @@ pub fn find_best_move(state: &GameState) -> Option<PieceMove> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct HoundMistakeProfile {
+    score_tolerance: i32,
+    mistake_chance_pct: u32,
+    max_mistake_rank: usize,
+}
+
+impl HoundMistakeProfile {
+    const fn for_difficulty(difficulty: Difficulty) -> Self {
+        match difficulty {
+            Difficulty::Easy => Self {
+                score_tolerance: 600,
+                mistake_chance_pct: 55,
+                max_mistake_rank: 4,
+            },
+            Difficulty::Medium => Self {
+                score_tolerance: 250,
+                mistake_chance_pct: 25,
+                max_mistake_rank: 3,
+            },
+            Difficulty::Hard => Self {
+                score_tolerance: 0,
+                mistake_chance_pct: 0,
+                max_mistake_rank: 1,
+            },
+        }
+    }
+}
+
+/// Returns true when at least one Hound is within tactical range (distance <= 3) of the Fox.
+fn is_engaged_with_fox(board: &BoardSnapshot, graph: &Graph) -> bool {
+    board
+        .hounds()
+        .iter()
+        .filter_map(|&h_pos| graph.distance(h_pos, board.fox_pos))
+        .any(|dist| dist <= 3)
+}
+
 fn select_best_candidate<T, F>(candidates: &[T], difficulty: Difficulty, mut eval_candidate: F) -> T
 where
     T: Copy,
     F: FnMut(T) -> (i32, i32),
 {
     match difficulty {
-        Difficulty::Easy if candidates.len() > 1 => {
-            let idx = (macroquad::rand::gen_range(0, candidates.len())) as usize;
+        Difficulty::Easy | Difficulty::Medium if candidates.len() > 1 => {
+            let idx = macroquad::rand::gen_range(0, candidates.len());
             candidates[idx]
         }
         _ => *candidates
@@ -258,34 +296,69 @@ fn find_best_hound_move(
         return None;
     }
 
-    // If any hound move immediately traps the Fox (checkmate), take it immediately
-    if let Some(&(hound_idx, to)) = moves.iter().find(|&&(h_idx, to)| {
-        let next_b = board.apply_hound_move(h_idx, to);
-        let is_trapped = next_b.fox_legal_moves(graph).next().is_none();
-        is_trapped
-    }) {
-        return Some(PieceMove::HoundMove {
-            hound_idx,
-            from: board.hounds_pos[hound_idx as usize],
-            to,
-        });
-    }
-
-    let mut best_score = INF; // Hounds minimize Fox's score
-    let mut candidate_moves = Vec::new();
-
-    for &(hound_idx, to) in &moves {
-        let next_board = board.apply_hound_move(hound_idx, to);
-        let score = minimax(&next_board, graph, max_depth - 1, -INF, INF, true);
-
-        if score < best_score {
-            best_score = score;
-            candidate_moves.clear();
-            candidate_moves.push((hound_idx, to));
-        } else if score == best_score {
-            candidate_moves.push((hound_idx, to));
+    // Immediate checkmate: always take on Medium/Hard, 65% chance on Easy
+    let take_checkmate =
+        !matches!(difficulty, Difficulty::Easy) || macroquad::rand::gen_range(0, 100) < 65;
+    if take_checkmate {
+        if let Some(&(hound_idx, to)) = moves.iter().find(|&&(h_idx, to)| {
+            board
+                .apply_hound_move(h_idx, to)
+                .fox_legal_moves(graph)
+                .next()
+                .is_none()
+        }) {
+            return Some(PieceMove::HoundMove {
+                hound_idx,
+                from: board.hounds_pos[hound_idx as usize],
+                to,
+            });
         }
     }
+
+    let mut scored_moves: Vec<((u8, u8), i32)> = moves
+        .into_iter()
+        .map(|(hound_idx, to)| {
+            let next_board = board.apply_hound_move(hound_idx, to);
+            let score = minimax(&next_board, graph, max_depth - 1, -INF, INF, true);
+            ((hound_idx, to), score)
+        })
+        .collect();
+
+    scored_moves.sort_unstable_by_key(|&(_, score)| score);
+    let best_score = scored_moves[0].1;
+    let safe_ceiling = WIN_SCORE / 2;
+
+    let profile = HoundMistakeProfile::for_difficulty(difficulty);
+    let engaged = is_engaged_with_fox(board, graph);
+    let make_mistake = engaged
+        && profile.mistake_chance_pct > 0
+        && macroquad::rand::gen_range(0, 100) < profile.mistake_chance_pct;
+
+    let candidate_moves: Vec<(u8, u8)> = if make_mistake {
+        let suboptimal: Vec<(u8, u8)> = scored_moves
+            .iter()
+            .skip(1)
+            .take(profile.max_mistake_rank.saturating_sub(1))
+            .filter(|&&(_, score)| best_score >= safe_ceiling || score < safe_ceiling)
+            .map(|&(mv, _)| mv)
+            .collect();
+
+        if suboptimal.is_empty() {
+            vec![scored_moves[0].0]
+        } else {
+            suboptimal
+        }
+    } else {
+        let tolerance = if engaged { profile.score_tolerance } else { 0 };
+        scored_moves
+            .iter()
+            .filter(|&&(_, score)| {
+                score <= best_score.saturating_add(tolerance)
+                    && (best_score >= safe_ceiling || score < safe_ceiling)
+            })
+            .map(|&(mv, _)| mv)
+            .collect()
+    };
 
     let chosen = select_best_candidate(&candidate_moves, difficulty, |(hound_idx, to)| {
         let next_b = board.apply_hound_move(hound_idx, to);
