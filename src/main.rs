@@ -11,7 +11,12 @@ use fox_and_hounds::ui::screens::{GameOverParams, HudParams, Screens, TitleScree
 use macroquad::experimental::coroutines::start_coroutine;
 use macroquad::prelude::*;
 
-async fn load_board_with_spinner(board_view: &mut BoardView, variant: BoardVariant, scale: f32) {
+async fn load_board_with_spinner(
+    board_view: &mut BoardView,
+    variant: BoardVariant,
+    icon_texture: Option<&Texture2D>,
+    scale: f32,
+) {
     if board_view.is_board_loaded(variant) {
         return;
     }
@@ -36,7 +41,7 @@ async fn load_board_with_spinner(board_view: &mut BoardView, variant: BoardVaria
             spinner_shown = true;
             let sw = screen_width();
             let sh = screen_height();
-            draw_loading_overlay(sw, sh, scale, get_time() as f32);
+            draw_loading_overlay(sw, sh, scale, icon_texture, get_time() as f32);
         }
 
         next_frame().await;
@@ -128,6 +133,14 @@ async fn main() {
         tex.set_filter(FilterMode::Linear);
         Some(tex)
     };
+    let icon_texture = {
+        let tex = Texture2D::from_file_with_format(
+            include_bytes!("../assets/icon.png"),
+            Some(ImageFormat::Png),
+        );
+        tex.set_filter(FilterMode::Linear);
+        Some(tex)
+    };
     let mut sound_manager = SoundManager::new().await;
     let mut state = GameState::new();
     let mut board_view = BoardView::new(font.clone()).await;
@@ -187,7 +200,13 @@ async fn main() {
                     sound_manager.play(snd);
                 }
                 if state.phase == GamePhase::Playing {
-                    load_board_with_spinner(&mut board_view, state.variant, scale).await;
+                    load_board_with_spinner(
+                        &mut board_view,
+                        state.variant,
+                        icon_texture.as_ref(),
+                        scale,
+                    )
+                    .await;
 
                     nav.ingame_focus = InGameFocus::Board;
                     let layout = compute_board_layout(
