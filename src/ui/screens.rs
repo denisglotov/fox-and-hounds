@@ -420,6 +420,7 @@ impl Screens {
         live_tex: Option<&Texture2D>,
         hb: Rect,
         scale: f32,
+        is_focused: bool,
     ) -> bool {
         let mouse_pos = Vec2::from(mouse_position());
         let is_hovered = hb.contains(mouse_pos);
@@ -454,14 +455,17 @@ impl Screens {
                 ..Default::default()
             },
         );
-        draw_rectangle_lines(
-            hb.x,
-            hb.y,
-            hb.w,
-            hb.h,
-            1.5 * scale,
-            Color::from_rgba(255, 255, 255, 60),
-        );
+
+        let border_color = if is_hovered || is_focused {
+            Color::from_rgba(255, 255, 255, 120)
+        } else {
+            Color::from_rgba(255, 255, 255, 60)
+        };
+        draw_rectangle_lines(hb.x, hb.y, hb.w, hb.h, 1.5 * scale, border_color);
+
+        if is_focused {
+            draw_focus_rect(hb, scale, get_time() as f32);
+        }
 
         clicked
     }
@@ -575,9 +579,12 @@ impl Screens {
             );
 
             // 2. Hero Artwork Banner in Left Column
+            let is_hero_focused = nav.focus_visible && nav.title_focus == TitleFocus::HeroBanner;
             if let (Some(tex), Some(hb)) = (hero_texture, layout.hero_bounds) {
-                if Self::draw_hero_banner(tex, params.live_hero_texture, hb, scale) {
+                if Self::draw_hero_banner(tex, params.live_hero_texture, hb, scale, is_hero_focused)
+                {
                     toggle_story = true;
+                    nav.title_focus = TitleFocus::HeroBanner;
                 }
             }
 
@@ -594,7 +601,12 @@ impl Screens {
 
             // 3-5. Right Column: Variant, Faction, Difficulty, and Start Controls
             let right_center_x = right.x + right.w / 2.0;
-            Self::draw_title_controls(state, carousel, nav, &layout, right_center_x, params)
+            let controls_res =
+                Self::draw_title_controls(state, carousel, nav, &layout, right_center_x, params);
+            if controls_res.toggle_story {
+                toggle_story = true;
+            }
+            controls_res.sound
         } else {
             let card_x = layout.card_bounds.x;
             let card_y = layout.card_bounds.y;
@@ -632,9 +644,12 @@ impl Screens {
             );
 
             // 2. Hero Art Banner (or sleek horizontal divider)
+            let is_hero_focused = nav.focus_visible && nav.title_focus == TitleFocus::HeroBanner;
             if let (Some(tex), Some(hb)) = (hero_texture, layout.hero_bounds) {
-                if Self::draw_hero_banner(tex, params.live_hero_texture, hb, scale) {
+                if Self::draw_hero_banner(tex, params.live_hero_texture, hb, scale, is_hero_focused)
+                {
                     toggle_story = true;
+                    nav.title_focus = TitleFocus::HeroBanner;
                 }
             } else {
                 let div_y = layout.variant_card_bounds.y - 20.0 * scale;
@@ -649,7 +664,12 @@ impl Screens {
             }
 
             // 3-5. Variant, Faction, Difficulty, and Start Controls
-            Self::draw_title_controls(state, carousel, nav, &layout, center_x, params)
+            let controls_res =
+                Self::draw_title_controls(state, carousel, nav, &layout, center_x, params);
+            if controls_res.toggle_story {
+                toggle_story = true;
+            }
+            controls_res.sound
         };
 
         // Re-draw outer card border to ensure it stays pristine on top of any clipped controls
@@ -675,48 +695,72 @@ impl Screens {
         layout: &TitleScreenLayout,
         header_center_x: f32,
         params: &TitleScreenParams,
-    ) -> Option<SoundTrigger> {
+    ) -> TitleScreenResult {
         let mut sound_trigger = None;
+        let mut toggle_story = false;
         let scale = params.scale;
         let font = params.font;
         let nav_input = params.nav_input;
         let label_size = (12.0 * scale) as u16;
+        let has_hero = layout.hero_bounds.is_some();
+
+        if !has_hero && nav.title_focus == TitleFocus::HeroBanner {
+            nav.title_focus = TitleFocus::VariantCarousel;
+        }
 
         // Handle D-pad / Keyboard Navigation on Title Screen
         if nav_input.back {
-            request_app_exit();
+            if params.live_hero_texture.is_some() {
+                toggle_story = true;
+            } else {
+                request_app_exit();
+            }
         } else if let Some(dir) = nav_input.dir {
             match dir {
                 NavDir::Up | NavDir::Down => {
-                    nav.title_focus = nav.title_focus.step_vertical(dir);
+                    nav.title_focus = nav.title_focus.step_vertical(dir, has_hero);
                     sound_trigger = Some(SoundTrigger::ButtonClick);
                 }
-                NavDir::Left | NavDir::Right => match nav.title_focus {
-                    TitleFocus::VariantCarousel => {
-                        let delta = if dir == NavDir::Left { -1.0 } else { 1.0 };
-                        carousel.step(delta);
-                        let new_v = carousel.current_variant();
-                        carousel.sync_variant(new_v);
-                        state.switch_variant(new_v);
+                NavDir::Left | NavDir::Right => {
+                    if let Some(next_focus) =
+                        nav.title_focus
+                            .step_horizontal(dir, layout.is_landscape, has_hero)
+                    {
+                        nav.title_focus = next_focus;
                         sound_trigger = Some(SoundTrigger::ButtonClick);
+                    } else {
+                        match nav.title_focus {
+                            TitleFocus::HeroBanner => {}
+                            TitleFocus::VariantCarousel => {
+                                let delta = if dir == NavDir::Left { -1.0 } else { 1.0 };
+                                carousel.step(delta);
+                                let new_v = carousel.current_variant();
+                                carousel.sync_variant(new_v);
+                                state.switch_variant(new_v);
+                                sound_trigger = Some(SoundTrigger::ButtonClick);
+                            }
+                            TitleFocus::Faction => {
+                                state.player_faction = state.player_faction.toggle();
+                                sound_trigger = Some(SoundTrigger::ButtonClick);
+                            }
+                            TitleFocus::Difficulty => {
+                                state.difficulty = if dir == NavDir::Left {
+                                    state.difficulty.cycle_prev()
+                                } else {
+                                    state.difficulty.cycle_next()
+                                };
+                                sound_trigger = Some(SoundTrigger::ButtonClick);
+                            }
+                            TitleFocus::StartButton => {}
+                        }
                     }
-                    TitleFocus::Faction => {
-                        state.player_faction = state.player_faction.toggle();
-                        sound_trigger = Some(SoundTrigger::ButtonClick);
-                    }
-                    TitleFocus::Difficulty => {
-                        state.difficulty = if dir == NavDir::Left {
-                            state.difficulty.cycle_prev()
-                        } else {
-                            state.difficulty.cycle_next()
-                        };
-                        sound_trigger = Some(SoundTrigger::ButtonClick);
-                    }
-                    TitleFocus::StartButton => {}
-                },
+                }
             }
         } else if nav_input.confirm {
             match nav.title_focus {
+                TitleFocus::HeroBanner => {
+                    toggle_story = true;
+                }
                 TitleFocus::VariantCarousel | TitleFocus::StartButton => {
                     state.start_game(state.player_faction, state.difficulty);
                     nav.ingame_focus = InGameFocus::Board;
@@ -870,7 +914,10 @@ impl Screens {
             sound_trigger = Some(SoundTrigger::ButtonClick);
         }
 
-        sound_trigger
+        TitleScreenResult {
+            sound: sound_trigger,
+            toggle_story,
+        }
     }
 
     pub fn draw_ingame_hud(

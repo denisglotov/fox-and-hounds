@@ -88,6 +88,7 @@ impl NavInput {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TitleFocus {
+    HeroBanner,
     #[default]
     VariantCarousel,
     Faction,
@@ -96,17 +97,46 @@ pub enum TitleFocus {
 }
 
 impl TitleFocus {
-    pub const fn step_vertical(self, dir: NavDir) -> Self {
+    pub const fn step_vertical(self, dir: NavDir, has_hero_banner: bool) -> Self {
         match (self, dir) {
+            (Self::HeroBanner, NavDir::Down) => Self::VariantCarousel,
             (Self::VariantCarousel, NavDir::Down) => Self::Faction,
             (Self::Faction, NavDir::Down) => Self::Difficulty,
             (Self::Difficulty, NavDir::Down) => Self::StartButton,
-            (Self::StartButton, NavDir::Down) => Self::VariantCarousel,
-            (Self::VariantCarousel, NavDir::Up) => Self::StartButton,
+            (Self::StartButton, NavDir::Down) => {
+                if has_hero_banner {
+                    Self::HeroBanner
+                } else {
+                    Self::VariantCarousel
+                }
+            }
+            (Self::VariantCarousel, NavDir::Up) => {
+                if has_hero_banner {
+                    Self::HeroBanner
+                } else {
+                    Self::StartButton
+                }
+            }
+            (Self::HeroBanner, NavDir::Up) => Self::StartButton,
             (Self::Faction, NavDir::Up) => Self::VariantCarousel,
             (Self::Difficulty, NavDir::Up) => Self::Faction,
             (Self::StartButton, NavDir::Up) => Self::Difficulty,
             (other, _) => other,
+        }
+    }
+
+    pub const fn step_horizontal(
+        self,
+        dir: NavDir,
+        is_landscape: bool,
+        has_hero_banner: bool,
+    ) -> Option<Self> {
+        match (self, dir) {
+            (Self::HeroBanner, NavDir::Right) => Some(Self::VariantCarousel),
+            (Self::StartButton, NavDir::Left) if is_landscape && has_hero_banner => {
+                Some(Self::HeroBanner)
+            }
+            _ => None,
         }
     }
 }
@@ -501,17 +531,42 @@ mod tests {
     #[test]
     fn test_title_focus_vertical_cycle() {
         let f0 = TitleFocus::VariantCarousel;
-        let f1 = f0.step_vertical(NavDir::Down);
+        let f1 = f0.step_vertical(NavDir::Down, true);
         assert_eq!(f1, TitleFocus::Faction);
-        let f2 = f1.step_vertical(NavDir::Down);
+        let f2 = f1.step_vertical(NavDir::Down, true);
         assert_eq!(f2, TitleFocus::Difficulty);
-        let f3 = f2.step_vertical(NavDir::Down);
+        let f3 = f2.step_vertical(NavDir::Down, true);
         assert_eq!(f3, TitleFocus::StartButton);
-        let f4 = f3.step_vertical(NavDir::Down);
-        assert_eq!(f4, TitleFocus::VariantCarousel);
+        let f4 = f3.step_vertical(NavDir::Down, true);
+        assert_eq!(f4, TitleFocus::HeroBanner);
+        let f5 = f4.step_vertical(NavDir::Down, true);
+        assert_eq!(f5, TitleFocus::VariantCarousel);
 
-        assert_eq!(f0.step_vertical(NavDir::Up), TitleFocus::StartButton);
-        assert_eq!(f3.step_vertical(NavDir::Up), TitleFocus::Difficulty);
+        assert_eq!(f0.step_vertical(NavDir::Up, true), TitleFocus::HeroBanner);
+        assert_eq!(f4.step_vertical(NavDir::Up, true), TitleFocus::StartButton);
+        assert_eq!(f3.step_vertical(NavDir::Up, true), TitleFocus::Difficulty);
+
+        assert_eq!(f0.step_vertical(NavDir::Up, false), TitleFocus::StartButton);
+        assert_eq!(
+            f3.step_vertical(NavDir::Down, false),
+            TitleFocus::VariantCarousel
+        );
+    }
+
+    #[test]
+    fn test_title_focus_horizontal() {
+        assert_eq!(
+            TitleFocus::HeroBanner.step_horizontal(NavDir::Right, true, true),
+            Some(TitleFocus::VariantCarousel)
+        );
+        assert_eq!(
+            TitleFocus::StartButton.step_horizontal(NavDir::Left, true, true),
+            Some(TitleFocus::HeroBanner)
+        );
+        assert_eq!(
+            TitleFocus::StartButton.step_horizontal(NavDir::Left, false, true),
+            None
+        );
     }
 
     #[test]
