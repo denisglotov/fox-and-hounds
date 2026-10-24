@@ -7,6 +7,7 @@ pub mod nav;
 pub mod river;
 pub mod rover;
 pub mod screens;
+pub mod story;
 pub mod train;
 
 use macroquad::prelude::*;

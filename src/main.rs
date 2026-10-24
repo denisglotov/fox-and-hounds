@@ -8,6 +8,7 @@ use fox_and_hounds::ui::draw_loading_overlay;
 use fox_and_hounds::ui::fx::FxManager;
 use fox_and_hounds::ui::nav::{GameOverFocus, InGameFocus, NavInput, UiNavState};
 use fox_and_hounds::ui::screens::{GameOverParams, HudParams, Screens, TitleScreenParams};
+use fox_and_hounds::ui::story::LiveHeroBanner;
 use macroquad::experimental::coroutines::start_coroutine;
 use macroquad::prelude::*;
 
@@ -142,6 +143,8 @@ async fn main() {
         Some(tex)
     };
     let mut sound_manager = SoundManager::new().await;
+    let mut live_hero = LiveHeroBanner::new(include_bytes!("../assets/fox_and_hounds_story.bin"))
+        .expect("Valid story frames binary");
     let mut state = GameState::new();
     let mut board_view = BoardView::new(font.clone()).await;
     let mut carousel = BoardCarousel::new();
@@ -183,7 +186,10 @@ async fn main() {
         match state.phase {
             GamePhase::TitleScreen => {
                 camera.reset_pan();
-                let title_sound = Screens::draw_title_screen(
+                if let Some(snd) = live_hero.update() {
+                    sound_manager.play(snd);
+                }
+                let title_res = Screens::draw_title_screen(
                     &mut state,
                     &mut carousel,
                     &mut nav,
@@ -193,13 +199,25 @@ async fn main() {
                         scale,
                         font: font.as_ref(),
                         hero_texture: character_texture.as_ref(),
+                        live_hero_texture: live_hero.texture(),
                         nav_input,
                     },
                 );
-                if let Some(snd) = title_sound {
+                if let Some(snd) = title_res.sound {
                     sound_manager.play(snd);
                 }
+                if title_res.toggle_story {
+                    if let Some(snd) = live_hero.toggle() {
+                        sound_manager.play(snd);
+                    }
+                }
+
                 if state.phase == GamePhase::Playing {
+                    if live_hero.is_playing() {
+                        live_hero.stop();
+                        sound_manager.stop_story();
+                    }
+
                     load_board_with_spinner(
                         &mut board_view,
                         state.variant,

@@ -259,7 +259,8 @@
         }
 
         try {
-          const resp = await fetch(`assets/${name}.wav`);
+          const ext = name === 'fox_and_hounds_story' ? 'ogg' : 'wav';
+          const resp = await fetch(`assets/${name}.${ext}`);
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const buf = await resp.arrayBuffer();
           fetchedBuffers[name] = buf;
@@ -283,9 +284,11 @@
           'train',
           'rover_forward',
           'rover_reverse',
+          'fox_and_hounds_story',
         ];
         for (const file of files) {
-          fetch(`assets/${file}.wav`)
+          const ext = file === 'fox_and_hounds_story' ? 'ogg' : 'wav';
+          fetch(`assets/${file}.${ext}`)
             .then((r) => {
               if (!r.ok) throw new Error(`HTTP ${r.status}`);
               return r.arrayBuffer();
@@ -359,6 +362,53 @@
         }
       };
 
+      window.storyAudioSource = null;
+
+      window.playStoryAudio = async function () {
+        let ctx = getGameAudioCtx();
+        if (!ctx) return;
+
+        if (window.storyAudioSource) {
+          try {
+            window.storyAudioSource.stop();
+          } catch (e) {}
+          window.storyAudioSource = null;
+        }
+
+        let buffer = audioBuffers['fox_and_hounds_story'];
+        if (!buffer) {
+          buffer = await decodeSound(ctx, 'fox_and_hounds_story');
+        }
+        if (!buffer) return;
+
+        try {
+          let source = ctx.createBufferSource();
+          source.buffer = buffer;
+          let gain = ctx.createGain();
+          gain.gain.value = 0.8;
+          source.connect(gain);
+          gain.connect(ctx.destination);
+          source.start(0);
+          window.storyAudioSource = source;
+          source.onended = () => {
+            if (window.storyAudioSource === source) {
+              window.storyAudioSource = null;
+            }
+          };
+        } catch (e) {
+          console.error('Story audio playback failed', e);
+        }
+      };
+
+      window.stopStoryAudio = function () {
+        if (window.storyAudioSource) {
+          try {
+            window.storyAudioSource.stop();
+          } catch (e) {}
+          window.storyAudioSource = null;
+        }
+      };
+
       async function playBuffer(ctx, type) {
         let buffer = audioBuffers[type];
         if (!buffer) {
@@ -412,6 +462,12 @@
             };
             env_obj.env.play_sound_rover_reverse = function () {
               if (window.gamePlaySound) window.gamePlaySound('rover_reverse');
+            };
+            env_obj.env.play_sound_story = function () {
+              if (window.playStoryAudio) window.playStoryAudio();
+            };
+            env_obj.env.stop_sound_story = function () {
+              if (window.stopStoryAudio) window.stopStoryAudio();
             };
           },
           version: 1,

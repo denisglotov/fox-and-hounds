@@ -44,7 +44,14 @@ pub struct TitleScreenParams<'a> {
     pub scale: f32,
     pub font: Option<&'a Font>,
     pub hero_texture: Option<&'a Texture2D>,
+    pub live_hero_texture: Option<&'a Texture2D>,
     pub nav_input: NavInput,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct TitleScreenResult {
+    pub sound: Option<SoundTrigger>,
+    pub toggle_story: bool,
 }
 
 pub struct HudParams<'a> {
@@ -408,12 +415,63 @@ impl GameOverModalLayout {
 pub struct Screens;
 
 impl Screens {
+    fn draw_hero_banner(
+        tex: &Texture2D,
+        live_tex: Option<&Texture2D>,
+        hb: Rect,
+        scale: f32,
+    ) -> bool {
+        let mouse_pos = Vec2::from(mouse_position());
+        let is_hovered = hb.contains(mouse_pos);
+        let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
+
+        draw_rectangle(hb.x, hb.y, hb.w, hb.h, Color::from_rgba(10, 16, 26, 255));
+
+        let active_tex = live_tex.unwrap_or(tex);
+        let tex_w = active_tex.width();
+        let tex_h = active_tex.height();
+        let tex_aspect = if tex_h > 0.0 {
+            tex_w / tex_h
+        } else {
+            16.0 / 9.0
+        };
+
+        let (draw_w, draw_h) = if hb.w / hb.h > tex_aspect {
+            (hb.h * tex_aspect, hb.h)
+        } else {
+            (hb.w, hb.w / tex_aspect)
+        };
+        let draw_x = hb.x + (hb.w - draw_w) / 2.0;
+        let draw_y = hb.y + (hb.h - draw_h) / 2.0;
+
+        draw_texture_ex(
+            active_tex,
+            draw_x,
+            draw_y,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(Vec2::new(draw_w, draw_h)),
+                ..Default::default()
+            },
+        );
+        draw_rectangle_lines(
+            hb.x,
+            hb.y,
+            hb.w,
+            hb.h,
+            1.5 * scale,
+            Color::from_rgba(255, 255, 255, 60),
+        );
+
+        clicked
+    }
+
     pub fn draw_title_screen(
         state: &mut GameState,
         carousel: &mut BoardCarousel,
         nav: &mut UiNavState,
         params: &TitleScreenParams,
-    ) -> Option<SoundTrigger> {
+    ) -> TitleScreenResult {
         let screen_w = params.screen_w;
         let screen_h = params.screen_h;
         let scale = params.scale;
@@ -475,6 +533,8 @@ impl Screens {
             Color::from_rgba(255, 255, 255, 35),
         );
 
+        let mut toggle_story = false;
+
         let sound = if layout.is_landscape {
             let left = layout.left_column;
             let right = layout.right_column;
@@ -516,42 +576,9 @@ impl Screens {
 
             // 2. Hero Artwork Banner in Left Column
             if let (Some(tex), Some(hb)) = (hero_texture, layout.hero_bounds) {
-                draw_rectangle(hb.x, hb.y, hb.w, hb.h, Color::from_rgba(10, 16, 26, 255));
-
-                let tex_w = tex.width();
-                let tex_h = tex.height();
-                let tex_aspect = if tex_h > 0.0 {
-                    tex_w / tex_h
-                } else {
-                    16.0 / 9.0
-                };
-
-                let (draw_w, draw_h) = if hb.w / hb.h > tex_aspect {
-                    (hb.h * tex_aspect, hb.h)
-                } else {
-                    (hb.w, hb.w / tex_aspect)
-                };
-                let draw_x = hb.x + (hb.w - draw_w) / 2.0;
-                let draw_y = hb.y + (hb.h - draw_h) / 2.0;
-
-                draw_texture_ex(
-                    tex,
-                    draw_x,
-                    draw_y,
-                    WHITE,
-                    DrawTextureParams {
-                        dest_size: Some(Vec2::new(draw_w, draw_h)),
-                        ..Default::default()
-                    },
-                );
-                draw_rectangle_lines(
-                    hb.x,
-                    hb.y,
-                    hb.w,
-                    hb.h,
-                    1.5 * scale,
-                    Color::from_rgba(255, 255, 255, 60),
-                );
+                if Self::draw_hero_banner(tex, params.live_hero_texture, hb, scale) {
+                    toggle_story = true;
+                }
             }
 
             // Divider between columns
@@ -605,36 +632,10 @@ impl Screens {
             );
 
             // 2. Hero Art Banner (or sleek horizontal divider)
-            if let Some(hb) = layout.hero_bounds {
-                let tex = hero_texture.unwrap();
-                let tex_aspect = tex.width() / tex.height().max(1.0);
-                let (draw_w, draw_h) = if tex_aspect >= hb.w / hb.h {
-                    (hb.w, hb.w / tex_aspect)
-                } else {
-                    (hb.h * tex_aspect, hb.h)
-                };
-                let draw_x = hb.x + (hb.w - draw_w) / 2.0;
-                let draw_y = hb.y + (hb.h - draw_h) / 2.0;
-
-                draw_rectangle(hb.x, hb.y, hb.w, hb.h, Color::from_rgba(10, 16, 26, 255));
-                draw_texture_ex(
-                    tex,
-                    draw_x,
-                    draw_y,
-                    WHITE,
-                    DrawTextureParams {
-                        dest_size: Some(Vec2::new(draw_w, draw_h)),
-                        ..Default::default()
-                    },
-                );
-                draw_rectangle_lines(
-                    hb.x,
-                    hb.y,
-                    hb.w,
-                    hb.h,
-                    1.5 * scale,
-                    Color::from_rgba(255, 255, 255, 60),
-                );
+            if let (Some(tex), Some(hb)) = (hero_texture, layout.hero_bounds) {
+                if Self::draw_hero_banner(tex, params.live_hero_texture, hb, scale) {
+                    toggle_story = true;
+                }
             } else {
                 let div_y = layout.variant_card_bounds.y - 20.0 * scale;
                 draw_line(
@@ -661,7 +662,10 @@ impl Screens {
             Color::from_rgba(255, 255, 255, 35),
         );
 
-        sound
+        TitleScreenResult {
+            sound,
+            toggle_story,
+        }
     }
 
     fn draw_title_controls(

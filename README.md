@@ -235,4 +235,3 @@ cargo fmt
 * New level from https://mats-winther.github.io/bg/haregames.htm
 * Fix macroquad (https://github.com/denisglotov/fox-and-hounds/pull/15)
 * Cloudflare pages
-* Banner Live Video

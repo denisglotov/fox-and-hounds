@@ -9,6 +9,8 @@ pub enum SoundTrigger {
     Train,
     RoverForward,
     RoverReverse,
+    Story,
+    StopStory,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -26,6 +28,8 @@ mod wasm_backend {
         fn play_sound_train();
         fn play_sound_rover_forward();
         fn play_sound_rover_reverse();
+        fn play_sound_story();
+        fn stop_sound_story();
     }
 
     pub struct SoundBackend;
@@ -47,6 +51,8 @@ mod wasm_backend {
                     SoundTrigger::Train => play_sound_train(),
                     SoundTrigger::RoverForward => play_sound_rover_forward(),
                     SoundTrigger::RoverReverse => play_sound_rover_reverse(),
+                    SoundTrigger::Story => play_sound_story(),
+                    SoundTrigger::StopStory => stop_sound_story(),
                 }
             }
         }
@@ -56,7 +62,7 @@ mod wasm_backend {
 #[cfg(not(target_arch = "wasm32"))]
 mod native_backend {
     use super::SoundTrigger;
-    use macroquad::audio::{load_sound_from_bytes, play_sound_once, Sound};
+    use macroquad::audio::{load_sound_from_bytes, play_sound_once, stop_sound, Sound};
 
     pub struct SoundBackend {
         snd_move: Option<Sound>,
@@ -68,6 +74,7 @@ mod native_backend {
         snd_train: Option<Sound>,
         snd_rover_forward: Option<Sound>,
         snd_rover_reverse: Option<Sound>,
+        snd_story: Option<Sound>,
     }
 
     impl SoundBackend {
@@ -104,24 +111,44 @@ mod native_backend {
                 ))
                 .await
                 .ok(),
+                snd_story: load_sound_from_bytes(include_bytes!(
+                    "../assets/fox_and_hounds_story.ogg"
+                ))
+                .await
+                .ok(),
             }
         }
 
         pub fn play(&self, trigger: SoundTrigger) {
-            let sound = match trigger {
-                SoundTrigger::Move => &self.snd_move,
-                SoundTrigger::Select => &self.snd_select,
-                SoundTrigger::InvalidMove => &self.snd_invalid,
-                SoundTrigger::Win => &self.snd_win,
-                SoundTrigger::Loss => &self.snd_loss,
-                SoundTrigger::ButtonClick => &self.snd_click,
-                SoundTrigger::Train => &self.snd_train,
-                SoundTrigger::RoverForward => &self.snd_rover_forward,
-                SoundTrigger::RoverReverse => &self.snd_rover_reverse,
-            };
+            match trigger {
+                SoundTrigger::Story => {
+                    if let Some(snd) = &self.snd_story {
+                        play_sound_once(snd);
+                    }
+                }
+                SoundTrigger::StopStory => {
+                    if let Some(snd) = &self.snd_story {
+                        stop_sound(snd);
+                    }
+                }
+                _ => {
+                    let sound = match trigger {
+                        SoundTrigger::Move => &self.snd_move,
+                        SoundTrigger::Select => &self.snd_select,
+                        SoundTrigger::InvalidMove => &self.snd_invalid,
+                        SoundTrigger::Win => &self.snd_win,
+                        SoundTrigger::Loss => &self.snd_loss,
+                        SoundTrigger::ButtonClick => &self.snd_click,
+                        SoundTrigger::Train => &self.snd_train,
+                        SoundTrigger::RoverForward => &self.snd_rover_forward,
+                        SoundTrigger::RoverReverse => &self.snd_rover_reverse,
+                        SoundTrigger::Story | SoundTrigger::StopStory => unreachable!(),
+                    };
 
-            if let Some(snd) = sound {
-                play_sound_once(snd);
+                    if let Some(snd) = sound {
+                        play_sound_once(snd);
+                    }
+                }
             }
         }
     }
@@ -158,5 +185,9 @@ impl SoundManager {
         if !self.muted {
             self.backend.play(trigger);
         }
+    }
+
+    pub fn stop_story(&self) {
+        self.backend.play(SoundTrigger::StopStory);
     }
 }
