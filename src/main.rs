@@ -251,6 +251,12 @@ async fn main() {
                     compute_board_layout(screen_w, screen_h, &state.variant.config().dimensions);
 
                 let focus_board_pos = board_view.focused_board_pos(&state, &nav);
+                let mouse_pos = Vec2::from(mouse_position());
+                let hud_rect = Screens::hud_bounds(screen_w, screen_h, scale);
+                let block_mouse_click = hud_rect.contains(mouse_pos);
+                // After the first C8 tap the board owns the short secret-mode click window.
+                // Suppress camera double-tap/pan recognition until it has resolved.
+                let block_camera_input = block_mouse_click || board_view.c8_click_timer > 0.0;
 
                 // Viewport Camera & Render Target setup for smooth subpixel scrolling & zooming
                 let camera_ctx = camera.update_and_begin(&CameraUpdateParams {
@@ -261,12 +267,10 @@ async fn main() {
                     dt,
                     dims: &state.variant.config().dimensions,
                     focus_board_pos,
+                    block_mouse_input: block_camera_input,
                 });
 
-                let mouse_pos = Vec2::from(mouse_position());
                 let viewport_mouse = mouse_pos - Vec2::new(viewport_rect.x, viewport_rect.y);
-                let hud_rect = Screens::hud_bounds(screen_w, screen_h, scale);
-                let block_mouse_click = hud_rect.contains(mouse_pos);
 
                 board_view.draw_and_handle_input(
                     &mut state,

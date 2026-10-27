@@ -77,6 +77,9 @@ pub struct CameraUpdateParams<'a> {
     pub dt: f32,
     pub dims: &'a BoardDimensions,
     pub focus_board_pos: Option<Vec2>,
+    /// A UI control or board gesture owns the pointer, so the camera must not interpret it as a
+    /// tap, double-tap, or pan.
+    pub block_mouse_input: bool,
 }
 
 pub struct ViewportCamera {
@@ -262,6 +265,14 @@ impl ViewportCamera {
         let mouse_released = is_mouse_button_released(MouseButton::Left);
         let (wheel_x, wheel_y) = mouse_wheel();
         let in_viewport = viewport_rect.contains(mouse_pos);
+        let block_mouse_input = params.block_mouse_input;
+
+        if block_mouse_input {
+            // Do not let a first C8 tap (or a HUD control tap) seed a later double-tap zoom.
+            self.drag_start = None;
+            self.is_dragging = false;
+            self.last_tap_time = 0.0;
+        }
 
         // 1. Multi-Touch Pinch-to-Zoom (zero allocation)
         let mut active = touches()
@@ -290,6 +301,9 @@ impl ViewportCamera {
                 }
             }
             self.pinch_prev_dist = Some(current_dist);
+            // A one-finger drag may have begun before the second finger landed. Discard its
+            // anchor so lifting either finger cannot apply the whole pre-pinch distance as pan.
+            self.drag_start = None;
             self.is_dragging = true;
             self.anim = None;
             is_pinching = true;
@@ -299,7 +313,8 @@ impl ViewportCamera {
 
         // 2. Double-Tap Zoom Detection (when tapping on screen/touch)
         let mut double_tap_triggered = false;
-        if mouse_released && in_viewport && !self.is_dragging && !is_pinching {
+        if mouse_released && in_viewport && !block_mouse_input && !self.is_dragging && !is_pinching
+        {
             let now = get_time();
             let dt_tap = now - self.last_tap_time;
             let dist_tap = (mouse_pos - self.last_tap_pos).length();
@@ -383,7 +398,7 @@ impl ViewportCamera {
         }
 
         // 5. Drag / Swipe Panning Logic (single finger / mouse)
-        if !is_pinching {
+        if !is_pinching && !block_mouse_input {
             if mouse_pressed && in_viewport {
                 self.drag_start = Some(mouse_pos);
                 self.is_dragging = false;
