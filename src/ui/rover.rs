@@ -91,6 +91,11 @@ impl RoverSimulation {
 
     pub fn update(&mut self, dt: f32) -> Option<SoundTrigger> {
         self.elapsed_time += dt;
+        if self.elapsed_time > INITIAL_DELAY + CYCLE_DURATION * 100.0 {
+            let cycles_to_drop = 50;
+            self.elapsed_time -= CYCLE_DURATION * cycles_to_drop as f32;
+            self.last_sound_cycle = self.last_sound_cycle.saturating_sub(cycles_to_drop);
+        }
 
         if self.elapsed_time < INITIAL_DELAY {
             return None;

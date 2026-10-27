@@ -621,3 +621,83 @@ fn test_hound_ai_mistakes_and_fox_viability() {
         "Fox should be able to win games against Easy Hounds with mistakes (won {fox_wins}/10)"
     );
 }
+
+#[test]
+fn test_shortest_distance_target_obstacle() {
+    let classic_g = build_classic_graph();
+    let c_m0 = classic_g.find_id_by_name("M0").unwrap();
+    let c_m4 = classic_g.find_id_by_name("M4").unwrap();
+
+    // Distance without obstacle is 4
+    assert_eq!(classic_g.shortest_distance(c_m4, c_m0, &[]), Some(4));
+
+    // When the target is an obstacle, it must be unreachable (None)
+    assert_eq!(classic_g.shortest_distance(c_m4, c_m0, &[c_m0]), None);
+}
+
+#[test]
+fn test_zero_allocation_legal_move_queries() {
+    let mut game = GameState::new();
+    game.start_game(Faction::Fox, Difficulty::Medium);
+
+    assert!(game.has_legal_fox_moves());
+    let legal_fox = game.fox_legal_moves();
+    assert!(!legal_fox.is_empty());
+    for &mv in &legal_fox {
+        assert!(game.is_fox_move_legal(mv));
+    }
+    assert!(!game.is_fox_move_legal(255));
+
+    // Execute move and verify hound queries
+    game.apply_fox_move(legal_fox[0]).unwrap();
+    assert!(game.has_legal_hound_moves());
+    for h_idx in 0..game.hounds_pos.len() as u8 {
+        let legal_h = game.hound_legal_moves(h_idx);
+        for &mv in &legal_h {
+            assert!(game.is_hound_move_legal(h_idx, mv));
+        }
+    }
+}
+
+#[test]
+fn test_turn_count_symmetry_and_c8_mode() {
+    let mut game = GameState::new();
+    game.switch_variant(BoardVariant::FoxAndDogs);
+    game.start_game(Faction::Hounds, Difficulty::Medium);
+    game.set_c8_mode(true);
+
+    // In C8 mode, Hounds move first.
+    assert_eq!(game.current_turn, Faction::Hounds);
+    assert_eq!(game.turn_count, 1);
+
+    // Hound moves first: turn_count should remain 1 until round is completed by Fox
+    let legal = game.hound_legal_moves(0);
+    assert!(!legal.is_empty());
+    game.apply_hound_move(0, legal[0]).unwrap();
+    assert_eq!(game.current_turn, Faction::Fox);
+    assert_eq!(game.turn_count, 1);
+
+    // Fox moves second: now round 1 completes and turn_count becomes 2
+    let legal_fox = game.fox_legal_moves();
+    assert!(!legal_fox.is_empty());
+    game.apply_fox_move(legal_fox[0]).unwrap();
+    assert_eq!(game.current_turn, Faction::Hounds);
+    assert_eq!(game.turn_count, 2);
+}
+
+#[test]
+fn test_ai_transposition_table() {
+    use fox_and_hounds::game::ai::{BoardSnapshot, TranspositionTable, FLAG_EXACT};
+
+    let game = GameState::new();
+    let snapshot = BoardSnapshot::from_state(&game);
+
+    let mut tt = TranspositionTable::new();
+    assert!(tt.lookup(&snapshot).is_none());
+
+    tt.store(snapshot, 4, 1250, FLAG_EXACT);
+    let entry = tt.lookup(&snapshot).expect("Must find stored snapshot");
+    assert_eq!(entry.depth, 4);
+    assert_eq!(entry.score, 1250);
+    assert_eq!(entry.flag, FLAG_EXACT);
+}

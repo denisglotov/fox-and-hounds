@@ -15,12 +15,37 @@ pub struct RiverSample {
     pub cum_dist: f32,
 }
 
+/// Precomputed segment for riverbed ambient glow and Martian lava fault glow.
+#[derive(Debug, Clone, Copy)]
+pub struct RiverSegment {
+    pub p0: Vec2,
+    pub p1: Vec2,
+    pub mid_d: f32,
+    pub occlusion: f32,
+    pub avg_width: f32,
+}
+
+/// Precomputed segment for flowing streamlines, caustics, and magma veins.
+#[derive(Debug, Clone, Copy)]
+pub struct StreamlineSegment {
+    pub p0: Vec2,
+    pub p1: Vec2,
+    pub mid_d: f32,
+    pub occlusion: f32,
+    pub v: f32,
+    pub bank_fade: f32,
+}
+
 /// Parameterized river spline curve with arc-length mapping.
 #[derive(Debug, Clone)]
 pub struct RiverPath {
     pub variant: BoardVariant,
     pub samples: Vec<RiverSample>,
     pub total_length: f32,
+    pub ambient_segments: Vec<RiverSegment>,
+    pub streamline_segments: Vec<StreamlineSegment>,
+    pub caustic_segments: Vec<StreamlineSegment>,
+    pub lava_ambient_segments: Vec<RiverSegment>,
 }
 
 impl Default for RiverPath {
@@ -265,106 +290,246 @@ impl RiverPath {
         }
 
         let total_length = cum_dist;
+
+        let ambient_segments = {
+            let step = 20.0;
+            let num_steps = (total_length / step).ceil() as usize;
+            let mut segs = Vec::with_capacity(num_steps);
+            let (mut p0, _, _, mut w0) = sample_samples(&samples, total_length, 0.0, 0.0);
+            for i in 0..num_steps {
+                let d0 = (i as f32 * step).min(total_length);
+                let d1 = ((i + 1) as f32 * step).min(total_length);
+                let (p1, _, _, w1) = sample_samples(&samples, total_length, d1, 0.0);
+                if (d1 - d0) < 1.0 {
+                    p0 = p1;
+                    w0 = w1;
+                    continue;
+                }
+                let mid_d = (d0 + d1) * 0.5;
+                let occlusion = bridge_occlusion_for_variant(variant, (p0 + p1) * 0.5);
+                let avg_width = (w0 + w1) * 0.5 * 1.35;
+                segs.push(RiverSegment {
+                    p0,
+                    p1,
+                    mid_d,
+                    occlusion,
+                    avg_width,
+                });
+                p0 = p1;
+                w0 = w1;
+            }
+            segs
+        };
+
+        let streamline_segments = {
+            let step = 10.0;
+            let num_steps = (total_length / step).ceil() as usize;
+            let mut segs = Vec::with_capacity(num_steps * STREAMLINE_CHANNELS.len());
+            for &v in &STREAMLINE_CHANNELS {
+                let bank_fade = (1.0 - v * v).powf(1.4);
+                let (mut p0, _, _, _) = sample_samples(&samples, total_length, 0.0, v);
+                for i in 0..num_steps {
+                    let d0 = (i as f32 * step).min(total_length);
+                    let d1 = ((i + 1) as f32 * step).min(total_length);
+                    let (p1, _, _, _) = sample_samples(&samples, total_length, d1, v);
+                    if (d1 - d0) < 1.0 {
+                        p0 = p1;
+                        continue;
+                    }
+                    let mid_d = (d0 + d1) * 0.5;
+                    let occlusion = bridge_occlusion_for_variant(variant, (p0 + p1) * 0.5);
+                    segs.push(StreamlineSegment {
+                        p0,
+                        p1,
+                        mid_d,
+                        occlusion,
+                        v,
+                        bank_fade,
+                    });
+                    p0 = p1;
+                }
+            }
+            segs
+        };
+
+        let caustic_segments = {
+            let step = 16.0;
+            let num_steps = (total_length / step).ceil() as usize;
+            let mut segs = Vec::with_capacity(num_steps * CAUSTIC_LANES.len());
+            for &v in &CAUSTIC_LANES {
+                let bank_fade = (1.0 - v * v).max(0.1);
+                let (mut p0, _, _, _) = sample_samples(&samples, total_length, 0.0, v);
+                for i in 0..num_steps {
+                    let d0 = (i as f32 * step).min(total_length);
+                    let d1 = ((i + 1) as f32 * step).min(total_length);
+                    let (p1, _, _, _) = sample_samples(&samples, total_length, d1, v);
+                    if (d1 - d0) < 1.0 {
+                        p0 = p1;
+                        continue;
+                    }
+                    let mid_d = (d0 + d1) * 0.5;
+                    let occlusion = bridge_occlusion_for_variant(variant, (p0 + p1) * 0.5);
+                    segs.push(StreamlineSegment {
+                        p0,
+                        p1,
+                        mid_d,
+                        occlusion,
+                        v,
+                        bank_fade,
+                    });
+                    p0 = p1;
+                }
+            }
+            segs
+        };
+
+        let lava_ambient_segments = if variant == BoardVariant::TheRedHunt {
+            let step = 16.0;
+            let num_steps = (total_length / step).ceil() as usize;
+            let mut segs = Vec::with_capacity(num_steps);
+            let (mut p0, _, _, mut w0) = sample_samples(&samples, total_length, 0.0, 0.0);
+            for i in 0..num_steps {
+                let d0 = (i as f32 * step).min(total_length);
+                let d1 = ((i + 1) as f32 * step).min(total_length);
+                let (p1, _, _, w1) = sample_samples(&samples, total_length, d1, 0.0);
+                if (d1 - d0) < 1.0 {
+                    p0 = p1;
+                    w0 = w1;
+                    continue;
+                }
+                let mid_d = (d0 + d1) * 0.5;
+                let occlusion = bridge_occlusion_for_variant(variant, (p0 + p1) * 0.5);
+                let avg_width = (w0 + w1) * 0.5 * 1.5;
+                segs.push(RiverSegment {
+                    p0,
+                    p1,
+                    mid_d,
+                    occlusion,
+                    avg_width,
+                });
+                p0 = p1;
+                w0 = w1;
+            }
+            segs
+        } else {
+            Vec::new()
+        };
+
         Self {
             variant,
             samples,
             total_length,
+            ambient_segments,
+            streamline_segments,
+            caustic_segments,
+            lava_ambient_segments,
         }
     }
 
     /// Sample the river curve at an arc-length distance `dist` and cross-channel offset `v` in [-1.0, 1.0].
     pub fn sample_at(&self, dist: f32, v: f32) -> (Vec2, Vec2, Vec2, f32) {
-        let clamped_dist = dist.clamp(0.0, self.total_length);
-
-        // Binary search for the bounding segment in cumulative distance
-        let idx = match self.samples.binary_search_by(|s| {
-            s.cum_dist
-                .partial_cmp(&clamped_dist)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        }) {
-            Ok(i) => i,
-            Err(i) => {
-                if i == 0 {
-                    0
-                } else {
-                    i - 1
-                }
-            }
-        };
-
-        if idx >= self.samples.len() - 1 {
-            let last = &self.samples[self.samples.len() - 1];
-            let pt = last.pos + last.normal * (v * last.half_width);
-            return (pt, last.tangent, last.normal, last.half_width);
-        }
-
-        let s0 = &self.samples[idx];
-        let s1 = &self.samples[idx + 1];
-        let seg_len = (s1.cum_dist - s0.cum_dist).max(1e-4);
-        let t = ((clamped_dist - s0.cum_dist) / seg_len).clamp(0.0, 1.0);
-
-        let pos = s0.pos.lerp(s1.pos, t);
-        let tangent = s0.tangent.lerp(s1.tangent, t).normalize_or_zero();
-        let normal = s0.normal.lerp(s1.normal, t).normalize_or_zero();
-        let half_width = s0.half_width + (s1.half_width - s0.half_width) * t;
-
-        let channel_pos = pos + normal * (v * half_width);
-        (channel_pos, tangent, normal, half_width)
+        sample_samples(&self.samples, self.total_length, dist, v)
     }
 
     /// Check if a position is occluded beneath a bridge deck.
     /// Returns an occlusion factor in [0.0, 1.0], where 1.0 is fully under the bridge deck.
     pub fn bridge_occlusion(&self, pos: Vec2) -> f32 {
-        match self.variant {
-            BoardVariant::Classic => classic_bridge_occlusion(pos),
-            BoardVariant::RiverCrossing => self.river_crossing_bridge_occlusion(pos),
-            BoardVariant::FoxAndDogs | BoardVariant::FoxAndDogsMaze => {
-                self.arthur_bridge_occlusion(pos)
+        bridge_occlusion_for_variant(self.variant, pos)
+    }
+}
+
+fn sample_samples(
+    samples: &[RiverSample],
+    total_length: f32,
+    dist: f32,
+    v: f32,
+) -> (Vec2, Vec2, Vec2, f32) {
+    let clamped_dist = dist.clamp(0.0, total_length);
+
+    // Binary search for the bounding segment in cumulative distance
+    let idx = match samples.binary_search_by(|s| {
+        s.cum_dist
+            .partial_cmp(&clamped_dist)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    }) {
+        Ok(i) => i,
+        Err(i) => {
+            if i == 0 {
+                0
+            } else {
+                i - 1
             }
-            BoardVariant::TheRedHunt => self.the_red_hunt_bridge_occlusion(pos),
         }
+    };
+
+    if idx >= samples.len() - 1 {
+        let last = &samples[samples.len() - 1];
+        let pt = last.pos + last.normal * (v * last.half_width);
+        return (pt, last.tangent, last.normal, last.half_width);
     }
 
-    fn river_crossing_bridge_occlusion(&self, pos: Vec2) -> f32 {
-        // Railroad bridge region (train track centered at x = 40.0, deck span x in [0.0, 85.0], y in [790.0, 905.0])
-        let in_rail_bridge = pos.x >= 0.0 && pos.x <= 85.0 && pos.y >= 790.0 && pos.y <= 905.0;
-        if in_rail_bridge {
-            let edge_dist = ((pos.x - 0.0).min(85.0 - pos.x) / 12.0).clamp(0.0, 1.0);
-            return edge_dist;
-        }
+    let s0 = &samples[idx];
+    let s1 = &samples[idx + 1];
+    let seg_len = (s1.cum_dist - s0.cum_dist).max(1e-4);
+    let t = ((clamped_dist - s0.cum_dist) / seg_len).clamp(0.0, 1.0);
 
-        // Row 6 M6 bottleneck wooden bridge region (node M6 at x = 384.0, y = 755.0)
-        // Wider box accounts for thick river effect line widths bleeding past deck edges
-        let in_wood_bridge = pos.x >= 290.0 && pos.x <= 470.0 && pos.y >= 690.0 && pos.y <= 815.0;
-        if in_wood_bridge {
-            let edge_dist = ((pos.x - 290.0).min(470.0 - pos.x) / 25.0).clamp(0.0, 1.0);
-            return edge_dist;
-        }
+    let pos = s0.pos.lerp(s1.pos, t);
+    let tangent = s0.tangent.lerp(s1.tangent, t).normalize_or_zero();
+    let normal = s0.normal.lerp(s1.normal, t).normalize_or_zero();
+    let half_width = s0.half_width + (s1.half_width - s0.half_width) * t;
 
-        0.0
+    let channel_pos = pos + normal * (v * half_width);
+    (channel_pos, tangent, normal, half_width)
+}
+
+pub fn bridge_occlusion_for_variant(variant: BoardVariant, pos: Vec2) -> f32 {
+    match variant {
+        BoardVariant::Classic => classic_bridge_occlusion(pos),
+        BoardVariant::RiverCrossing => river_crossing_bridge_occlusion(pos),
+        BoardVariant::FoxAndDogs | BoardVariant::FoxAndDogsMaze => arthur_bridge_occlusion(pos),
+        BoardVariant::TheRedHunt => the_red_hunt_bridge_occlusion(pos),
+    }
+}
+
+fn river_crossing_bridge_occlusion(pos: Vec2) -> f32 {
+    // Railroad bridge region (train track centered at x = 40.0, deck span x in [0.0, 85.0], y in [790.0, 905.0])
+    let in_rail_bridge = pos.x >= 0.0 && pos.x <= 85.0 && pos.y >= 790.0 && pos.y <= 905.0;
+    if in_rail_bridge {
+        let edge_dist = ((pos.x - 0.0).min(85.0 - pos.x) / 12.0).clamp(0.0, 1.0);
+        return edge_dist;
     }
 
-    fn arthur_bridge_occlusion(&self, pos: Vec2) -> f32 {
-        // Wooden bridge spanning vertically between C2 (y=324) and C3 (y=493) over the horizontal river channel
-        let in_wood_bridge = pos.x >= 468.0 && pos.x <= 548.0 && pos.y >= 340.0 && pos.y <= 475.0;
-        if in_wood_bridge {
-            let edge_dist_x = (pos.x - 468.0).min(548.0 - pos.x) / 14.0;
-            let edge_dist_y = (pos.y - 340.0).min(475.0 - pos.y) / 16.0;
-            return edge_dist_x.min(edge_dist_y).clamp(0.0, 1.0);
-        }
-        0.0
+    // Row 6 M6 bottleneck wooden bridge region (node M6 at x = 384.0, y = 755.0)
+    // Wider box accounts for thick river effect line widths bleeding past deck edges
+    let in_wood_bridge = pos.x >= 290.0 && pos.x <= 470.0 && pos.y >= 690.0 && pos.y <= 815.0;
+    if in_wood_bridge {
+        let edge_dist = ((pos.x - 290.0).min(470.0 - pos.x) / 25.0).clamp(0.0, 1.0);
+        return edge_dist;
     }
 
-    fn the_red_hunt_bridge_occlusion(&self, pos: Vec2) -> f32 {
-        // Perekop stone bridge spanning vertically between C6 (y=606) and C7 (y=704)
-        let in_bridge = pos.x >= 476.0 && pos.x <= 548.0 && pos.y >= 590.0 && pos.y <= 720.0;
-        if in_bridge {
-            let edge_dist_x = (pos.x - 476.0).min(548.0 - pos.x) / 14.0;
-            let edge_dist_y = (pos.y - 590.0).min(720.0 - pos.y) / 16.0;
-            return edge_dist_x.min(edge_dist_y).clamp(0.0, 1.0);
-        }
-        0.0
+    0.0
+}
+
+fn arthur_bridge_occlusion(pos: Vec2) -> f32 {
+    // Wooden bridge spanning vertically between C2 (y=324) and C3 (y=493) over the horizontal river channel
+    let in_wood_bridge = pos.x >= 468.0 && pos.x <= 548.0 && pos.y >= 340.0 && pos.y <= 475.0;
+    if in_wood_bridge {
+        let edge_dist_x = (pos.x - 468.0).min(548.0 - pos.x) / 14.0;
+        let edge_dist_y = (pos.y - 340.0).min(475.0 - pos.y) / 16.0;
+        return edge_dist_x.min(edge_dist_y).clamp(0.0, 1.0);
     }
+    0.0
+}
+
+fn the_red_hunt_bridge_occlusion(pos: Vec2) -> f32 {
+    // Perekop stone bridge spanning vertically between C6 (y=606) and C7 (y=704)
+    let in_bridge = pos.x >= 476.0 && pos.x <= 548.0 && pos.y >= 590.0 && pos.y <= 720.0;
+    if in_bridge {
+        let edge_dist_x = (pos.x - 476.0).min(548.0 - pos.x) / 14.0;
+        let edge_dist_y = (pos.y - 590.0).min(720.0 - pos.y) / 16.0;
+        return edge_dist_x.min(edge_dist_y).clamp(0.0, 1.0);
+    }
+    0.0
 }
 
 /// Oriented bounding box representation for bridge deck occlusion.
@@ -511,7 +676,7 @@ impl RiverSimulation {
     }
 
     pub fn update(&mut self, dt: f32) {
-        self.elapsed_time += dt;
+        self.elapsed_time = (self.elapsed_time + dt) % 3600.0;
     }
 
     pub fn draw(&self, origin: Vec2, scale: f32) {
@@ -537,31 +702,14 @@ impl RiverSimulation {
 
     /// Deep volcanic magma glow along the Martian fault chasm
     fn draw_lava_ambient_glow(&self, origin: Vec2, scale: f32, t: f32) {
-        let step = 16.0;
-        let num_steps = (self.path.total_length / step).ceil() as usize;
-
-        let (mut p0, _, _, mut w0) = self.path.sample_at(0.0, 0.0);
-        for i in 0..num_steps {
-            let d0 = (i as f32 * step).min(self.path.total_length);
-            let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
-            let (p1, _, _, w1) = self.path.sample_at(d1, 0.0);
-            if (d1 - d0) < 1.0 {
-                p0 = p1;
-                w0 = w1;
-                continue;
-            }
-
-            let mid_d = (d0 + d1) * 0.5;
-
-            let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
-            // Throbbing volcanic pulse
-            let pulse = ((mid_d * 0.04 - t * 2.0).sin() * 0.5 + 0.5) * 0.4 + 0.6;
-            let alpha = 0.45 * pulse * (1.0 - occlusion);
+        for seg in &self.path.lava_ambient_segments {
+            let pulse = ((seg.mid_d * 0.04 - t * 2.0).sin() * 0.5 + 0.5) * 0.4 + 0.6;
+            let alpha = 0.45 * pulse * (1.0 - seg.occlusion);
 
             if alpha > 0.02 {
-                let screen_p0 = origin + p0 * scale;
-                let screen_p1 = origin + p1 * scale;
-                let avg_width = (w0 + w1) * 0.5 * 1.5 * scale;
+                let screen_p0 = origin + seg.p0 * scale;
+                let screen_p1 = origin + seg.p1 * scale;
+                let avg_width = seg.avg_width * scale;
 
                 // Deep incandescent orange-red glow
                 let glow_color =
@@ -575,79 +723,59 @@ impl RiverSimulation {
                     glow_color,
                 );
             }
-            p0 = p1;
-            w0 = w1;
         }
     }
 
     /// Molten lava veins and glowing streams flowing through the crustal fault
     fn draw_lava_magma_flows(&self, origin: Vec2, scale: f32, t: f32) {
-        let step = 10.0;
-        let num_steps = (self.path.total_length / step).ceil() as usize;
+        for seg in &self.path.streamline_segments {
+            let mid_d = seg.mid_d;
+            let v = seg.v;
+            let flow_speed = 2.8 + (1.0 - v.abs()) * 0.9;
+            let w1 = (mid_d * 0.055 - t * flow_speed + v * 2.1).sin();
+            let w2 = (mid_d * 0.11 - t * (flow_speed * 1.4) - v * 2.8).sin();
+            let wave = w1 * 0.6 + w2 * 0.4;
 
-        for &v in &STREAMLINE_CHANNELS {
-            let bank_fade = (1.0 - v * v).powf(1.4);
+            if wave > -0.1 {
+                let intensity = ((wave + 0.1) / 1.1).clamp(0.0, 1.0);
+                let alpha = intensity.powf(1.4) * seg.bank_fade * (1.0 - seg.occlusion);
 
-            let (mut p0, _, _, _) = self.path.sample_at(0.0, v);
-            for i in 0..num_steps {
-                let d0 = (i as f32 * step).min(self.path.total_length);
-                let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
-                let (p1, _, _, _) = self.path.sample_at(d1, v);
-                if (d1 - d0) < 1.0 {
-                    p0 = p1;
-                    continue;
-                }
+                if alpha > 0.015 {
+                    let screen_p0 = origin + seg.p0 * scale;
+                    let screen_p1 = origin + seg.p1 * scale;
 
-                let mid_d = (d0 + d1) * 0.5;
+                    // Fiery golden/amber lava ribbon
+                    let magma_color =
+                        Color::from_rgba(255, 140, 0, (alpha * 175.0).clamp(0.0, 255.0) as u8);
+                    draw_line(
+                        screen_p0.x,
+                        screen_p0.y,
+                        screen_p1.x,
+                        screen_p1.y,
+                        (2.5 + wave * 1.5) * scale,
+                        magma_color,
+                    );
 
-                let flow_speed = 2.8 + (1.0 - v.abs()) * 0.9;
-                let w1 = (mid_d * 0.055 - t * flow_speed + v * 2.1).sin();
-                let w2 = (mid_d * 0.11 - t * (flow_speed * 1.4) - v * 2.8).sin();
-                let wave = w1 * 0.6 + w2 * 0.4;
-
-                if wave > -0.1 {
-                    let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
-                    let intensity = ((wave + 0.1) / 1.1).clamp(0.0, 1.0);
-                    let alpha = intensity.powf(1.4) * bank_fade * (1.0 - occlusion);
-
-                    if alpha > 0.015 {
-                        let screen_p0 = origin + p0 * scale;
-                        let screen_p1 = origin + p1 * scale;
-
-                        // Fiery golden/amber lava ribbon
-                        let magma_color =
-                            Color::from_rgba(255, 140, 0, (alpha * 175.0).clamp(0.0, 255.0) as u8);
+                    // White-hot molten core
+                    if wave > 0.3 && seg.occlusion < 0.99 {
+                        let core_intensity = ((wave - 0.3) / 0.7 * seg.bank_fade).clamp(0.0, 1.0);
+                        let core_color = Color::from_rgba(
+                            255,
+                            245,
+                            180,
+                            (core_intensity * (1.0 - seg.occlusion) * 220.0).clamp(0.0, 255.0)
+                                as u8,
+                        );
                         draw_line(
                             screen_p0.x,
                             screen_p0.y,
                             screen_p1.x,
                             screen_p1.y,
-                            (2.5 + wave * 1.5) * scale,
-                            magma_color,
+                            1.2 * scale,
+                            core_color,
                         );
-
-                        // White-hot molten core
-                        if wave > 0.3 && occlusion < 0.99 {
-                            let core_intensity = ((wave - 0.3) / 0.7 * bank_fade).clamp(0.0, 1.0);
-                            let core_color = Color::from_rgba(
-                                255,
-                                245,
-                                180,
-                                (core_intensity * (1.0 - occlusion) * 220.0).clamp(0.0, 255.0)
-                                    as u8,
-                            );
-                            draw_line(
-                                screen_p0.x,
-                                screen_p0.y,
-                                screen_p1.x,
-                                screen_p1.y,
-                                1.2 * scale,
-                                core_color,
-                            );
-                        }
                     }
                 }
-                p0 = p1;
             }
         }
     }
@@ -660,7 +788,10 @@ impl RiverSimulation {
             let speed = 28.0 + (seed * 5.1).fract() * 32.0;
             let loop_dist = self.path.total_length + 60.0;
             let raw_dist = ((t * speed + seed * 43.1) % loop_dist) - 30.0;
-            let dist = raw_dist.clamp(0.0, self.path.total_length);
+            if raw_dist < 0.0 || raw_dist > self.path.total_length {
+                continue;
+            }
+            let dist = raw_dist;
 
             let v = ((seed * 7.7 + t * 0.8).sin() * 0.65).clamp(-0.85, 0.85);
             let (pos, _tangent, normal, _) = self.path.sample_at(dist, v);
@@ -708,30 +839,14 @@ impl RiverSimulation {
 
     /// Soft, luminous liquid glow that gives the river clear depth and vibrancy
     fn draw_riverbed_ambient_glow(&self, origin: Vec2, scale: f32, t: f32) {
-        let step = 20.0;
-        let num_steps = (self.path.total_length / step).ceil() as usize;
-
-        let (mut p0, _, _, mut w0) = self.path.sample_at(0.0, 0.0);
-        for i in 0..num_steps {
-            let d0 = (i as f32 * step).min(self.path.total_length);
-            let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
-            let (p1, _, _, w1) = self.path.sample_at(d1, 0.0);
-            if (d1 - d0) < 1.0 {
-                p0 = p1;
-                w0 = w1;
-                continue;
-            }
-
-            let mid_d = (d0 + d1) * 0.5;
-
-            let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
-            let breathe = ((mid_d * 0.03 - t * 1.5).sin() * 0.5 + 0.5) * 0.3 + 0.7;
-            let alpha = 0.28 * breathe * (1.0 - occlusion);
+        for seg in &self.path.ambient_segments {
+            let breathe = ((seg.mid_d * 0.03 - t * 1.5).sin() * 0.5 + 0.5) * 0.3 + 0.7;
+            let alpha = 0.28 * breathe * (1.0 - seg.occlusion);
 
             if alpha > 0.02 {
-                let screen_p0 = origin + p0 * scale;
-                let screen_p1 = origin + p1 * scale;
-                let avg_width = (w0 + w1) * 0.5 * 1.35 * scale;
+                let screen_p0 = origin + seg.p0 * scale;
+                let screen_p1 = origin + seg.p1 * scale;
+                let avg_width = seg.avg_width * scale;
 
                 let glow_color =
                     Color::from_rgba(77, 208, 225, (alpha * 110.0).clamp(0.0, 255.0) as u8);
@@ -744,175 +859,126 @@ impl RiverSimulation {
                     glow_color,
                 );
             }
-            p0 = p1;
-            w0 = w1;
         }
     }
 
     /// Continuous silky streamlines that flow smoothly downstream with harmonic shimmer
     fn draw_silky_streamlines(&self, origin: Vec2, scale: f32, t: f32) {
-        let step = 10.0;
-        let num_steps = (self.path.total_length / step).ceil() as usize;
+        for seg in &self.path.streamline_segments {
+            let mid_d = seg.mid_d;
+            let v = seg.v;
+            let flow_speed = 3.2 + (1.0 - v.abs()) * 0.8;
+            let w1 = (mid_d * 0.048 - t * flow_speed + v * 2.4).sin();
+            let w2 = (mid_d * 0.095 - t * (flow_speed * 1.35) - v * 3.1).sin();
+            let w3 = (mid_d * 0.022 - t * 1.2).cos();
+            let wave = w1 * 0.45 + w2 * 0.35 + w3 * 0.20;
 
-        for &v in &STREAMLINE_CHANNELS {
-            let bank_fade = (1.0 - v * v).powf(1.4); // Smooth bank falloff
+            if wave > -0.15 {
+                let intensity = ((wave + 0.15) / 1.15).clamp(0.0, 1.0);
+                let alpha = intensity.powf(1.5) * seg.bank_fade * (1.0 - seg.occlusion);
 
-            let (mut p0, _, _, _) = self.path.sample_at(0.0, v);
-            for i in 0..num_steps {
-                let d0 = (i as f32 * step).min(self.path.total_length);
-                let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
-                let (p1, _, _, _) = self.path.sample_at(d1, v);
-                if (d1 - d0) < 1.0 {
-                    p0 = p1;
-                    continue;
-                }
+                if alpha > 0.015 {
+                    let screen_p0 = origin + seg.p0 * scale;
+                    let screen_p1 = origin + seg.p1 * scale;
 
-                let mid_d = (d0 + d1) * 0.5;
+                    // Layer 1: Soft aqua ribbon
+                    let ribbon_color =
+                        Color::from_rgba(128, 222, 234, (alpha * 155.0).clamp(0.0, 255.0) as u8);
+                    draw_line(
+                        screen_p0.x,
+                        screen_p0.y,
+                        screen_p1.x,
+                        screen_p1.y,
+                        (2.2 + wave * 1.2) * scale,
+                        ribbon_color,
+                    );
 
-                // Multi-frequency wave traveling downstream
-                // Velocity is slightly faster in center (v=0)
-                let flow_speed = 3.2 + (1.0 - v.abs()) * 0.8;
-                let w1 = (mid_d * 0.048 - t * flow_speed + v * 2.4).sin();
-                let w2 = (mid_d * 0.095 - t * (flow_speed * 1.35) - v * 3.1).sin();
-                let w3 = (mid_d * 0.022 - t * 1.2).cos();
-                let wave = w1 * 0.45 + w2 * 0.35 + w3 * 0.20;
-
-                if wave > -0.15 {
-                    let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
-                    let intensity = ((wave + 0.15) / 1.15).clamp(0.0, 1.0);
-                    let alpha = intensity.powf(1.5) * bank_fade * (1.0 - occlusion);
-
-                    if alpha > 0.015 {
-                        let screen_p0 = origin + p0 * scale;
-                        let screen_p1 = origin + p1 * scale;
-
-                        // Layer 1: Soft aqua ribbon
-                        let ribbon_color = Color::from_rgba(
-                            128,
-                            222,
-                            234,
-                            (alpha * 155.0).clamp(0.0, 255.0) as u8,
+                    // Layer 2: Silky bright specular center
+                    if wave > 0.35 && seg.occlusion < 0.99 {
+                        let core_intensity = ((wave - 0.35) / 0.65 * seg.bank_fade).clamp(0.0, 1.0);
+                        let core_color = Color::from_rgba(
+                            255,
+                            255,
+                            255,
+                            (core_intensity * (1.0 - seg.occlusion) * 195.0).clamp(0.0, 255.0)
+                                as u8,
                         );
                         draw_line(
                             screen_p0.x,
                             screen_p0.y,
                             screen_p1.x,
                             screen_p1.y,
-                            (2.2 + wave * 1.2) * scale,
-                            ribbon_color,
+                            1.1 * scale,
+                            core_color,
                         );
-
-                        // Layer 2: Silky bright specular center
-                        if wave > 0.35 && occlusion < 0.99 {
-                            let core_intensity = ((wave - 0.35) / 0.65 * bank_fade).clamp(0.0, 1.0);
-                            let core_color = Color::from_rgba(
-                                255,
-                                255,
-                                255,
-                                (core_intensity * (1.0 - occlusion) * 195.0).clamp(0.0, 255.0)
-                                    as u8,
-                            );
-                            draw_line(
-                                screen_p0.x,
-                                screen_p0.y,
-                                screen_p1.x,
-                                screen_p1.y,
-                                1.1 * scale,
-                                core_color,
-                            );
-                        }
                     }
                 }
-                p0 = p1;
             }
         }
     }
 
     /// Sunlight caustics that form a shimmering, moving web of sunlight rays across the water
     fn draw_sunlight_caustics(&self, origin: Vec2, scale: f32, t: f32) {
-        let step = 16.0;
-        let num_steps = (self.path.total_length / step).ceil() as usize;
+        for seg in &self.path.caustic_segments {
+            let mid_d = seg.mid_d;
+            let v = seg.v;
+            let c1 = (mid_d * 0.065 - t * 2.2 + v * 3.5).sin();
+            let c2 = (mid_d * 0.115 + t * 1.7 - v * 4.2).sin();
+            let c3 = (mid_d * 0.038 - t * 2.8).cos();
+            let caustic_val = ((c1 + c2 + c3 - 1.1) / 1.9).max(0.0).powi(2);
 
-        for &v in &CAUSTIC_LANES {
-            let bank_fade = (1.0 - v * v).max(0.1);
+            if caustic_val > 0.05 {
+                let alpha =
+                    (caustic_val / 0.95 * seg.bank_fade * (1.0 - seg.occlusion)).clamp(0.0, 1.0);
 
-            let (mut p0, _, _, _) = self.path.sample_at(0.0, v);
-            for i in 0..num_steps {
-                let d0 = (i as f32 * step).min(self.path.total_length);
-                let d1 = ((i + 1) as f32 * step).min(self.path.total_length);
-                let (p1, _, _, _) = self.path.sample_at(d1, v);
-                if (d1 - d0) < 1.0 {
-                    p0 = p1;
-                    continue;
-                }
+                if alpha > 0.02 {
+                    let screen_p0 = origin + seg.p0 * scale;
+                    let screen_p1 = origin + seg.p1 * scale;
 
-                let mid_d = (d0 + d1) * 0.5;
+                    // Shimmering caustic filament
+                    let caustic_color =
+                        Color::from_rgba(255, 255, 255, (alpha * 180.0).clamp(0.0, 255.0) as u8);
+                    draw_line(
+                        screen_p0.x,
+                        screen_p0.y,
+                        screen_p1.x,
+                        screen_p1.y,
+                        (1.5 + caustic_val * 1.5) * scale,
+                        caustic_color,
+                    );
 
-                // Procedural cellular caustic function
-                let c1 = (mid_d * 0.065 - t * 2.2 + v * 3.5).sin();
-                let c2 = (mid_d * 0.115 + t * 1.7 - v * 4.2).sin();
-                let c3 = (mid_d * 0.038 - t * 2.8).cos();
-                let caustic_val = ((c1 + c2 + c3 - 1.1) / 1.9).max(0.0).powi(2);
+                    // Occasional caustic sparkle node at intersections
+                    if caustic_val > 0.45 && seg.occlusion < 0.99 {
+                        let sparkle_alpha =
+                            ((caustic_val - 0.45) / 0.55 * seg.bank_fade * (1.0 - seg.occlusion))
+                                .clamp(0.0, 1.0);
+                        let center_pos = (screen_p0 + screen_p1) * 0.5;
+                        let r = (2.2 + caustic_val * 2.0) * scale;
 
-                if caustic_val > 0.05 {
-                    let occlusion = self.path.bridge_occlusion((p0 + p1) * 0.5);
-                    let alpha =
-                        (caustic_val / 0.95 * bank_fade * (1.0 - occlusion)).clamp(0.0, 1.0);
-
-                    if alpha > 0.02 {
-                        let screen_p0 = origin + p0 * scale;
-                        let screen_p1 = origin + p1 * scale;
-
-                        // Shimmering caustic filament
-                        let caustic_color = Color::from_rgba(
-                            255,
-                            255,
-                            255,
-                            (alpha * 180.0).clamp(0.0, 255.0) as u8,
+                        draw_circle(
+                            center_pos.x,
+                            center_pos.y,
+                            r,
+                            Color::from_rgba(
+                                224,
+                                247,
+                                250,
+                                (sparkle_alpha * 150.0).clamp(0.0, 255.0) as u8,
+                            ),
                         );
-                        draw_line(
-                            screen_p0.x,
-                            screen_p0.y,
-                            screen_p1.x,
-                            screen_p1.y,
-                            (1.5 + caustic_val * 1.5) * scale,
-                            caustic_color,
+                        draw_circle(
+                            center_pos.x,
+                            center_pos.y,
+                            r * 0.5,
+                            Color::from_rgba(
+                                255,
+                                255,
+                                255,
+                                (sparkle_alpha * 220.0).clamp(0.0, 255.0) as u8,
+                            ),
                         );
-
-                        // Occasional caustic sparkle node at intersections
-                        if caustic_val > 0.45 && occlusion < 0.99 {
-                            let sparkle_alpha =
-                                ((caustic_val - 0.45) / 0.55 * bank_fade * (1.0 - occlusion))
-                                    .clamp(0.0, 1.0);
-                            let center_pos = (screen_p0 + screen_p1) * 0.5;
-                            let r = (2.2 + caustic_val * 2.0) * scale;
-
-                            draw_circle(
-                                center_pos.x,
-                                center_pos.y,
-                                r,
-                                Color::from_rgba(
-                                    224,
-                                    247,
-                                    250,
-                                    (sparkle_alpha * 150.0).clamp(0.0, 255.0) as u8,
-                                ),
-                            );
-                            draw_circle(
-                                center_pos.x,
-                                center_pos.y,
-                                r * 0.5,
-                                Color::from_rgba(
-                                    255,
-                                    255,
-                                    255,
-                                    (sparkle_alpha * 220.0).clamp(0.0, 255.0) as u8,
-                                ),
-                            );
-                        }
                     }
                 }
-                p0 = p1;
             }
         }
     }

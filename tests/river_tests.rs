@@ -193,3 +193,42 @@ fn test_bridge_occlusion_across_variants() {
         }
     }
 }
+
+#[test]
+fn test_precomputed_river_segments_non_empty_and_valid() {
+    for &variant in BoardVariant::all() {
+        let path = RiverPath::for_variant(variant);
+        assert!(
+            !path.ambient_segments.is_empty(),
+            "{:?} ambient segments empty",
+            variant
+        );
+        assert!(
+            !path.streamline_segments.is_empty(),
+            "{:?} streamline segments empty",
+            variant
+        );
+        assert!(
+            !path.caustic_segments.is_empty(),
+            "{:?} caustic segments empty",
+            variant
+        );
+
+        if variant == BoardVariant::TheRedHunt {
+            assert!(
+                !path.lava_ambient_segments.is_empty(),
+                "TheRedHunt lava ambient empty"
+            );
+        } else {
+            assert!(path.lava_ambient_segments.is_empty());
+        }
+
+        // Verify segment distance monotonicity and finite coordinates
+        for seg in &path.ambient_segments {
+            assert!(seg.p0.x.is_finite() && seg.p0.y.is_finite());
+            assert!(seg.p1.x.is_finite() && seg.p1.y.is_finite());
+            assert!(seg.avg_width > 0.0);
+            assert!(seg.occlusion >= 0.0 && seg.occlusion <= 1.0);
+        }
+    }
+}

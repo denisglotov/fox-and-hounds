@@ -8,6 +8,11 @@ use crate::ui::nav::{
 };
 use crate::ui::{draw_text_styled, measure_text_styled};
 use macroquad::prelude::*;
+use std::cell::Cell;
+
+thread_local! {
+    static MOUSE_PRESS_POS: Cell<Option<Vec2>> = const { Cell::new(None) };
+}
 
 pub struct SelectableButtonConfig<'a> {
     pub bounds: Rect,
@@ -46,12 +51,26 @@ pub struct TitleScreenParams<'a> {
     pub hero_texture: Option<&'a Texture2D>,
     pub live_hero_texture: Option<&'a Texture2D>,
     pub nav_input: NavInput,
+    pub dt: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct TitleScreenResult {
     pub sound: Option<SoundTrigger>,
     pub toggle_story: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HudAction {
+    Restart,
+    Menu,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct HudOutcome {
+    pub action: Option<HudAction>,
+    pub sound: Option<SoundTrigger>,
+    pub toggle_mute: bool,
 }
 
 pub struct HudParams<'a> {
@@ -415,6 +434,43 @@ impl GameOverModalLayout {
 pub struct Screens;
 
 impl Screens {
+    pub fn update_mouse_press_state() {
+        MOUSE_PRESS_POS.with(|cell| {
+            if is_mouse_button_pressed(MouseButton::Left) {
+                cell.set(Some(Vec2::from(mouse_position())));
+            } else if !is_mouse_button_down(MouseButton::Left)
+                && !is_mouse_button_released(MouseButton::Left)
+            {
+                cell.set(None);
+            }
+        });
+    }
+
+    pub fn is_clicked_in(bounds: Rect) -> bool {
+        let mouse_pos = Vec2::from(mouse_position());
+        if is_mouse_button_released(MouseButton::Left) && bounds.contains(mouse_pos) {
+            let press_valid = MOUSE_PRESS_POS.with(|cell| {
+                cell.get()
+                    .is_some_and(|press_pos| bounds.contains(press_pos))
+            });
+            if press_valid {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn hud_bounds(screen_w: f32, screen_h: f32, scale: f32) -> Rect {
+        let is_wide_landscape = screen_w > screen_h * 1.1;
+        let hud_h = 56.0 * scale;
+        let top_offset = if is_wide_landscape {
+            (screen_h * 0.025).max(8.0 * scale)
+        } else {
+            0.0
+        };
+        Rect::new(0.0, 0.0, screen_w, top_offset + hud_h)
+    }
+
     fn draw_hero_banner(
         tex: &Texture2D,
         live_tex: Option<&Texture2D>,
@@ -422,9 +478,8 @@ impl Screens {
         scale: f32,
         is_focused: bool,
     ) -> bool {
-        let mouse_pos = Vec2::from(mouse_position());
-        let is_hovered = hb.contains(mouse_pos);
-        let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
+        let is_hovered = hb.contains(Vec2::from(mouse_position()));
+        let clicked = Self::is_clicked_in(hb);
 
         draw_rectangle(hb.x, hb.y, hb.w, hb.h, Color::from_rgba(10, 16, 26, 255));
 
@@ -794,7 +849,7 @@ impl Screens {
             is_focused: nav.focus_visible && nav.title_focus == TitleFocus::VariantCarousel,
             font,
             locales: state.locales,
-            dt: get_frame_time(),
+            dt: params.dt,
         });
         if let Some(v) = outcome.variant_changed {
             state.switch_variant(v);
@@ -924,9 +979,10 @@ impl Screens {
         state: &mut GameState,
         nav: &mut UiNavState,
         params: &HudParams,
-    ) -> (Option<SoundTrigger>, bool) {
+    ) -> HudOutcome {
         let mut sound_trigger = None;
         let mut toggle_mute_requested = false;
+        let mut hud_action = None;
         let screen_w = params.screen_w;
         let screen_h = params.screen_h;
         let scale = params.scale;
@@ -964,11 +1020,12 @@ impl Screens {
                             sound_trigger = Some(SoundTrigger::ButtonClick);
                         }
                         HudButton::Restart => {
-                            state.reset_board();
+                            hud_action = Some(HudAction::Restart);
                             nav.ingame_focus = InGameFocus::Board;
                             sound_trigger = Some(SoundTrigger::ButtonClick);
                         }
                         HudButton::Menu => {
+                            hud_action = Some(HudAction::Menu);
                             state.phase = GamePhase::TitleScreen;
                             nav.ingame_focus = InGameFocus::Board;
                             sound_trigger = Some(SoundTrigger::ButtonClick);
@@ -1051,6 +1108,7 @@ impl Screens {
             font,
         });
         if menu_clicked {
+            hud_action = Some(HudAction::Menu);
             state.phase = GamePhase::TitleScreen;
             nav.ingame_focus = InGameFocus::Board;
             sound_trigger = Some(SoundTrigger::ButtonClick);
@@ -1066,7 +1124,7 @@ impl Screens {
             font,
         });
         if restart_clicked {
-            state.reset_board();
+            hud_action = Some(HudAction::Restart);
             nav.ingame_focus = InGameFocus::Board;
             sound_trigger = Some(SoundTrigger::ButtonClick);
         }
@@ -1086,7 +1144,11 @@ impl Screens {
             sound_trigger = Some(SoundTrigger::ButtonClick);
         }
 
-        (sound_trigger, toggle_mute_requested)
+        HudOutcome {
+            action: hud_action,
+            sound: sound_trigger,
+            toggle_mute: toggle_mute_requested,
+        }
     }
 
     pub fn draw_game_over_modal(
@@ -1110,8 +1172,7 @@ impl Screens {
         } else if nav_input.confirm {
             match nav.game_over_focus {
                 GameOverFocus::PlayAgain => {
-                    state.reset_board();
-                    state.phase = GamePhase::Playing;
+                    state.start_game(state.player_faction, state.difficulty);
                     nav.ingame_focus = InGameFocus::Board;
                     sound_trigger = Some(SoundTrigger::ButtonClick);
                 }
@@ -1225,8 +1286,7 @@ impl Screens {
             font,
         });
         if rematch_clicked {
-            state.reset_board();
-            state.phase = GamePhase::Playing;
+            state.start_game(state.player_faction, state.difficulty);
             nav.ingame_focus = InGameFocus::Board;
             sound_trigger = Some(SoundTrigger::ButtonClick);
         }
@@ -1268,7 +1328,7 @@ impl Screens {
     fn draw_selectable_button(cfg: &SelectableButtonConfig) -> bool {
         let mouse_pos = Vec2::from(mouse_position());
         let is_hovered = cfg.bounds.contains(mouse_pos);
-        let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
+        let clicked = Self::is_clicked_in(cfg.bounds);
 
         let bg_color = if cfg.is_selected {
             cfg.accent_color
@@ -1350,7 +1410,7 @@ impl Screens {
     pub fn draw_action_button(cfg: &ActionButtonConfig) -> bool {
         let mouse_pos = Vec2::from(mouse_position());
         let is_hovered = cfg.bounds.contains(mouse_pos);
-        let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
+        let clicked = Self::is_clicked_in(cfg.bounds);
 
         let bg_color = if is_hovered || cfg.is_focused {
             cfg.hover_color
@@ -1398,7 +1458,7 @@ impl Screens {
     fn draw_icon_button(cfg: &IconButtonConfig) -> bool {
         let mouse_pos = Vec2::from(mouse_position());
         let is_hovered = cfg.bounds.contains(mouse_pos);
-        let clicked = is_hovered && is_mouse_button_released(MouseButton::Left);
+        let clicked = Self::is_clicked_in(cfg.bounds);
 
         let bg_color = if is_hovered || cfg.is_focused {
             Color::from_rgba(45, 60, 80, 255)
@@ -1444,8 +1504,6 @@ impl Screens {
         active_idx: usize,
         scale: f32,
     ) -> Option<usize> {
-        let mouse_pos = Vec2::from(mouse_position());
-        let clicked = is_mouse_button_released(MouseButton::Left);
         let mut clicked_idx = None;
 
         let dot_spacing = (16.0 * scale).min(bounds.w / (count as f32).max(1.0));
@@ -1458,7 +1516,7 @@ impl Screens {
             let is_active = i == active_idx;
 
             let hit_rect = Rect::new(cx - dot_spacing / 2.0, bounds.y, dot_spacing, bounds.h);
-            if clicked && hit_rect.contains(mouse_pos) {
+            if Self::is_clicked_in(hit_rect) {
                 clicked_idx = Some(i);
             }
 

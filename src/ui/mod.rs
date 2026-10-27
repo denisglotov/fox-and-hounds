@@ -11,6 +11,30 @@ pub mod story;
 pub mod train;
 
 use macroquad::prelude::*;
+use std::cell::Cell;
+
+#[derive(Clone, Copy)]
+struct MeasureCacheEntry {
+    ptr: usize,
+    len: usize,
+    font_size: u16,
+    hash: u64,
+    dims: TextDimensions,
+}
+
+thread_local! {
+    static MEASURE_CACHE: Cell<[Option<MeasureCacheEntry>; 128]> = const { Cell::new([None; 128]) };
+}
+
+#[inline]
+fn quick_str_hash(text: &str) -> u64 {
+    let bytes = text.as_bytes();
+    let mut h = bytes.len() as u64;
+    for &b in bytes.iter().take(32) {
+        h = h.wrapping_mul(31).wrapping_add(b as u64);
+    }
+    h
+}
 
 pub fn draw_text_styled(
     text: &str,
@@ -40,7 +64,35 @@ pub fn draw_text_styled(
 }
 
 pub fn measure_text_styled(text: &str, font_size: u16, font: Option<&Font>) -> TextDimensions {
-    measure_text(text, font, font_size, 1.0)
+    let ptr = text.as_ptr() as usize;
+    let len = text.len();
+    let hash = quick_str_hash(text);
+    let idx = (ptr ^ (font_size as usize) ^ (hash as usize)) & 127;
+
+    let cached = MEASURE_CACHE.with(|c| {
+        let entries = c.get();
+        entries[idx]
+    });
+
+    if let Some(e) = cached {
+        if e.ptr == ptr && e.len == len && e.font_size == font_size && e.hash == hash {
+            return e.dims;
+        }
+    }
+
+    let dims = measure_text(text, font, font_size, 1.0);
+    MEASURE_CACHE.with(|c| {
+        let mut entries = c.get();
+        entries[idx] = Some(MeasureCacheEntry {
+            ptr,
+            len,
+            font_size,
+            hash,
+            dims,
+        });
+        c.set(entries);
+    });
+    dims
 }
 
 pub fn draw_loading_overlay(

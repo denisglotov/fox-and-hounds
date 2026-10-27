@@ -13,7 +13,7 @@ const INF: i32 = 1_000_000;
 /// with `hounds_count: u8` to maintain `Copy` semantics, fit into a tiny ~12-byte
 /// memory footprint, and eliminate heap allocations (`Vec` malloc/free churn) inside
 /// recursive minimax search loops.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BoardSnapshot {
     pub fox_pos: u8,
     pub fox_pending: bool,
@@ -238,6 +238,91 @@ where
     }
 }
 
+const TT_SIZE: usize = 4096;
+const TT_MASK: usize = TT_SIZE - 1;
+
+pub const FLAG_EXACT: u8 = 0;
+pub const FLAG_LOWER: u8 = 1;
+pub const FLAG_UPPER: u8 = 2;
+
+#[derive(Clone, Copy)]
+pub struct TtEntry {
+    pub key: BoardSnapshot,
+    pub depth: u8,
+    pub score: i32,
+    pub flag: u8,
+    pub generation: u8,
+}
+
+pub struct TranspositionTable {
+    entries: Box<[Option<TtEntry>; TT_SIZE]>,
+    generation: u8,
+}
+
+impl Default for TranspositionTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+thread_local! {
+    static AI_TT: std::cell::RefCell<TranspositionTable> = std::cell::RefCell::new(TranspositionTable::new());
+}
+
+impl TranspositionTable {
+    pub fn new() -> Self {
+        Self {
+            entries: Box::new([None; TT_SIZE]),
+            generation: 1,
+        }
+    }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+        if self.generation == 0 {
+            self.entries.fill(None);
+            self.generation = 1;
+        }
+    }
+
+    #[inline]
+    fn index(key: &BoardSnapshot) -> usize {
+        let mut h: u64 = 0x9e3779b97f4a7c15;
+        h ^= key.fox_pos as u64;
+        h = h.wrapping_mul(0xbf58476d1ce4e5b9);
+        for &hp in key.hounds() {
+            h ^= hp as u64;
+            h = h.wrapping_mul(0x94d049bb133111eb);
+        }
+        h ^= (key.current_turn as u64) << 16;
+        h = (h ^ (h >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+        (h as usize) & TT_MASK
+    }
+
+    #[inline]
+    pub fn lookup(&self, key: &BoardSnapshot) -> Option<TtEntry> {
+        let entry = self.entries[Self::index(key)]?;
+        if entry.generation == self.generation && entry.key == *key {
+            Some(entry)
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    pub fn store(&mut self, key: BoardSnapshot, depth: u8, score: i32, flag: u8) {
+        let idx = Self::index(&key);
+        self.entries[idx] = Some(TtEntry {
+            key,
+            depth,
+            score,
+            flag,
+            generation: self.generation,
+        });
+    }
+}
+
 fn find_best_fox_move(
     board: &BoardSnapshot,
     graph: &Graph,
@@ -260,26 +345,32 @@ fn find_best_fox_move(
     let mut best_score = -INF;
     let mut candidate_moves = Vec::new();
 
-    for &to in &moves {
-        let next_board = board.apply_fox_move(to);
-        let score = minimax(&next_board, graph, max_depth - 1, -INF, INF, false);
+    let chosen = AI_TT.with(|tt_cell| {
+        let mut tt = tt_cell.borrow_mut();
+        tt.clear();
 
-        if score > best_score {
-            best_score = score;
-            candidate_moves.clear();
-            candidate_moves.push(to);
-        } else if score == best_score {
-            candidate_moves.push(to);
+        for &to in &moves {
+            let next_board = board.apply_fox_move(to);
+            let score =
+                minimax_with_tt(&next_board, graph, max_depth - 1, -INF, INF, false, &mut tt);
+
+            if score > best_score {
+                best_score = score;
+                candidate_moves.clear();
+                candidate_moves.push(to);
+            } else if score == best_score {
+                candidate_moves.push(to);
+            }
         }
-    }
 
-    let chosen = select_best_candidate(&candidate_moves, difficulty, |to| {
-        let next_b = board.apply_fox_move(to);
-        let eval = evaluate_board(&next_b, graph);
-        let dist = graph
-            .distance(to, next_b.active_target())
-            .unwrap_or(UNREACHABLE_DIST);
-        (eval, -(dist as i32))
+        select_best_candidate(&candidate_moves, difficulty, |to| {
+            let next_b = board.apply_fox_move(to);
+            let eval = evaluate_board(&next_b, graph);
+            let dist = graph
+                .distance(to, next_b.active_target())
+                .unwrap_or(UNREACHABLE_DIST);
+            (eval, -(dist as i32))
+        })
     });
 
     Some(PieceMove::FoxMove { to: chosen })
@@ -315,14 +406,19 @@ fn find_best_hound_move(
         }
     }
 
-    let mut scored_moves: Vec<((u8, u8), i32)> = moves
-        .into_iter()
-        .map(|(hound_idx, to)| {
-            let next_board = board.apply_hound_move(hound_idx, to);
-            let score = minimax(&next_board, graph, max_depth - 1, -INF, INF, true);
-            ((hound_idx, to), score)
-        })
-        .collect();
+    let mut scored_moves: Vec<((u8, u8), i32)> = AI_TT.with(|tt_cell| {
+        let mut tt = tt_cell.borrow_mut();
+        tt.clear();
+        moves
+            .into_iter()
+            .map(|(hound_idx, to)| {
+                let next_board = board.apply_hound_move(hound_idx, to);
+                let score =
+                    minimax_with_tt(&next_board, graph, max_depth - 1, -INF, INF, true, &mut tt);
+                ((hound_idx, to), score)
+            })
+            .collect()
+    });
 
     scored_moves.sort_unstable_by_key(|&(_, score)| score);
     let best_score = scored_moves[0].1;
@@ -380,9 +476,25 @@ pub fn minimax(
     board: &BoardSnapshot,
     graph: &Graph,
     depth: usize,
+    alpha: i32,
+    beta: i32,
+    is_fox_turn: bool,
+) -> i32 {
+    AI_TT.with(|tt_cell| {
+        let mut tt = tt_cell.borrow_mut();
+        tt.clear();
+        minimax_with_tt(board, graph, depth, alpha, beta, is_fox_turn, &mut tt)
+    })
+}
+
+pub fn minimax_with_tt(
+    board: &BoardSnapshot,
+    graph: &Graph,
+    depth: usize,
     mut alpha: i32,
     mut beta: i32,
     is_fox_turn: bool,
+    tt: &mut TranspositionTable,
 ) -> i32 {
     // 1. Terminal condition checks
     if board.is_fox_win() {
@@ -393,10 +505,25 @@ pub fn minimax(
         return evaluate_board(board, graph);
     }
 
-    if is_fox_turn {
-        let mut fox_moves = [0u8; 32];
+    let orig_alpha = alpha;
+    if let Some(entry) = tt.lookup(board) {
+        if entry.depth >= depth as u8 {
+            match entry.flag {
+                FLAG_EXACT => return entry.score,
+                FLAG_LOWER => alpha = alpha.max(entry.score),
+                FLAG_UPPER => beta = beta.min(entry.score),
+                _ => {}
+            }
+            if alpha >= beta {
+                return entry.score;
+            }
+        }
+    }
+
+    let eval_score = if is_fox_turn {
+        let mut fox_moves = [0u8; 64];
         let mut count = 0;
-        for to in board.fox_legal_moves(graph) {
+        for to in board.fox_legal_moves(graph).take(64) {
             fox_moves[count] = to;
             count += 1;
         }
@@ -418,7 +545,7 @@ pub fn minimax(
         let mut max_eval = -INF;
         for &to in moves.iter() {
             let next_board = board.apply_fox_move(to);
-            let eval = minimax(&next_board, graph, depth - 1, alpha, beta, false);
+            let eval = minimax_with_tt(&next_board, graph, depth - 1, alpha, beta, false, tt);
             max_eval = max_eval.max(eval);
             alpha = alpha.max(eval);
             if beta <= alpha {
@@ -427,9 +554,9 @@ pub fn minimax(
         }
         max_eval
     } else {
-        let mut hound_moves = [(0u8, 0u8); 32];
+        let mut hound_moves = [(0u8, 0u8); 64];
         let mut count = 0;
-        for m in board.all_hound_moves(graph) {
+        for m in board.all_hound_moves(graph).take(64) {
             hound_moves[count] = m;
             count += 1;
         }
@@ -448,7 +575,7 @@ pub fn minimax(
         let mut min_eval = INF;
         for &(hound_idx, to) in moves.iter() {
             let next_board = board.apply_hound_move(hound_idx, to);
-            let eval = minimax(&next_board, graph, depth - 1, alpha, beta, true);
+            let eval = minimax_with_tt(&next_board, graph, depth - 1, alpha, beta, true, tt);
             min_eval = min_eval.min(eval);
             beta = beta.min(eval);
             if beta <= alpha {
@@ -456,15 +583,22 @@ pub fn minimax(
             }
         }
         min_eval
-    }
+    };
+
+    let flag = if eval_score <= orig_alpha {
+        FLAG_UPPER
+    } else if eval_score >= beta {
+        FLAG_LOWER
+    } else {
+        FLAG_EXACT
+    };
+    tt.store(*board, depth as u8, eval_score, flag);
+
+    eval_score
 }
 
 /// Evaluation score from Fox perspective (positive = Fox advantage, negative = Hounds advantage)
 pub fn evaluate_board(board: &BoardSnapshot, graph: &Graph) -> i32 {
-    if board.is_fox_win() {
-        return WIN_SCORE;
-    }
-
     let target = board.active_target();
     let static_dist = graph.distance(board.fox_pos, target).unwrap_or(15);
     let dist_to_target_score = (18 - static_dist as i32) * 350;

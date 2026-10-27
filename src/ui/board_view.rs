@@ -295,6 +295,7 @@ pub struct BoardViewParams<'a> {
     pub dt: f32,
     pub nav: &'a mut UiNavState,
     pub nav_input: &'a mut NavInput,
+    pub block_mouse_click: bool,
 }
 
 impl BoardView {
@@ -602,24 +603,51 @@ impl BoardView {
         // 4. Find hovered node & Determine Legal Targets for Player
         let board_mouse = (viewport_mouse_pos - origin) / scale;
         let hit_radius = 36.0;
+        let hit_radius_sq = hit_radius * hit_radius;
 
         self.hover_node_id = state.graph.nodes.iter().find_map(|node| {
-            if (node.visual_pos - board_mouse).length() <= hit_radius {
+            if (node.visual_pos - board_mouse).length_squared() <= hit_radius_sq {
                 Some(node.id)
             } else {
                 None
             }
         });
 
-        let legal_destinations = if state.phase == GamePhase::Playing && !state.is_ai_turn() {
+        let legal_mask: u32 = if state.phase == GamePhase::Playing && !state.is_ai_turn() {
             match state.player_faction {
-                Faction::Fox => state.fox_legal_moves(),
-                Faction::Hounds => state
-                    .selected_hound_idx
-                    .map_or_else(Vec::new, |h_idx| state.hound_legal_moves(h_idx)),
+                Faction::Fox => {
+                    if state.fox_pending {
+                        state
+                            .graph
+                            .fox_entry_moves(&state.hounds_pos, state.coop_pos)
+                            .fold(0u32, |mask, id| mask | (1u32 << id))
+                    } else {
+                        state
+                            .graph
+                            .fox_legal_moves(state.fox_pos, &state.hounds_pos)
+                            .fold(0u32, |mask, id| mask | (1u32 << id))
+                    }
+                }
+                Faction::Hounds => state.selected_hound_idx.map_or(0u32, |h_idx| {
+                    let allow_retreat = state.active_config().allow_hound_retreat;
+                    let allow_coop = state.active_config().allow_hounds_in_coop;
+                    state.hounds_pos.get(h_idx as usize).map_or(0u32, |&pos| {
+                        state
+                            .graph
+                            .hound_legal_moves(
+                                pos,
+                                state.fox_pos,
+                                state.coop_pos,
+                                &state.hounds_pos,
+                                allow_retreat,
+                                allow_coop,
+                            )
+                            .fold(0u32, |mask, id| mask | (1u32 << id))
+                    })
+                }),
             }
         } else {
-            Vec::new()
+            0
         };
 
         // 4. Track how long the Fox player has been sitting on their turn, then ease the
@@ -652,7 +680,7 @@ impl BoardView {
         );
 
         // 5. Draw Graph Nodes & Interactive Indicators
-        self.draw_nodes(state, origin, scale, &legal_destinations, t);
+        self.draw_nodes(state, origin, scale, legal_mask, t);
 
         // 6. Draw the objective reticle pointing at the Fox destination
         self.draw_start_target_marker(state, origin, scale, t);
@@ -689,6 +717,7 @@ impl BoardView {
 
         if is_mouse_button_released(MouseButton::Left)
             && !was_dragging
+            && !params.block_mouse_click
             && state.phase == GamePhase::Playing
             && allow_input
             && state.result == GameResult::Ongoing
@@ -881,8 +910,7 @@ impl BoardView {
         }
         match state.player_faction {
             Faction::Fox => {
-                let legal = state.fox_legal_moves();
-                if legal.contains(&clicked_node) {
+                if state.is_fox_move_legal(clicked_node) {
                     if state.apply_fox_move(clicked_node).is_ok() {
                         if state.result == GameResult::FoxWon {
                             Some(SoundTrigger::Win)
@@ -905,8 +933,7 @@ impl BoardView {
                     Some(SoundTrigger::Select)
                 } else if let Some(hound_idx) = state.selected_hound_idx {
                     // Try to move selected Hound to clicked node
-                    let legal = state.hound_legal_moves(hound_idx);
-                    if legal.contains(&clicked_node) {
+                    if state.is_hound_move_legal(hound_idx, clicked_node) {
                         if state.apply_hound_move(hound_idx, clicked_node).is_ok() {
                             if state.result == GameResult::HoundsWon {
                                 Some(SoundTrigger::Win)
@@ -1138,20 +1165,13 @@ impl BoardView {
         );
     }
 
-    fn draw_nodes(
-        &self,
-        state: &GameState,
-        origin: Vec2,
-        scale: f32,
-        legal_destinations: &[u8],
-        t: f32,
-    ) {
+    fn draw_nodes(&self, state: &GameState, origin: Vec2, scale: f32, legal_mask: u32, t: f32) {
         let pulse = (t * 4.0).sin() * 0.5 + 0.5;
 
         for node in &state.graph.nodes {
             let pos = origin + node.visual_pos * scale;
             let is_hovered = self.hover_node_id == Some(node.id);
-            let is_legal = legal_destinations.contains(&node.id);
+            let is_legal = (legal_mask & (1u32 << node.id)) != 0;
 
             // 1. Legal Destination Glowing Halo
             if is_legal {

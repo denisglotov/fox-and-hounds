@@ -69,6 +69,11 @@ impl TrainSimulation {
 
     pub fn update(&mut self, dt: f32) -> Option<SoundTrigger> {
         self.elapsed_time += dt;
+        if self.elapsed_time > INITIAL_DELAY + CYCLE_DURATION * 100.0 {
+            let cycles_to_drop = 50;
+            self.elapsed_time -= CYCLE_DURATION * cycles_to_drop as f32;
+            self.last_sound_cycle = self.last_sound_cycle.saturating_sub(cycles_to_drop);
+        }
 
         if self.elapsed_time >= INITIAL_DELAY {
             let cycle_idx = ((self.elapsed_time - INITIAL_DELAY) / CYCLE_DURATION).floor() as i32;
@@ -115,16 +120,23 @@ impl TrainSimulation {
                 let end_half_w =
                     (start_half_w + (68.0 - 20.0) * (beam_len / (180.0 * scale))).min(68.0 * scale);
 
-                let v0 = Vec2::new(train_screen_x - start_half_w, nose_y);
-                let v1 = Vec2::new(train_screen_x + start_half_w, nose_y);
-                let v2 = Vec2::new(train_screen_x + end_half_w, nose_y + beam_len);
-                let v3 = Vec2::new(train_screen_x - end_half_w, nose_y + beam_len);
-
-                let light_top = Color::from_rgba(255, 245, 180, 80);
-                let light_bot = Color::from_rgba(255, 235, 120, 0);
-
-                draw_triangle(v0, v1, v2, light_top);
-                draw_triangle(v0, v2, v3, light_bot);
+                const SLICES: usize = 16;
+                for i in 0..SLICES {
+                    let t0 = i as f32 / SLICES as f32;
+                    let t1 = (i + 1) as f32 / SLICES as f32;
+                    let y0 = nose_y + beam_len * t0;
+                    let y1 = nose_y + beam_len * t1;
+                    let hw0 = start_half_w + (end_half_w - start_half_w) * t0;
+                    let hw1 = start_half_w + (end_half_w - start_half_w) * t1;
+                    let alpha = (80.0 * (1.0 - (t0 + t1) * 0.5)) as u8;
+                    let col = Color::from_rgba(255, 245, 180, alpha);
+                    let p0 = Vec2::new(train_screen_x - hw0, y0);
+                    let p1 = Vec2::new(train_screen_x + hw0, y0);
+                    let p2 = Vec2::new(train_screen_x + hw1, y1);
+                    let p3 = Vec2::new(train_screen_x - hw1, y1);
+                    draw_triangle(p0, p1, p2, col);
+                    draw_triangle(p0, p2, p3, col);
+                }
 
                 // Core bright spotlight at the front LED headlights
                 draw_circle(

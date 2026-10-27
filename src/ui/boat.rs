@@ -49,6 +49,9 @@ impl BoatSimulation {
 
     pub fn update(&mut self, dt: f32) {
         self.elapsed_time += dt;
+        if self.elapsed_time > INITIAL_DELAY + CYCLE_DURATION * 100.0 {
+            self.elapsed_time -= CYCLE_DURATION * 50.0;
+        }
     }
 
     pub fn draw(

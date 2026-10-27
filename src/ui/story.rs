@@ -30,8 +30,11 @@ impl LiveHeroBanner {
         let frame_count = u32::from_le_bytes(bytes[8..12].try_into().ok()?) as usize;
         let fps = u32::from_le_bytes(bytes[12..16].try_into().ok()?) as f32;
         let table_start = 24;
-        let table_size = frame_count * 8;
-        if bytes.len() < table_start + table_size {
+        let table_size = frame_count.checked_mul(8)?;
+        if table_size
+            .checked_add(table_start)
+            .is_none_or(|end| bytes.len() < end)
+        {
             return None;
         }
 
@@ -40,7 +43,7 @@ impl LiveHeroBanner {
                 let entry = table_start + i * 8;
                 let off = u32::from_le_bytes(bytes[entry..entry + 4].try_into().ok()?) as usize;
                 let len = u32::from_le_bytes(bytes[entry + 4..entry + 8].try_into().ok()?) as usize;
-                if off + len <= bytes.len() {
+                if off.checked_add(len).is_some_and(|end| end <= bytes.len()) {
                     Some((off, len))
                 } else {
                     None

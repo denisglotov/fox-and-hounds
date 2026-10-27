@@ -7,7 +7,9 @@ use fox_and_hounds::ui::carousel::BoardCarousel;
 use fox_and_hounds::ui::draw_loading_overlay;
 use fox_and_hounds::ui::fx::FxManager;
 use fox_and_hounds::ui::nav::{GameOverFocus, InGameFocus, NavInput, UiNavState};
-use fox_and_hounds::ui::screens::{GameOverParams, HudParams, Screens, TitleScreenParams};
+use fox_and_hounds::ui::screens::{
+    GameOverParams, HudAction, HudParams, Screens, TitleScreenParams,
+};
 use fox_and_hounds::ui::story::LiveHeroBanner;
 use macroquad::experimental::coroutines::start_coroutine;
 use macroquad::prelude::*;
@@ -93,12 +95,7 @@ fn compute_ui_scale(screen_w: f32, screen_h: f32) -> f32 {
     }
 }
 
-fn compute_board_layout(
-    screen_w: f32,
-    screen_h: f32,
-    _scale: f32,
-    dims: &BoardDimensions,
-) -> (Rect, f32, Vec2) {
+fn compute_board_layout(screen_w: f32, screen_h: f32, dims: &BoardDimensions) -> (Rect, f32, Vec2) {
     let viewport_rect = Rect::new(0.0, 0.0, screen_w, screen_h.max(1.0));
 
     let board_scale = (viewport_rect.h / dims.image_height).max(0.1);
@@ -183,11 +180,16 @@ async fn main() {
         }
 
         // 2. Render Current Game Phase
+        Screens::update_mouse_press_state();
         match state.phase {
             GamePhase::TitleScreen => {
                 camera.reset_pan();
                 if let Some(snd) = live_hero.update() {
-                    sound_manager.play(snd);
+                    if snd == fox_and_hounds::audio::SoundTrigger::StopStory {
+                        sound_manager.stop_story();
+                    } else {
+                        sound_manager.play(snd);
+                    }
                 }
                 let title_res = Screens::draw_title_screen(
                     &mut state,
@@ -201,6 +203,7 @@ async fn main() {
                         hero_texture: character_texture.as_ref(),
                         live_hero_texture: live_hero.texture(),
                         nav_input,
+                        dt,
                     },
                 );
                 if let Some(snd) = title_res.sound {
@@ -208,11 +211,16 @@ async fn main() {
                 }
                 if title_res.toggle_story {
                     if let Some(snd) = live_hero.toggle() {
-                        sound_manager.play(snd);
+                        if snd == fox_and_hounds::audio::SoundTrigger::StopStory {
+                            sound_manager.stop_story();
+                        } else {
+                            sound_manager.play(snd);
+                        }
                     }
                 }
 
                 if state.phase == GamePhase::Playing {
+                    carousel.reset_drag();
                     if live_hero.is_playing() {
                         live_hero.stop();
                         sound_manager.stop_story();
@@ -230,7 +238,6 @@ async fn main() {
                     let layout = compute_board_layout(
                         screen_w,
                         screen_h,
-                        scale,
                         &state.variant.config().dimensions,
                     );
                     restart_board_session(&mut board_view, &mut camera, state.variant, layout)
@@ -238,12 +245,8 @@ async fn main() {
                 }
             }
             GamePhase::Playing | GamePhase::GameOver => {
-                let (viewport_rect, board_scale, board_size) = compute_board_layout(
-                    screen_w,
-                    screen_h,
-                    scale,
-                    &state.variant.config().dimensions,
-                );
+                let (viewport_rect, board_scale, board_size) =
+                    compute_board_layout(screen_w, screen_h, &state.variant.config().dimensions);
 
                 let focus_board_pos = board_view.focused_board_pos(&state, &nav);
 
@@ -260,6 +263,8 @@ async fn main() {
 
                 let mouse_pos = Vec2::from(mouse_position());
                 let viewport_mouse = mouse_pos - Vec2::new(viewport_rect.x, viewport_rect.y);
+                let hud_rect = Screens::hud_bounds(screen_w, screen_h, scale);
+                let block_mouse_click = hud_rect.contains(mouse_pos);
 
                 board_view.draw_and_handle_input(
                     &mut state,
@@ -274,6 +279,7 @@ async fn main() {
                         dt,
                         nav: &mut nav,
                         nav_input: &mut nav_input,
+                        block_mouse_click,
                     },
                 );
 
@@ -285,7 +291,7 @@ async fn main() {
                 } else {
                     NavInput::default()
                 };
-                let (hud_sound, toggle_mute) = Screens::draw_ingame_hud(
+                let hud_outcome = Screens::draw_ingame_hud(
                     &mut state,
                     &mut nav,
                     &HudParams {
@@ -297,21 +303,22 @@ async fn main() {
                         nav_input: hud_nav_input,
                     },
                 );
-                if toggle_mute {
+                if hud_outcome.toggle_mute {
                     sound_manager.toggle_mute();
                 }
-                if let Some(snd) = hud_sound {
+                if let Some(snd) = hud_outcome.sound {
                     sound_manager.play(snd);
-                    if state.turn_count == 1 && state.phase == GamePhase::Playing {
-                        nav.ingame_focus = InGameFocus::Board;
-                        restart_board_session(
-                            &mut board_view,
-                            &mut camera,
-                            state.variant,
-                            (viewport_rect, board_scale, board_size),
-                        )
-                        .await;
-                    }
+                }
+                if hud_outcome.action == Some(HudAction::Restart) {
+                    state.start_game(state.player_faction, state.difficulty);
+                    nav.ingame_focus = InGameFocus::Board;
+                    restart_board_session(
+                        &mut board_view,
+                        &mut camera,
+                        state.variant,
+                        (viewport_rect, board_scale, board_size),
+                    )
+                    .await;
                 }
 
                 // Update & Render Confetti Particles

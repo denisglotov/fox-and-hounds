@@ -23,7 +23,7 @@ impl std::fmt::Display for MoveError {
 
 impl std::error::Error for MoveError {}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Faction {
     Fox,
     Hounds,
@@ -38,7 +38,7 @@ impl Faction {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Difficulty {
     Easy,
     Medium,
@@ -272,6 +272,71 @@ impl GameState {
         self.coop_pos
     }
 
+    #[inline]
+    pub fn is_fox_move_legal(&self, to: u8) -> bool {
+        if self.fox_pending {
+            self.graph
+                .fox_entry_moves(&self.hounds_pos, self.coop_pos)
+                .any(|t| t == to)
+        } else {
+            self.graph
+                .fox_legal_moves(self.fox_pos, &self.hounds_pos)
+                .any(|t| t == to)
+        }
+    }
+
+    #[inline]
+    pub fn has_legal_fox_moves(&self) -> bool {
+        if self.fox_pending {
+            self.graph
+                .fox_entry_moves(&self.hounds_pos, self.coop_pos)
+                .next()
+                .is_some()
+        } else {
+            self.graph
+                .fox_legal_moves(self.fox_pos, &self.hounds_pos)
+                .next()
+                .is_some()
+        }
+    }
+
+    #[inline]
+    pub fn is_hound_move_legal(&self, hound_idx: u8, to: u8) -> bool {
+        let allow_retreat = self.active_config().allow_hound_retreat;
+        let allow_coop = self.active_config().allow_hounds_in_coop;
+        self.hounds_pos.get(hound_idx as usize).is_some_and(|&pos| {
+            self.graph
+                .hound_legal_moves(
+                    pos,
+                    self.fox_pos,
+                    self.coop_pos,
+                    &self.hounds_pos,
+                    allow_retreat,
+                    allow_coop,
+                )
+                .any(|t| t == to)
+        })
+    }
+
+    #[inline]
+    pub fn has_legal_hound_moves(&self) -> bool {
+        let allow_retreat = self.active_config().allow_hound_retreat;
+        let allow_coop = self.active_config().allow_hounds_in_coop;
+        self.hounds_pos.iter().any(|&pos| {
+            self.graph
+                .hound_legal_moves(
+                    pos,
+                    self.fox_pos,
+                    self.coop_pos,
+                    &self.hounds_pos,
+                    allow_retreat,
+                    allow_coop,
+                )
+                .next()
+                .is_some()
+        })
+    }
+
     pub fn fox_legal_moves(&self) -> Vec<u8> {
         if self.fox_pending {
             self.graph
@@ -317,8 +382,7 @@ impl GameState {
         if self.current_turn != Faction::Fox {
             return Err(MoveError::NotYourTurn);
         }
-        let legal = self.fox_legal_moves();
-        if !legal.contains(&to) {
+        if !self.is_fox_move_legal(to) {
             return Err(MoveError::IllegalMove);
         }
 
@@ -337,6 +401,9 @@ impl GameState {
         self.move_history.push(PieceMove::FoxMove { to });
         self.current_turn = Faction::Hounds;
         self.selected_hound_idx = None;
+        if self.active_config().hounds_start_first {
+            self.turn_count += 1;
+        }
         self.ai_think_delay = if self.player_faction == Faction::Fox {
             0.35
         } else {
@@ -363,8 +430,7 @@ impl GameState {
         if hound_idx as usize >= self.hounds_pos.len() {
             return Err(MoveError::InvalidHound);
         }
-        let legal = self.hound_legal_moves(hound_idx);
-        if !legal.contains(&to) {
+        if !self.is_hound_move_legal(hound_idx, to) {
             return Err(MoveError::IllegalMove);
         }
 
@@ -383,7 +449,9 @@ impl GameState {
         });
         self.current_turn = Faction::Fox;
         self.selected_hound_idx = None;
-        self.turn_count += 1;
+        if !self.active_config().hounds_start_first {
+            self.turn_count += 1;
+        }
         self.ai_think_delay = if self.player_faction == Faction::Hounds {
             0.35
         } else {
@@ -414,28 +482,17 @@ impl GameState {
     }
 
     pub fn evaluate_game_result(&mut self) {
-        let is_coop_start =
-            self.active_config().fox_start_node == self.active_config().target_coop_node;
-        let fox_won = if self.fox_pos == self.coop_pos {
-            if is_coop_start {
-                self.fox_has_left_start
-            } else {
-                true
-            }
-        } else {
-            false
-        };
-        if fox_won {
+        if super::ai::BoardSnapshot::from_state(self).is_fox_win() {
             self.finish_game(GameResult::FoxWon);
             return;
         }
 
-        if self.current_turn == Faction::Fox && self.fox_legal_moves().is_empty() {
+        if self.current_turn == Faction::Fox && !self.has_legal_fox_moves() {
             self.finish_game(GameResult::HoundsWon);
             return;
         }
 
-        if self.current_turn == Faction::Hounds && self.all_hound_legal_moves().is_empty() {
+        if self.current_turn == Faction::Hounds && !self.has_legal_hound_moves() {
             self.finish_game(GameResult::FoxWon);
             return;
         }

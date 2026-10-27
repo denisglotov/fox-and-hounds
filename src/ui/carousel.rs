@@ -150,6 +150,12 @@ impl BoardCarousel {
         }
     }
 
+    pub fn reset_drag(&mut self) {
+        self.is_dragging = false;
+        self.velocity = 0.0;
+        self.drag_distance = 0.0;
+    }
+
     pub fn set_target_index(&mut self, target_idx: usize) {
         let count = VARIANT_COUNT as f32;
         let target_f = target_idx as f32;
@@ -217,11 +223,19 @@ impl BoardCarousel {
         }
 
         if self.is_dragging {
+            if !is_mouse_button_down(MouseButton::Left)
+                && !is_mouse_button_released(MouseButton::Left)
+            {
+                self.reset_drag();
+                return outcome;
+            }
+
             let dx = mouse_pos.x - self.last_mouse_x;
             self.drag_distance += (mouse_pos.x - self.last_mouse_x).abs();
             if config.dt > 0.0001 {
                 let inst_vel = dx / config.dt;
-                self.velocity = self.velocity * 0.6 + inst_vel * 0.4;
+                let blend = 1.0 - (-12.0 * config.dt).exp();
+                self.velocity = self.velocity * (1.0 - blend) + inst_vel * blend;
             }
             self.last_mouse_x = mouse_pos.x;
 
@@ -236,9 +250,8 @@ impl BoardCarousel {
                 outcome.variant_changed = Some(active_v);
             }
 
-            if is_mouse_button_released(MouseButton::Left)
-                || !is_mouse_button_down(MouseButton::Left)
-            {
+            let is_released = is_mouse_button_released(MouseButton::Left);
+            if is_released || !is_mouse_button_down(MouseButton::Left) {
                 self.is_dragging = false;
                 let start_idx = (self
                     .drag_start_scroll
@@ -256,7 +269,7 @@ impl BoardCarousel {
                     if self.current_index() != start_idx {
                         outcome.sound_trigger = Some(SoundTrigger::ButtonClick);
                     }
-                } else {
+                } else if is_released {
                     // Gesture was a click: inspect hit card
                     let click_dx = mouse_pos.x - track_cx;
                     if click_dx < -center_card_half_w {
@@ -633,5 +646,18 @@ mod tests {
         }
         assert_eq!(carousel.current_index(), 1);
         assert!((carousel.scroll_pos - 1.0).abs() < 0.05);
+    }
+
+    #[test]
+    fn test_carousel_drag_reset_and_stale_drag_safety() {
+        let mut carousel = BoardCarousel::new();
+        carousel.is_dragging = true;
+        carousel.velocity = 150.0;
+        carousel.drag_distance = 45.0;
+
+        carousel.reset_drag();
+        assert!(!carousel.is_dragging);
+        assert_eq!(carousel.velocity, 0.0);
+        assert_eq!(carousel.drag_distance, 0.0);
     }
 }
