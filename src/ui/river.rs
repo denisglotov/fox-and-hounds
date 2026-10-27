@@ -675,6 +675,18 @@ impl RiverSimulation {
         self.path = path;
     }
 
+    /// Rebuilds the sampled river geometry only when a board variant actually changes.
+    /// `RiverPath::for_variant` precomputes several segment lists, so callers that merely
+    /// restart a match must not construct a duplicate path.
+    pub fn set_variant(&mut self, variant: BoardVariant) -> bool {
+        if self.path.variant == variant {
+            return false;
+        }
+
+        self.set_path(RiverPath::for_variant(variant));
+        true
+    }
+
     pub fn update(&mut self, dt: f32) {
         self.elapsed_time = (self.elapsed_time + dt) % 3600.0;
     }

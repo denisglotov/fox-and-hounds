@@ -1,5 +1,5 @@
 use fox_and_hounds::game::level::BoardVariant;
-use fox_and_hounds::ui::river::RiverPath;
+use fox_and_hounds::ui::river::{RiverPath, RiverSimulation};
 use macroquad::prelude::Vec2;
 use std::ops::RangeInclusive;
 
@@ -117,6 +117,16 @@ fn test_all_variant_river_paths_continuity_and_bounds() {
         );
         assert_river_path_continuity(&path, 80, exp.x_bounds, exp.y_bounds, exp.width_bounds);
     }
+}
+
+#[test]
+fn test_river_simulation_reuses_geometry_for_the_same_variant() {
+    let mut river = RiverSimulation::for_variant(BoardVariant::Classic);
+
+    assert!(!river.set_variant(BoardVariant::Classic));
+    assert_eq!(river.path.variant, BoardVariant::Classic);
+    assert!(river.set_variant(BoardVariant::RiverCrossing));
+    assert_eq!(river.path.variant, BoardVariant::RiverCrossing);
 }
 
 #[test]

@@ -7,7 +7,7 @@ use crate::ui::nav::{
     default_turn_cursor_node, step_board_cursor, BoardNavStep, HudButton, InGameFocus, NavInput,
     UiNavState,
 };
-use crate::ui::river::{RiverPath, RiverSimulation};
+use crate::ui::river::RiverSimulation;
 use crate::ui::rover::RoverSimulation;
 use crate::ui::train::TrainSimulation;
 use crate::ui::{draw_text_styled, measure_text_styled};
@@ -435,7 +435,7 @@ impl BoardView {
         self.board_textures[idx] = Some(tex.clone());
         self.current_variant = Some(variant);
         self.board_texture = Some(tex);
-        self.river.set_path(RiverPath::for_variant(variant));
+        self.river.set_variant(variant);
     }
 
     pub async fn ensure_board_loaded(&mut self, variant: BoardVariant) {
@@ -454,7 +454,7 @@ impl BoardView {
         }
         self.current_variant = Some(variant);
         self.board_texture = self.board_textures[idx].clone();
-        self.river.set_path(RiverPath::for_variant(variant));
+        self.river.set_variant(variant);
     }
 
     pub fn reset_simulations(&mut self) {
@@ -524,7 +524,7 @@ impl BoardView {
         if self.current_variant != Some(state.variant) {
             self.current_variant = Some(state.variant);
             self.board_texture = self.board_textures[state.variant.index()].clone();
-            self.river.set_path(RiverPath::for_variant(state.variant));
+            self.river.set_variant(state.variant);
             self.reset_simulations();
         }
 
