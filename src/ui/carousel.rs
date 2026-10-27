@@ -8,10 +8,10 @@ const FLANKING_SCALE: f32 = 0.85;
 const FLANKING_ALPHA: f32 = 0.50;
 const DRAG_CLICK_THRESHOLD: f32 = 6.0;
 
-fn load_variant_texture(bytes: &[u8]) -> Option<Texture2D> {
+fn load_variant_texture(bytes: &[u8]) -> Texture2D {
     let tex = Texture2D::from_file_with_format(bytes, Some(ImageFormat::Png));
     tex.set_filter(FilterMode::Linear);
-    Some(tex)
+    tex
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -79,7 +79,7 @@ impl VisibleCard {
 }
 
 pub struct BoardCarousel {
-    textures: [Option<Texture2D>; VARIANT_COUNT],
+    textures: Vec<Texture2D>,
     textures_loaded: bool,
     scroll_pos: f32,
     target_pos: f32,
@@ -100,9 +100,8 @@ impl Default for BoardCarousel {
 
 impl BoardCarousel {
     pub fn new() -> Self {
-        const NO_TEX: Option<Texture2D> = None;
         Self {
-            textures: [NO_TEX; VARIANT_COUNT],
+            textures: Vec::with_capacity(VARIANT_COUNT),
             textures_loaded: false,
             scroll_pos: 0.0,
             target_pos: 0.0,
@@ -117,11 +116,17 @@ impl BoardCarousel {
     }
 
     pub fn load_textures(&mut self) {
-        for variant in BoardVariant::all() {
-            // Keyed by the variant's cache slot, like `board_textures` over in `ui::board_view`.
-            self.textures[variant.index()] =
-                load_variant_texture(variant.config().carousel_button_bytes);
-        }
+        self.textures = BoardVariant::all()
+            .iter()
+            .map(|variant| load_variant_texture(variant.config().carousel_button_bytes))
+            .collect();
+        debug_assert!(
+            BoardVariant::all()
+                .iter()
+                .enumerate()
+                .all(|(slot, variant)| variant.index() == slot),
+            "carousel texture order must match BoardVariant::index"
+        );
         self.textures_loaded = true;
     }
 
@@ -184,9 +189,10 @@ impl BoardCarousel {
     }
 
     pub fn draw(&mut self, config: &CarouselDrawConfig) -> CarouselOutcome {
-        if !self.textures_loaded {
-            self.load_textures();
-        }
+        debug_assert!(
+            self.textures_loaded,
+            "carousel textures must be loaded before drawing"
+        );
         self.update(config.dt);
 
         let mut outcome = CarouselOutcome::default();
@@ -375,44 +381,36 @@ impl BoardCarousel {
             let is_center_hovered = is_center
                 && mouse_in_interactive_area
                 && (mouse_pos.x - track_cx).abs() <= center_card_half_w;
-            let bg_alpha = if is_center { 245.0 } else { 190.0 };
-            let bg_color = if is_center_hovered {
-                Color::from_rgba(35, 52, 75, (255.0 * card.alpha) as u8)
-            } else {
-                Color::from_rgba(26, 36, 50, (bg_alpha * card.alpha) as u8)
-            };
+            // Card body plate (clipped to [draw_x1, draw_x2]). `load_textures` is eager and
+            // `from_file_with_format` panics on malformed embedded PNGs, so a runtime fallback
+            // cannot occur here.
+            let tex = &self.textures[card.tex_idx];
+            let tex_w = tex.width();
+            let tex_h = tex.height();
+            let u1 = ((draw_x1 - card_x1) / rect.w).clamp(0.0, 1.0) * tex_w;
+            let u2 = ((draw_x2 - card_x1) / rect.w).clamp(0.0, 1.0) * tex_w;
+            let sub_w = (u2 - u1).max(0.1);
 
-            // Card body plate (clipped to [draw_x1, draw_x2])
-            if let Some(Some(tex)) = self.textures.get(card.tex_idx) {
-                let tex_w = tex.width();
-                let tex_h = tex.height();
-                let u1 = ((draw_x1 - card_x1) / rect.w).clamp(0.0, 1.0) * tex_w;
-                let u2 = ((draw_x2 - card_x1) / rect.w).clamp(0.0, 1.0) * tex_w;
-                let sub_w = (u2 - u1).max(0.1);
+            draw_texture_ex(
+                tex,
+                draw_x1,
+                rect.y,
+                Color::new(1.0, 1.0, 1.0, card.alpha),
+                DrawTextureParams {
+                    dest_size: Some(vec2(draw_w, rect.h)),
+                    source: Some(Rect::new(u1, 0.0, sub_w, tex_h)),
+                    ..Default::default()
+                },
+            );
 
-                draw_texture_ex(
-                    tex,
+            if is_center_hovered {
+                draw_rectangle(
                     draw_x1,
                     rect.y,
-                    Color::new(1.0, 1.0, 1.0, card.alpha),
-                    DrawTextureParams {
-                        dest_size: Some(vec2(draw_w, rect.h)),
-                        source: Some(Rect::new(u1, 0.0, sub_w, tex_h)),
-                        ..Default::default()
-                    },
+                    draw_w,
+                    rect.h,
+                    Color::from_rgba(255, 255, 255, (25.0 * card.alpha) as u8),
                 );
-
-                if is_center_hovered {
-                    draw_rectangle(
-                        draw_x1,
-                        rect.y,
-                        draw_w,
-                        rect.h,
-                        Color::from_rgba(255, 255, 255, (25.0 * card.alpha) as u8),
-                    );
-                }
-            } else {
-                draw_rectangle(draw_x1, rect.y, draw_w, rect.h, bg_color);
             }
 
             // Border (gold glow for center, brighter on hover, subtle border for peeking cards)

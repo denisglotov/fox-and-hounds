@@ -145,6 +145,8 @@ async fn main() {
     let mut state = GameState::new();
     let mut board_view = BoardView::new(font.clone()).await;
     let mut carousel = BoardCarousel::new();
+    // Decode carousel art during application setup, before the title screen's first frame.
+    carousel.load_textures();
     let mut camera = ViewportCamera::new();
     let mut fx_manager = FxManager::new();
     let mut nav = UiNavState::new();
